@@ -43,6 +43,10 @@ module.exports = {
         const welcomeChannel = member.guild.channels.cache.get(config.CHANNELS.BIENVENIDOS);
         if (!welcomeChannel) return;
 
+        const { AttachmentBuilder } = require('discord.js');
+        const banner = new AttachmentBuilder(config.ASSETS.BANNER, { name: 'banner.png' });
+        const logo = new AttachmentBuilder(config.ASSETS.LOGO, { name: 'logo.png' });
+
         const embed = new EmbedBuilder()
             .setColor(config.COLORES.PRINCIPAL)
             .setTitle(`✨ ¡Bienvenido a ${member.guild.name}!`)
@@ -54,10 +58,11 @@ module.exports = {
                 `> 💬 **Presentate** en el chat general\n` +
                 `> 🎮 **¡Divertite** y jugá con nosotros!`
             )
-            .setThumbnail(member.user.displayAvatarURL({ size: 256 }))
-            .setFooter({ text: 'Prophet Gaming | Sistema de Bienvenidas' })
+            .setThumbnail('attachment://logo.png')
+            .setImage('attachment://banner.png')
+            .setFooter({ text: 'Prophet Gaming | Sistema de Bienvenidas', iconURL: 'attachment://logo.png' })
             .setTimestamp();
 
-        welcomeChannel.send({ embeds: [embed] });
+        welcomeChannel.send({ embeds: [embed], files: [banner, logo] });
     }
 };

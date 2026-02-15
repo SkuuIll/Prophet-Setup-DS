@@ -110,4 +110,10 @@ module.exports = {
 
     // Permisos — Roles que pueden usar comandos de moderación
     STAFF_ROLES: ['👑 Prophet', '🛡️ Staff', '⚔️ Moderador'],
+
+    // Recursos Visuales
+    ASSETS: {
+        LOGO: './assets/logo.png',
+        BANNER: './assets/banner.png',
+    }
 };
