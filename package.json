@@ -1,0 +1,21 @@
+{
+    "name": "prophet-bot",
+    "version": "2.0.0",
+    "description": "Bot privado todo-en-uno para Prophet Gaming",
+    "main": "index.js",
+    "scripts": {
+        "start": "node index.js",
+        "dev": "node --watch index.js"
+    },
+    "dependencies": {
+        "@discord-player/extractor": "^7.1.0",
+        "@discord-player/ffmpeg": "^7.1.0",
+        "@discord-player/opus": "^7.1.0",
+        "@discordjs/voice": "^0.19.0",
+        "discord-player": "^7.1.0",
+        "discord.js": "^14.17.0",
+        "dotenv": "^17.3.1",
+        "ffmpeg-static": "^5.3.0",
+        "libsodium-wrappers": "^0.8.2"
+    }
+}

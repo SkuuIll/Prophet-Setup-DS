@@ -1,0 +1,233 @@
+// ═══════════════════════════════════════════════════
+//  PROPHET BOT v2.0 — Entry Point
+//  Bot privado para Prophet Gaming
+// ═══════════════════════════════════════════════════
+
+const { Client, GatewayIntentBits, Collection, REST, Routes, Partials } = require('discord.js');
+const fs = require('fs');
+const path = require('path');
+const config = require('./config');
+
+// ═══ CREAR CLIENTE ═══
+const client = new Client({
+    intents: [
+        GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildMembers,
+        GatewayIntentBits.GuildMessages,
+        GatewayIntentBits.GuildMessageReactions,
+        GatewayIntentBits.GuildVoiceStates,
+        GatewayIntentBits.MessageContent,
+        GatewayIntentBits.GuildModeration,
+    ],
+    partials: [
+        Partials.Message,
+        Partials.Reaction,
+        Partials.GuildMember,
+    ],
+});
+
+// ═══ COLECCIONES ═══
+client.commands = new Collection();
+client.cooldowns = new Collection();
+
+// ═══ CARGAR COMANDOS ═══
+function cargarComandos() {
+    const carpetas = fs.readdirSync(path.join(__dirname, 'commands'));
+    let total = 0;
+
+    for (const carpeta of carpetas) {
+        const rutaCarpeta = path.join(__dirname, 'commands', carpeta);
+        if (!fs.statSync(rutaCarpeta).isDirectory()) continue;
+
+        const archivos = fs.readdirSync(rutaCarpeta).filter(f => f.endsWith('.js'));
+        for (const archivo of archivos) {
+            const comando = require(path.join(rutaCarpeta, archivo));
+            if (comando.data && comando.execute) {
+                client.commands.set(comando.data.name, comando);
+                total++;
+            }
+        }
+    }
+    console.log(`📦 ${total} comandos cargados`);
+}
+
+// ═══ CARGAR EVENTOS ═══
+function cargarEventos() {
+    const archivos = fs.readdirSync(path.join(__dirname, 'events')).filter(f => f.endsWith('.js'));
+    let total = 0;
+
+    for (const archivo of archivos) {
+        const evento = require(path.join(__dirname, 'events', archivo));
+        if (evento.once) {
+            client.once(evento.name, (...args) => evento.execute(...args, client));
+        } else {
+            client.on(evento.name, (...args) => evento.execute(...args, client));
+        }
+        total++;
+    }
+    console.log(`⚡ ${total} eventos cargados`);
+}
+
+// ═══ REGISTRAR SLASH COMMANDS ═══
+async function registrarComandos() {
+    const commands = [];
+    client.commands.forEach(cmd => commands.push(cmd.data.toJSON()));
+
+    const rest = new REST({ version: '10' }).setToken(config.TOKEN);
+
+    try {
+        console.log(`🔄 Registrando ${commands.length} slash commands...`);
+        await rest.put(
+            Routes.applicationGuildCommands(client.user.id, config.GUILD_ID),
+            { body: commands }
+        );
+        console.log(`✅ ${commands.length} slash commands registrados`);
+    } catch (err) {
+        console.error('❌ Error registrando commands:', err.message);
+        if (err.rawError) console.error('   Detalles:', JSON.stringify(err.rawError, null, 2));
+    }
+}
+
+// ═══ RESOLVER IDs DE CANALES Y ROLES ═══
+async function resolverIDs(guild) {
+    await guild.channels.fetch();
+    await guild.roles.fetch();
+
+    const buscarCanal = (nombre) => guild.channels.cache.find(c => c.name === nombre);
+    const buscarRol = (nombre) => guild.roles.cache.find(r => r.name === nombre);
+
+    // Canales
+    config.CHANNELS.BIENVENIDOS = buscarCanal('👋│bienvenidos')?.id;
+    config.CHANNELS.LOGS = buscarCanal('🤖│logs-bots')?.id;
+    config.CHANNELS.REGLAS = buscarCanal('📌│reglas')?.id;
+    config.CHANNELS.ANUNCIOS = buscarCanal('📢│anuncios')?.id;
+    config.CHANNELS.COMANDOS_BOT = buscarCanal('🤖│comandos-bot')?.id;
+    config.SUGERENCIAS.CHANNEL_ID = buscarCanal('❓│preguntas')?.id; // Provisional
+
+    // Roles
+    config.ROLES.PROPHET = buscarRol('👑 Prophet')?.id;
+    config.ROLES.STAFF = buscarRol('🛡️ Staff')?.id;
+    config.ROLES.MODERADOR = buscarRol('⚔️ Moderador')?.id;
+    config.ROLES.VIP = buscarRol('💎 VIP')?.id;
+    config.ROLES.VETERANO = buscarRol('🌟 Veterano')?.id;
+    config.ROLES.MIEMBRO = buscarRol('👤 Miembro')?.id;
+    config.ROLES.NUEVO = buscarRol('🆕 Nuevo')?.id;
+    config.ROLES.BOTS = buscarRol('🤖 Bots')?.id;
+
+    console.log('🔗 IDs resueltos:');
+    console.log('   Canales:', Object.entries(config.CHANNELS).filter(([, v]) => v).length, '/', Object.keys(config.CHANNELS).length);
+    console.log('   Roles:', Object.entries(config.ROLES).filter(([, v]) => v).length, '/', Object.keys(config.ROLES).length);
+}
+
+// ═══ INICIALIZAR MÚSICA ═══
+// ═══ INICIALIZAR MÚSICA (discord-player v7) ═══
+async function inicializarMusica() {
+    try {
+        const { Player } = require('discord-player');
+        const { DefaultExtractors } = require('@discord-player/extractor');
+
+        // Crear instancia del Player
+        client.player = new Player(client, {
+            skipFFmpeg: false, // Usar ffmpeg-static si es necesario
+        });
+
+        // Cargar extractores por defecto
+        await client.player.extractors.loadMulti(DefaultExtractors);
+
+        // Eventos de depuración
+        client.player.events.on('playerStart', (queue, track) => {
+            if (queue.metadata?.channel) {
+                const { EmbedBuilder } = require('discord.js');
+                const embed = new EmbedBuilder()
+                    .setColor(config.COLORES.MUSICA || 0x9B59B6)
+                    .setTitle('🎵 Reproduciendo ahora')
+                    .setDescription(`[${track.title}](${track.url})`)
+                    .addFields(
+                        { name: '⏱️ Duración', value: track.duration, inline: true },
+                        { name: '👤 Pedida por', value: `${track.requestedBy?.username || 'Desconocido'}`, inline: true }
+                    )
+                    .setThumbnail(track.thumbnail)
+                    .setFooter({ text: 'Prophet Gaming | Música v2' });
+                queue.metadata.channel.send({ embeds: [embed] });
+            }
+        });
+
+        client.player.events.on('audioTrackAdd', (queue, track) => {
+            if (queue.metadata?.channel) {
+                const { EmbedBuilder } = require('discord.js');
+                const embed = new EmbedBuilder()
+                    .setColor(config.COLORES.MUSICA || 0x9B59B6)
+                    .setDescription(`✅ **${track.title}** agregada a la cola.`)
+                    .setFooter({ text: `Duración: ${track.duration}` });
+                queue.metadata.channel.send({ embeds: [embed] });
+            }
+        });
+
+        client.player.events.on('error', (queue, error) => {
+            console.error(`❌ Error de player: ${error.message}`);
+            if (queue?.metadata?.channel) queue.metadata.channel.send(`❌ Error de reproducción: \`${error.message}\``);
+        });
+
+        client.player.events.on('playerError', (queue, error) => {
+            console.error(`❌ Error de conexión: ${error.message}`);
+            if (queue?.metadata?.channel) queue.metadata.channel.send(`❌ Error de conexión: \`${error.message}\``);
+        });
+
+        console.log('🎵 Sistema de música discord-player v7 inicializado');
+    } catch (err) {
+        console.log('⚠️  Error iniciando música:', err.message);
+        console.error(err);
+    }
+}
+
+// ═══ INICIO ═══
+client.once('ready', async () => {
+    console.log('');
+    console.log('═══════════════════════════════════════');
+    console.log(`  🤖 Prophet Bot v2.0`);
+    console.log(`  📡 ${client.user.tag}`);
+    console.log(`  📅 ${new Date().toLocaleString('es-AR')}`);
+    console.log('═══════════════════════════════════════');
+    console.log('');
+
+    const guild = client.guilds.cache.get(config.GUILD_ID);
+    if (!guild) {
+        console.error('❌ No se encontró el servidor. Verificá GUILD_ID en config.js');
+        process.exit(1);
+    }
+
+    await resolverIDs(guild);
+    await registrarComandos();
+    inicializarMusica();
+
+    // Iniciar chequeo de sorteos
+    const { verificarSorteos } = require('./modules/giveaways');
+    setInterval(() => verificarSorteos(client), 30000); // Cada 30 segundos
+
+    console.log('');
+    console.log('✅ Prophet Bot está listo');
+    console.log(`🏠 Servidor: ${guild.name} (${guild.memberCount} miembros)`);
+    console.log('');
+
+    client.user.setActivity('Prophet Gaming 🎮', { type: 3 }); // "Watching"
+});
+
+// Cargar todo
+cargarComandos();
+cargarEventos();
+
+// Manejo de errores global
+process.on('unhandledRejection', (err) => {
+    console.error('❌ Error no manejado:', err.message);
+});
+
+process.on('uncaughtException', (err) => {
+    console.error('💀 Error fatal:', err.message);
+    console.error(err.stack);
+});
+
+// Login
+client.login(config.TOKEN).catch(err => {
+    console.error('❌ Error de login:', err.message);
+    process.exit(1);
+});
