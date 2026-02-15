@@ -29,7 +29,7 @@ module.exports = {
         VIP: null,        // 💎 VIP
         VETERANO: null,   // 🌟 Veterano
         MIEMBRO: null,    // 👤 Miembro
-        NUEVO: null,      // 🆕 Nuevo
+        NUEVO: 'Nuevo',   // 🆕 Nuevo (Rol que se da al entrar)
         BOTS: null,       // 🤖 Bots
     },
 
@@ -51,10 +51,10 @@ module.exports = {
         XP_MIN: 15,          // XP mínimo por mensaje
         XP_MAX: 25,          // XP máximo por mensaje
         COOLDOWN: 60000,     // Cooldown en ms (60 segundos)
-        ROLES_POR_NIVEL: {   // nivel: nombre del rol
-            5: '👤 Miembro',
-            15: '🌟 Veterano',
-            30: '💎 VIP',
+        ROLES_POR_NIVEL: {   // nivel: nombre del rol (Debe coincidir EXACTAMENTE con el nombre del rol en Discord)
+            5: 'Miembro',
+            10: 'Veterano',
+            20: 'VIP',
         }
     },
 
