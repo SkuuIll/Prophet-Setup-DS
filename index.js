@@ -121,34 +121,108 @@ async function resolverIDs(guild) {
     console.log('   Roles:', Object.entries(config.ROLES).filter(([, v]) => v).length, '/', Object.keys(config.ROLES).length);
 }
 
-// ═══ INICIALIZAR MÚSICA (discord-player v7) ═══
+// ═══ INICIALIZAR MÚSICA (discord-player v7 + yt-dlp) ═══
 async function inicializarMusica() {
     try {
         const { Player } = require('discord-player');
         const { DefaultExtractors } = require('@discord-player/extractor');
+        const { spawn } = require('child_process');
+        const { Readable } = require('stream');
 
         // Crear instancia del Player
         client.player = new Player(client, {
             skipFFmpeg: false,
         });
 
-        // Intentar cargar extractor de YouTube (ad-free, via youtubei.js)
+        // Intentar cargar YoutubeiExtractor para BÚSQUEDA y metadata de YouTube
         try {
             const { YoutubeiExtractor } = require('discord-player-youtubei');
             await client.player.extractors.register(YoutubeiExtractor, {
-                // Usar clientes que NO necesitan descifrar la firma de YouTube
-                // Esto evita el error "Failed to extract signature decipher algorithm"
                 streamOptions: {
                     useClient: 'ANDROID',
                 },
             });
-            console.log('✅ YoutubeiExtractor cargado correctamente');
+            console.log('✅ YoutubeiExtractor cargado (búsqueda + metadata)');
         } catch (ytErr) {
-            console.warn('⚠️ discord-player-youtubei no disponible, usando extractores por defecto:', ytErr.message);
+            console.warn('⚠️ discord-player-youtubei no disponible:', ytErr.message);
         }
 
         // Cargar extractores adicionales (Spotify, SoundCloud, etc.)
         await client.player.extractors.loadMulti(DefaultExtractors);
+
+        // ═══ HOOK: Usar yt-dlp para obtener el stream de audio ═══
+        // Esto reemplaza el streaming nativo de youtubei.js que falla
+        // con "Failed to extract signature decipher algorithm"
+        client.player.events.on('playerStart', () => { }); // asegurar que existe
+
+        client.player.options.onBeforeCreateStream = async (track, queryType, queue) => {
+            // Solo usar yt-dlp para URLs de YouTube
+            if (!track.url || !track.url.includes('youtube.com/watch')) {
+                return null; // dejar que el extractor por defecto maneje
+            }
+
+            try {
+                console.log(`🎵 [yt-dlp] Obteniendo stream para: ${track.title}`);
+
+                // Obtener URL directa de audio con yt-dlp
+                const url = await new Promise((resolve, reject) => {
+                    const proc = spawn('yt-dlp', [
+                        '-f', 'bestaudio[ext=webm]/bestaudio',
+                        '--get-url',
+                        '--no-warnings',
+                        track.url
+                    ]);
+
+                    let stdout = '';
+                    let stderr = '';
+                    proc.stdout.on('data', d => stdout += d.toString());
+                    proc.stderr.on('data', d => stderr += d.toString());
+                    proc.on('close', code => {
+                        if (code === 0 && stdout.trim()) {
+                            resolve(stdout.trim().split('\n')[0]);
+                        } else {
+                            reject(new Error(`yt-dlp falló (code ${code}): ${stderr}`));
+                        }
+                    });
+                    proc.on('error', reject);
+
+                    // Timeout de 15 segundos
+                    setTimeout(() => { proc.kill(); reject(new Error('yt-dlp timeout')); }, 15000);
+                });
+
+                console.log(`🎵 [yt-dlp] URL obtenida, creando stream con FFmpeg...`);
+
+                // Crear stream de audio con FFmpeg
+                const ffmpeg = spawn('ffmpeg', [
+                    '-reconnect', '1',
+                    '-reconnect_streamed', '1',
+                    '-reconnect_delay_max', '5',
+                    '-i', url,
+                    '-f', 's16le',
+                    '-ar', '48000',
+                    '-ac', '2',
+                    '-loglevel', 'error',
+                    'pipe:1'
+                ]);
+
+                ffmpeg.stderr.on('data', d => {
+                    const msg = d.toString().trim();
+                    if (msg) console.error(`🎵 [FFmpeg stderr]: ${msg}`);
+                });
+
+                const stream = ffmpeg.stdout;
+                stream.on('error', () => ffmpeg.kill());
+                stream.on('close', () => ffmpeg.kill());
+
+                return {
+                    stream: stream,
+                    type: 'raw',
+                };
+            } catch (err) {
+                console.error(`❌ [yt-dlp] Error: ${err.message}`);
+                return null; // fallback al extractor por defecto
+            }
+        };
 
         // Eventos de depuración
         client.player.events.on('playerStart', (queue, track) => {
