@@ -11,8 +11,6 @@ module.exports = {
     async execute(message) {
         if (message.author.bot || !message.guild) return;
 
-        if (message.author.bot || !message.guild) return;
-
         // ═══ COUNTING GAME ═══
         const { stmts } = require('../database');
         const countingChannelId = stmts.getConfig('COUNTING_CHANNEL')?.value;

@@ -121,7 +121,6 @@ async function resolverIDs(guild) {
     console.log('   Roles:', Object.entries(config.ROLES).filter(([, v]) => v).length, '/', Object.keys(config.ROLES).length);
 }
 
-// ═══ INICIALIZAR MÚSICA ═══
 // ═══ INICIALIZAR MÚSICA (discord-player v7) ═══
 async function inicializarMusica() {
     try {
@@ -168,33 +167,41 @@ async function inicializarMusica() {
                     });
 
                     collector.on('collect', async i => {
-                        // Verificar que el usuario esté en el mismo canal de voz
-                        if (!i.member.voice.channelId || i.member.voice.channelId !== i.guild.members.me.voice.channelId) {
-                            return i.reply({ content: '❌ Tienes que estar en el mismo canal de voz que yo.', ephemeral: true });
-                        }
+                        try {
+                            // Verificar que el usuario esté en el mismo canal de voz
+                            if (!i.member.voice.channelId || i.member.voice.channelId !== i.guild.members.me?.voice?.channelId) {
+                                return i.reply({ content: '❌ Tenés que estar en el mismo canal de voz que yo.', ephemeral: true });
+                            }
 
-                        // Verificar permisos de DJ o que sea quien pidió la canción (opcional, aquí permitimos a todos)
-
-                        switch (i.customId) {
-                            case 'music_pause':
-                                queue.node.isPaused() ? queue.node.resume() : queue.node.pause();
-                                await i.update({ content: `⏯️ **${queue.node.isPaused() ? 'Pausado' : 'Reanudado'}** por ${i.user}` });
-                                break;
-                            case 'music_skip':
-                                queue.node.skip();
-                                await i.update({ content: `⏭️ **Saltada** por ${i.user}`, components: [] });
-                                collector.stop();
-                                break;
-                            case 'music_stop':
-                                queue.node.stop();
-                                await i.update({ content: `⏹️ **Detenido** por ${i.user}`, components: [] });
-                                collector.stop();
-                                break;
-                            case 'music_loop':
-                                const mode = queue.repeatMode === 0 ? 1 : 0; // Toggle Track Loop
-                                queue.setRepeatMode(mode);
-                                await i.reply({ content: `🔁 Bucle: **${mode === 1 ? 'Activado (Canción)' : 'Desactivado'}**`, ephemeral: true });
-                                break;
+                            switch (i.customId) {
+                                case 'music_pause':
+                                    queue.node.isPaused() ? queue.node.resume() : queue.node.pause();
+                                    await i.update({ content: `⏯️ **${queue.node.isPaused() ? 'Pausado' : 'Reanudado'}** por ${i.user}` });
+                                    break;
+                                case 'music_skip':
+                                    queue.node.skip();
+                                    await i.update({ content: `⏭️ **Canción saltada** por ${i.user}`, components: [] });
+                                    collector.stop();
+                                    break;
+                                case 'music_stop':
+                                    queue.node.stop();
+                                    await i.update({ content: `⏹️ **Música detenida** por ${i.user}`, components: [] });
+                                    collector.stop();
+                                    break;
+                                case 'music_loop': {
+                                    const mode = queue.repeatMode === 0 ? 1 : 0;
+                                    queue.setRepeatMode(mode);
+                                    await i.reply({ content: `🔁 Bucle: **${mode === 1 ? 'Activado (Canción)' : 'Desactivado'}**`, ephemeral: true });
+                                    break;
+                                }
+                            }
+                        } catch (err) {
+                            console.error('Error en botón de música:', err.message);
+                            try {
+                                if (!i.replied && !i.deferred) {
+                                    await i.reply({ content: '❌ Ocurrió un error al procesar la acción.', ephemeral: true });
+                                }
+                            } catch (e) { }
                         }
                     });
                 });
@@ -247,7 +254,7 @@ client.once('ready', async () => {
 
     await resolverIDs(guild);
     await registrarComandos();
-    inicializarMusica();
+    await inicializarMusica();
 
     // Iniciar chequeo de sorteos
     const { verificarSorteos } = require('./modules/giveaways');

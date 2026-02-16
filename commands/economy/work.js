@@ -4,13 +4,21 @@ const { stmts } = require('../../database');
 const config = require('../../config');
 
 const TRABAJOS = [
-    'Ayudaste a cruzar la calle a una anciana',
-    'Programaste un bot de Discord',
-    'Reparaste una PC gamer',
-    'Ganaste un torneo de Valorant',
-    'Minaste un bloque de diamante',
-    'Vendiste limonada',
-    'Hiciste de Uber un rato'
+    '👵 Ayudaste a cruzar la calle a una anciana agradecida',
+    '💻 Programaste un bot de Discord para un servidor',
+    '🔧 Reparaste una PC gamer que no encendía',
+    '🏆 Ganaste un torneo de Valorant con tu equipo',
+    '⛏️ Minaste un bloque de diamante en Minecraft',
+    '🍋 Pusiste un puesto de limonada y vendiste todo',
+    '🚗 Hiciste de Uber y llevaste a un streamer famoso',
+    '🎨 Diseñaste un logo épico para un clan de gaming',
+    '📦 Hiciste un delivery de comida en tiempo récord',
+    '🎬 Editaste un video viral para un YouTuber',
+    '🛠️ Armaste un mueble de IKEA sin las instrucciones',
+    '🐕 Paseaste perros en el parque toda la tarde',
+    '🎧 Fuiste DJ en una fiesta y la rompiste',
+    '📸 Sacaste fotos profesionales en un evento gamer',
+    '🧹 Limpiaste el servidor de Discord y baneaste spam bots',
 ];
 
 module.exports = {

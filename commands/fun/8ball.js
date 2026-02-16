@@ -3,18 +3,27 @@ const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const config = require('../../config');
 
 const RESPUESTAS = [
-    'Sí, definitivamente.',
-    'Es cierto.',
-    'Sin duda.',
-    'Sí.',
+    // Positivas
+    'Sí, definitivamente. 🌟',
+    'Es cierto, sin lugar a dudas.',
+    'Sin duda alguna. ✅',
+    '¡Por supuesto que sí!',
+    'Todas las señales apuntan a que sí.',
+    'Puedes contar con ello. 💯',
+    // Neutrales
     'Probablemente.',
-    'Tal vez.',
+    'Tal vez... el destino es incierto. 🔮',
     'Preguntá de nuevo más tarde.',
-    'Mejor no decurtelo ahora.',
+    'Mejor no decírtelo ahora.',
+    'Concentrate y volvé a preguntar.',
+    'Las estrellas aún no se alinean. ⭐',
+    // Negativas
     'No cuentes con ello.',
-    'Mi respuesta es no.',
+    'Mi respuesta es no. ❌',
     'Mis fuentes dicen que no.',
-    'Muy dudoso.'
+    'Muy dudoso.',
+    'Las probabilidades no están a tu favor.',
+    'Ni en sueños. 😬',
 ];
 
 module.exports = {

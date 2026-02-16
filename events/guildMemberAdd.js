@@ -49,18 +49,20 @@ module.exports = {
 
         const embed = new EmbedBuilder()
             .setColor(config.COLORES.PRINCIPAL)
-            .setTitle(`✨ ¡Bienvenido a ${member.guild.name}!`)
+            .setTitle(`✨ ¡Bienvenido/a a ${member.guild.name}!`)
             .setDescription(
-                `👋 ¡Hola ${member}! Es un honor tenerte acá.\n` +
-                `Eres el miembro número **#${member.guild.memberCount}** de nuestra comunidad.\n\n` +
-                `**📜 Primeros Pasos:**\n` +
-                `> 📌 **Leé las reglas** en <#${config.CHANNELS.REGLAS}>\n` +
-                `> 💬 **Presentate** en el chat general\n` +
-                `> 🎮 **¡Divertite** y jugá con nosotros!`
+                `¡Hola ${member}! 👋 Nos alegra mucho tenerte con nosotros.\n` +
+                `Sos el miembro **#${member.guild.memberCount}** de la comunidad Prophet. 🎉\n\n` +
+                `**📜 Primeros Pasos para empezar:**\n` +
+                `> 📌 Leé las **reglas** en <#${config.CHANNELS.REGLAS}>\n` +
+                `> 💬 Presentate en el chat y contanos qué jugás\n` +
+                `> 🎮 Unite a las partidas y divertite con la comunidad\n` +
+                `> 🎵 Probá los comandos de música y economía\n\n` +
+                `*¡Esperamos que la pases genial! Si necesitás ayuda, abrí un ticket.* 🎫`
             )
             .setThumbnail('attachment://logo.png')
             .setImage('attachment://banner.png')
-            .setFooter({ text: 'Prophet Gaming | Sistema de Bienvenidas', iconURL: 'attachment://logo.png' })
+            .setFooter({ text: 'Prophet Gaming | ¡Bienvenido a la familia!', iconURL: 'attachment://logo.png' })
             .setTimestamp();
 
         welcomeChannel.send({ embeds: [embed], files: [banner, logo] });

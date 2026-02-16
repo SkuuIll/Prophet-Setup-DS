@@ -34,7 +34,7 @@ module.exports = {
                         channel: interaction.channel
                     },
                     volume: 50,
-                    laveOnEmpty: true,
+                    leaveOnEmpty: true,
                     leaveOnEmptyCooldown: 30000,
                     leaveOnEnd: true,
                     leaveOnEndCooldown: 60000,

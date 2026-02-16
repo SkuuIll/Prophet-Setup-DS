@@ -14,14 +14,14 @@ async function crearPanelTickets(channel) {
         .setColor(config.COLORES.INFO || 0x3498DB)
         .setTitle('🛡️ **CENTRO DE SOPORTE — PROPHET GAMING**')
         .setDescription(
-            'Bienvenido al sistema de soporte oficial. Si necesitás asistencia, nuestro equipo está listo para ayudarte.\n\n' +
-            '**📋 ¿En qué podemos ayudarte?**\n' +
-            '> 👤 **Reportes de Usuarios** (Comportamiento, Spam, etc.)\n' +
-            '> 🔧 **Problemas Técnicos** del Servidor o Discord\n' +
-            '> 💬 **Consultas Privadas** para la Administración\n' +
-            '> 🤝 **Apelaciones** y Reclamos\n\n' +
-            '**Instrucciones:**\n' +
-            'Hacé click en el botón **"📩 Abrir Ticket"** para crear un canal privado con el Staff.'
+            '¡Bienvenido al centro de soporte de **Prophet Gaming**! Nuestro equipo de Staff está listo para ayudarte.\n\n' +
+            '**📋 ¿En qué podemos asistirte?**\n' +
+            '> 👤 **Reportes de Usuarios** — Comportamiento tóxico, spam, etc.\n' +
+            '> 🔧 **Soporte Técnico** — Problemas con el servidor o Discord\n' +
+            '> 💬 **Consultas Privadas** — Temas con la administración\n' +
+            '> 🤝 **Apelaciones** — Bans, mutes y reclamos\n\n' +
+            '**¿Cómo funciona?**\n' +
+            'Hacé click en el botón de abajo para crear un canal privado donde solo vos y el Staff podrán hablar.'
         )
         .setThumbnail('https://cdn-icons-png.flaticon.com/512/4712/4712038.png')
         .setFooter({ text: 'Prophet Gaming | Sistema de Soporte Automático' })
@@ -114,12 +114,12 @@ async function abrirTicket(interaction) {
             .setColor(config.COLORES.SUCCESS || 0x2ECC71)
             .setTitle(`🎫 Ticket #${ticketChannel.name.split('-')[1] || 'Soporte'}`)
             .setDescription(
-                `¡Hola ${user}! Gracias por contactar al soporte de Prophet Gaming.\n\n` +
-                '**Mientras esperás a un miembro del Staff, por favor:**\n' +
-                '1️⃣ Describe tu problema detalladamente.\n' +
-                '2️⃣ Adjunta capturas o pruebas si es necesario.\n' +
-                '3️⃣ **No etiquetes al Staff innecesariamente.**\n\n' +
-                '🔒 *Para cerrar este ticket, usá el botón de abajo.*'
+                `¡Hola ${user}! Gracias por contactarnos. Un miembro del Staff te atenderá lo antes posible.\n\n` +
+                '**Mientras esperás, te pedimos que:**\n' +
+                '1️⃣ Describas tu problema con el mayor detalle posible\n' +
+                '2️⃣ Adjuntes capturas de pantalla o pruebas si las tenés\n' +
+                '3️⃣ Tengas paciencia, el Staff responderá cuando esté disponible\n\n' +
+                '🔒 *Cuando tu consulta se resuelva, usá el botón de abajo para cerrar el ticket.*'
             )
             .setFooter({ text: 'Prophet Gaming | Staff Team', iconURL: guild.iconURL() })
             .setTimestamp();

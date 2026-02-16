@@ -18,7 +18,7 @@ module.exports = {
                 `Selecciona una categoría en el menú de abajo para ver los comandos detallados.`
             )
             .addFields(
-                { name: '⚡ Estado', value: '> ✅ En línea\n> 📶 Ping: `Calculating...`', inline: true }
+                { name: '⚡ Estado', value: `> ✅ En línea\n> 📶 Ping: \`${interaction.client.ws.ping}ms\``, inline: true }
             )
             .setThumbnail(interaction.client.user.displayAvatarURL())
             .setFooter({ text: 'Prophet Gaming System | v2.5.0', iconURL: interaction.guild.iconURL() })
@@ -92,8 +92,8 @@ module.exports = {
                     break;
 
                 case 'economy':
-                    newEmbed.setTitle('💰 Economía Global Prophet')
-                        .setDescription('Gana dinero, compra items y conviértete en el millonario del servidor.')
+                    newEmbed.setTitle('💰 Economía Prophet')
+                        .setDescription('Ganá dinero, comprá items exclusivos y convertite en el más rico del servidor.')
                         .addFields(
                             { name: '`/balance`', value: 'Ver tu saldo actual (Efectivo y Banco).', inline: true },
                             { name: '`/work`', value: 'Trabajar para ganar dinero (Cada 30 min).', inline: true },
@@ -109,8 +109,8 @@ module.exports = {
                     break;
 
                 case 'fun':
-                    newEmbed.setTitle('🎮 Zona de Juegos & Diversión')
-                        .setDescription('Relájate y diviértete con la comunidad.')
+                    newEmbed.setTitle('🎮 Diversión y Minijuegos')
+                        .setDescription('Relajate y pasala bien con la comunidad Prophet.')
                         .addFields(
                             { name: '`/tictactoe <usuario>`', value: '⭕❌ Juega al Tres en Raya con botones.', inline: true },
                             { name: '`/rps`', value: '✂️ Piedra, Papel o Tijera contra el bot.', inline: true },
@@ -123,8 +123,8 @@ module.exports = {
                     break;
 
                 case 'music':
-                    newEmbed.setTitle('🎵 Sistema de Música DJ')
-                        .setDescription('Reproduce tus temas favoritos con la mejor calidad.')
+                    newEmbed.setTitle('🎵 Música DJ')
+                        .setDescription('Reproducí tus temas favoritos directamente en el canal de voz.')
                         .addFields(
                             { name: '`/play <canción>`', value: 'Reproducir música (YouTube/Spotify).', inline: true },
                             { name: '`/stop`', value: 'Detener la música y desconectar.', inline: true },
@@ -138,8 +138,8 @@ module.exports = {
                     break;
 
                 case 'social':
-                    newEmbed.setTitle('📊 Niveles & Utilidades Sociales')
-                        .setDescription('Interactúa y sube de rango en la comunidad.')
+                    newEmbed.setTitle('📊 Niveles y Utilidades')
+                        .setDescription('Interactuá con la comunidad, subí de rango y usá herramientas útiles.')
                         .addFields(
                             { name: '`/nivel [usuario]`', value: 'Ver tu tarjeta de nivel y XP actual.', inline: true },
                             { name: '`/top`', value: 'Ver el ranking de los usuarios más activos.', inline: true },
@@ -153,8 +153,8 @@ module.exports = {
                     break;
 
                 case 'moderation':
-                    newEmbed.setTitle('🛡️ Panel de Staff & Administración')
-                        .setDescription('Herramientas reservadas para el mantenimiento del orden.')
+                    newEmbed.setTitle('🛡️ Moderación y Administración')
+                        .setDescription('Herramientas exclusivas para el equipo de Staff de Prophet.')
                         .setColor(config.COLORES.MODERACION || 0xE74C3C)
                         .addFields(
                             { name: '`/kick <usuario>`', value: 'Expulsar a un miembro.', inline: true },

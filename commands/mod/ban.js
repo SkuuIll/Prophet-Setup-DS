@@ -19,7 +19,7 @@ module.exports = {
         if (!target) return interaction.reply({ content: '❌ Usuario no encontrado.', ephemeral: true });
 
         try {
-            await interaction.guild.members.ban(target, { reason: razon, deleteMessageDays: dias });
+            await interaction.guild.members.ban(target, { reason: razon, deleteMessageSeconds: dias * 86400 });
         } catch (e) {
             return interaction.reply({ content: `❌ No pude banear: ${e.message}`, ephemeral: true });
         }

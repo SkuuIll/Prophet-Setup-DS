@@ -14,13 +14,13 @@ async function crearSorteo(channel, prize, duracionMs, hostId) {
 
     const embed = new EmbedBuilder()
         .setColor(config.COLORES.PRINCIPAL)
-        .setTitle('🎁 **¡NUEVO SORTEO ACTIVO!**')
+        .setTitle('🎁 ¡SORTEO ACTIVO!')
         .setDescription(
-            `> **Premio:** \`${prize}\`\n\n` +
+            `🏆 **Premio:** \`${prize}\`\n\n` +
             `⏳ **Finaliza:** <t:${Math.floor(endTime / 1000)}:R>\n` +
             `👑 **Organizado por:** <@${hostId}>\n\n` +
             `👥 **Participantes:** \`0\`\n\n` +
-            `*Hacé click en el botón 🎉 para participar.*`
+            `*¡Hacé click en el botón de abajo para participar! Mucha suerte 🍀*`
         )
         .setFooter({ text: 'Prophet Gaming | Sistema de Sorteos' })
         .setTimestamp(new Date(endTime));
@@ -49,7 +49,7 @@ async function participarSorteo(interaction) {
     const count = stmts.countGiveawayEntries(messageId);
 
     const embed = EmbedBuilder.from(interaction.message.embeds[0]);
-    const desc = embed.data.description.replace(/Participantes: \*\*\d+\*\*/, `Participantes: **${count.total}**`);
+    const desc = embed.data.description.replace(/Participantes:\*\* `\d+`/, `Participantes:** \`${count.total}\``);
     embed.setDescription(desc);
 
     await interaction.message.edit({ embeds: [embed] });
@@ -83,11 +83,12 @@ async function finalizarSorteo(client, giveaway) {
 
         const embed = new EmbedBuilder()
             .setColor(config.COLORES.PRINCIPAL)
-            .setTitle('🎉 **¡SORTEO FINALIZADO!**')
+            .setTitle('🎉 ¡SORTEO FINALIZADO!')
             .setDescription(
                 `🎁 **Premio:** \`${giveaway.prize}\`\n\n` +
-                `🏆 **GANADOR:** <@${ganadorEntry.user_id}>\n` +
-                `👥 **Participantes:** \`${entries.length}\``
+                `🏆 **¡GANADOR/A!** <@${ganadorEntry.user_id}> 🥳\n` +
+                `👥 **Total de participantes:** \`${entries.length}\`\n\n` +
+                `*¡Felicitaciones! Contactá al organizador para reclamar tu premio.*`
             )
             .setFooter({ text: 'Prophet Gaming | Sistema de Sorteos' })
             .setTimestamp();

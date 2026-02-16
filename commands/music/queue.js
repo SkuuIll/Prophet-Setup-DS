@@ -1,14 +1,14 @@
 // ═══ COMANDO: /queue ═══
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+const { useQueue } = require('discord-player');
 const config = require('../../config');
 
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('queue')
-        .setDescription('Ver la cola de reproducción'),
+        .setDescription('Ver la cola de reproducción actual'),
 
     async execute(interaction, client) {
-        const { useQueue } = require('discord-player');
         const queue = useQueue(interaction.guild.id);
 
         if (!queue || !queue.isPlaying()) {
