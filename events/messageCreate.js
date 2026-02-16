@@ -11,6 +11,32 @@ module.exports = {
     async execute(message) {
         if (message.author.bot || !message.guild) return;
 
+        // ═══ SISTEMA AFK ═══
+        // 1. Si el autor estaba AFK, quitarlo
+        if (message.client.afk.has(message.author.id)) {
+            message.client.afk.delete(message.author.id);
+            try {
+                // Restaurar nick si tenía [AFK]
+                if (message.member.displayName.startsWith('[AFK] ')) {
+                    await message.member.setNickname(message.member.displayName.replace('[AFK] ', ''));
+                }
+                const welcomeMsg = await message.reply(`👋 ¡Bienvenido de vuelta, ${message.author}! He eliminado tu estado AFK.`);
+                setTimeout(() => welcomeMsg.delete().catch(() => { }), 5000);
+            } catch (e) { }
+        }
+
+        // 2. Si mencionan a un usuario AFK
+        if (message.mentions.users.size > 0) {
+            message.mentions.users.forEach(user => {
+                const afkData = message.client.afk.get(user.id);
+                if (afkData && user.id !== message.author.id) {
+                    const tiempo = Math.floor((Date.now() - afkData.timestamp) / 1000);
+                    message.reply(`💤 **${user.username}** está AFK: ${afkData.reason} (hace <t:${Math.floor(afkData.timestamp / 1000)}:R>)`)
+                        .then(m => setTimeout(() => m.delete().catch(() => { }), 10000));
+                }
+            });
+        }
+
         // ═══ ANTI-SPAM ═══
         const spam = verificarSpam(message);
         if (spam.esSpam) {

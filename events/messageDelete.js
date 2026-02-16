@@ -10,6 +10,16 @@ module.exports = {
         if (!message.guild || message.author?.bot) return;
         if (message.partial) return; // No tenemos el contenido
 
+        // ═══ SNIPE SYSTEM ═══
+        if (message.content || message.attachments.size > 0) {
+            message.client.snipes.set(message.channel.id, {
+                content: message.content,
+                author: message.author,
+                image: message.attachments.first() ? message.attachments.first().url : null,
+                timestamp: Date.now()
+            });
+        }
+
         const logChannel = message.guild.channels.cache.get(config.CHANNELS.LOGS);
         if (!logChannel) return;
 

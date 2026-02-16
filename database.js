@@ -10,7 +10,7 @@ const DB_PATH = path.join(__dirname, 'data', 'prophet.json');
 
 // Estructura inicial
 const DEFAULT_DATA = {
-    users: {},        // { [userId]: { xp, level, messages, last_xp } }
+    users: {},        // { [userId]: { xp, level, messages, last_xp, inventory: [] } }
     warns: [],        // { id, user_id, mod_id, reason, created_at }
     reaction_roles: {},// { [messageId]: { [emoji]: roleId } }
     giveaways: {},    // { [messageId]: { channel_id, prize, end_time, ended, host_id, entries: [] } }
@@ -120,6 +120,40 @@ const stmts = {
         }
         saveDB();
         return { success: true, balance: user.balance, bank: user.bank };
+    },
+
+    // ── Inventario ──
+    getInventory(userId) {
+        return data.users[userId]?.inventory || [];
+    },
+    addItem(userId, itemId, quantity = 1) {
+        if (!data.users[userId]) data.users[userId] = { xp: 0, level: 0, messages: 0 };
+        const user = data.users[userId];
+        if (!user.inventory) user.inventory = [];
+
+        const item = user.inventory.find(i => i.id === itemId);
+        if (item) {
+            item.amount += quantity;
+        } else {
+            user.inventory.push({ id: itemId, amount: quantity });
+        }
+        saveDB();
+        return user.inventory;
+    },
+    removeItem(userId, itemId, quantity = 1) {
+        const user = data.users[userId];
+        if (!user || !user.inventory) return false;
+
+        const itemIndex = user.inventory.findIndex(i => i.id === itemId);
+        if (itemIndex === -1) return false;
+
+        if (user.inventory[itemIndex].amount <= quantity) {
+            user.inventory.splice(itemIndex, 1);
+        } else {
+            user.inventory[itemIndex].amount -= quantity;
+        }
+        saveDB();
+        return true;
     },
 
     // ── Warns ──

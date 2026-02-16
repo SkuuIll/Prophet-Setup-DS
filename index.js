@@ -29,6 +29,8 @@ const client = new Client({
 // ═══ COLECCIONES ═══
 client.commands = new Collection();
 client.cooldowns = new Collection();
+client.snipes = new Collection();
+client.afk = new Collection();
 
 // ═══ CARGAR COMANDOS ═══
 function cargarComandos() {
@@ -137,7 +139,8 @@ async function inicializarMusica() {
         // Eventos de depuración
         client.player.events.on('playerStart', (queue, track) => {
             if (queue.metadata?.channel) {
-                const { EmbedBuilder } = require('discord.js');
+                const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType } = require('discord.js');
+
                 const embed = new EmbedBuilder()
                     .setColor(config.COLORES.MUSICA || 0x9B59B6)
                     .setTitle('🎵 Reproduciendo ahora')
@@ -148,7 +151,53 @@ async function inicializarMusica() {
                     )
                     .setThumbnail(track.thumbnail)
                     .setFooter({ text: 'Prophet Gaming | Música v2' });
-                queue.metadata.channel.send({ embeds: [embed] });
+
+                // Botones de control
+                const row = new ActionRowBuilder().addComponents(
+                    new ButtonBuilder().setCustomId('music_pause').setEmoji('⏯️').setStyle(ButtonStyle.Secondary),
+                    new ButtonBuilder().setCustomId('music_skip').setEmoji('⏭️').setStyle(ButtonStyle.Secondary),
+                    new ButtonBuilder().setCustomId('music_stop').setEmoji('⏹️').setStyle(ButtonStyle.Danger),
+                    new ButtonBuilder().setCustomId('music_loop').setEmoji('🔁').setStyle(ButtonStyle.Secondary)
+                );
+
+                queue.metadata.channel.send({ embeds: [embed], components: [row] }).then(msg => {
+                    // Collector para los botones
+                    const collector = msg.createMessageComponentCollector({
+                        componentType: ComponentType.Button,
+                        time: track.durationMS || 600000 // Escuchar por la duración de la canción o 10 min
+                    });
+
+                    collector.on('collect', async i => {
+                        // Verificar que el usuario esté en el mismo canal de voz
+                        if (!i.member.voice.channelId || i.member.voice.channelId !== i.guild.members.me.voice.channelId) {
+                            return i.reply({ content: '❌ Tienes que estar en el mismo canal de voz que yo.', ephemeral: true });
+                        }
+
+                        // Verificar permisos de DJ o que sea quien pidió la canción (opcional, aquí permitimos a todos)
+
+                        switch (i.customId) {
+                            case 'music_pause':
+                                queue.node.isPaused() ? queue.node.resume() : queue.node.pause();
+                                await i.update({ content: `⏯️ **${queue.node.isPaused() ? 'Pausado' : 'Reanudado'}** por ${i.user}` });
+                                break;
+                            case 'music_skip':
+                                queue.node.skip();
+                                await i.update({ content: `⏭️ **Saltada** por ${i.user}`, components: [] });
+                                collector.stop();
+                                break;
+                            case 'music_stop':
+                                queue.node.stop();
+                                await i.update({ content: `⏹️ **Detenido** por ${i.user}`, components: [] });
+                                collector.stop();
+                                break;
+                            case 'music_loop':
+                                const mode = queue.repeatMode === 0 ? 1 : 0; // Toggle Track Loop
+                                queue.setRepeatMode(mode);
+                                await i.reply({ content: `🔁 Bucle: **${mode === 1 ? 'Activado (Canción)' : 'Desactivado'}**`, ephemeral: true });
+                                break;
+                        }
+                    });
+                });
             }
         });
 
