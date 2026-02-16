@@ -135,7 +135,13 @@ async function inicializarMusica() {
         // Intentar cargar extractor de YouTube (ad-free, via youtubei.js)
         try {
             const { YoutubeiExtractor } = require('discord-player-youtubei');
-            await client.player.extractors.register(YoutubeiExtractor, {});
+            await client.player.extractors.register(YoutubeiExtractor, {
+                // Usar clientes que NO necesitan descifrar la firma de YouTube
+                // Esto evita el error "Failed to extract signature decipher algorithm"
+                streamOptions: {
+                    useClient: 'ANDROID',
+                },
+            });
             console.log('✅ YoutubeiExtractor cargado correctamente');
         } catch (ytErr) {
             console.warn('⚠️ discord-player-youtubei no disponible, usando extractores por defecto:', ytErr.message);
