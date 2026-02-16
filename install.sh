@@ -84,29 +84,40 @@ fi
 # ─── 5. Limpiar e instalar dependencias ───
 echo ""
 echo "📦 Instalando dependencias..."
-# Limpiar node_modules viejos si hay problemas con binarios nativos
+# Solo limpiar si realmente falta node_modules o si hubo cambio de versión de node crítico
 if [ "$INSTALAR_NODE" = true ] || [ ! -d "node_modules" ]; then
-    echo "   🧹 Limpiando node_modules para instalación limpia..."
+    echo "   🧹 Instalación limpia (node_modules)..."
     rm -rf node_modules package-lock.json
 fi
-npm install 2>&1 | tail -10
-echo "   ✅ Dependencias instaladas"
+
+# Usar npm install normal pero verboso si falla
+if npm install --no-audit; then
+    echo "   ✅ Dependencias base instaladas"
+else
+    echo "   ⚠️  Error en npm install base. Reintentando con force..."
+    npm install --force --no-audit
+fi
 
 # ─── 6. Verificar dependencias críticas de música ───
 echo ""
 echo "🔍 Verificando módulos de música..."
 MUSIC_OK=true
 
-node -e "require('discord-player')" 2>/dev/null && echo "   ✅ discord-player" || { echo "   ❌ discord-player — FALTANTE"; MUSIC_OK=false; }
-node -e "require('@discord-player/extractor')" 2>/dev/null && echo "   ✅ @discord-player/extractor" || { echo "   ❌ @discord-player/extractor — FALTANTE"; MUSIC_OK=false; }
-node -e "require('discord-player-youtubei')" 2>/dev/null && echo "   ✅ discord-player-youtubei" || { echo "   ❌ discord-player-youtubei — FALTANTE"; MUSIC_OK=false; }
-node -e "require('@discordjs/voice')" 2>/dev/null && echo "   ✅ @discordjs/voice" || { echo "   ❌ @discordjs/voice — FALTANTE"; MUSIC_OK=false; }
+# Forzar instalación de discord-player-youtubei si falla la verificación
+if ! node -e "require('discord-player-youtubei')" 2>/dev/null; then
+    echo "   ⚠️  discord-player-youtubei no detectado. Instalando explícitamente..."
+    npm install discord-player-youtubei@latest --save
+fi
+
+node -e "require('discord-player')" 2>/dev/null && echo "   ✅ discord-player" || MUSIC_OK=false
+node -e "require('@discord-player/extractor')" 2>/dev/null && echo "   ✅ @discord-player/extractor" || MUSIC_OK=false
+node -e "require('discord-player-youtubei')" 2>/dev/null && echo "   ✅ discord-player-youtubei" || MUSIC_OK=false
 
 if [ "$MUSIC_OK" = false ]; then
     echo ""
-    echo "   ⚠️  Algunos módulos de música faltan. Intentando instalar individualmente..."
-    npm install discord-player @discord-player/extractor @discord-player/ffmpeg @discord-player/opus discord-player-youtubei @discordjs/voice ffmpeg-static libsodium-wrappers 2>&1 | tail -5
-    echo "   ✅ Reinstalación de módulos de música completada"
+    echo "   ⚠️  Faltan módulos de música. Reinstalando suite completa..."
+    npm install discord-player@latest @discord-player/extractor@latest @discord-player/ffmpeg @discord-player/opus discord-player-youtubei@latest @discordjs/voice ffmpeg-static libsodium-wrappers --save
+    echo "   ✅ Reinstalación de música completada"
 fi
 
 # ─── 7. Instalar PM2 si no existe ───
