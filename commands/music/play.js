@@ -106,7 +106,12 @@ module.exports = {
             }
 
             console.error('Play error:', firstError.message);
-            return interaction.editReply({ content: `❌ No se pudo encontrar ni reproducir: \`${queryOriginal}\`\nDetalle: ${firstError.message}` });
+            const extractorCount = client.player?.extractors?.store?.size || 0;
+            let errorMsg = `❌ No se pudo encontrar ni reproducir: \`${queryOriginal}\`\nDetalle: ${firstError.message}`;
+            if (extractorCount === 0) {
+                errorMsg += `\n⚠️ **No hay extractores de música cargados.** Reiniciá el bot con \`./install.sh\` en la VPS.`;
+            }
+            return interaction.editReply({ content: errorMsg });
         }
     }
 };

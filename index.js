@@ -230,13 +230,22 @@ async function inicializarMusica() {
 
         client.player.events.on('error', (queue, error) => {
             console.error(`❌ Error de player: ${error.message}`);
+            console.error('   Stack:', error.stack);
             if (queue?.metadata?.channel) queue.metadata.channel.send(`❌ Error de reproducción: \`${error.message}\``);
         });
 
         client.player.events.on('playerError', (queue, error) => {
             console.error(`❌ Error de conexión: ${error.message}`);
+            console.error('   Stack:', error.stack);
             if (queue?.metadata?.channel) queue.metadata.channel.send(`❌ Error de conexión: \`${error.message}\``);
         });
+
+        // Log de extractores cargados para depuración
+        const extractors = client.player.extractors.store;
+        console.log(`🎵 Extractores cargados: ${extractors.size}`);
+        for (const [name] of extractors) {
+            console.log(`   📦 ${name}`);
+        }
 
         console.log('🎵 Sistema de música discord-player v7 inicializado');
     } catch (err) {
