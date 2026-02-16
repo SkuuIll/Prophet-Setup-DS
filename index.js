@@ -151,11 +151,10 @@ async function inicializarMusica() {
         await client.player.extractors.loadMulti(DefaultExtractors);
 
         // ═══ HOOK: Usar yt-dlp para obtener el stream de audio ═══
-        // Esto reemplaza el streaming nativo de youtubei.js que falla
-        // con "Failed to extract signature decipher algorithm"
-        client.player.events.on('playerStart', () => { }); // asegurar que existe
+        // discord-player v7 usa un registro global para onBeforeCreateStream
+        const { onBeforeCreateStream } = require('discord-player');
 
-        client.player.options.onBeforeCreateStream = async (track, queryType, queue) => {
+        onBeforeCreateStream(async (track, queryType, queue) => {
             // Solo usar yt-dlp para URLs de YouTube
             if (!track.url || !track.url.includes('youtube.com/watch')) {
                 return null; // dejar que el extractor por defecto maneje
@@ -165,7 +164,7 @@ async function inicializarMusica() {
                 console.log(`🎵 [yt-dlp] Obteniendo stream para: ${track.title}`);
 
                 // Obtener URL directa de audio con yt-dlp
-                const url = await new Promise((resolve, reject) => {
+                const audioUrl = await new Promise((resolve, reject) => {
                     const proc = spawn('yt-dlp', [
                         '-f', 'bestaudio[ext=webm]/bestaudio',
                         '--get-url',
@@ -190,14 +189,14 @@ async function inicializarMusica() {
                     setTimeout(() => { proc.kill(); reject(new Error('yt-dlp timeout')); }, 15000);
                 });
 
-                console.log(`🎵 [yt-dlp] URL obtenida, creando stream con FFmpeg...`);
+                console.log(`🎵 [yt-dlp] URL obtenida OK, creando stream con FFmpeg...`);
 
                 // Crear stream de audio con FFmpeg
-                const ffmpeg = spawn('ffmpeg', [
+                const ffmpegProc = spawn('ffmpeg', [
                     '-reconnect', '1',
                     '-reconnect_streamed', '1',
                     '-reconnect_delay_max', '5',
-                    '-i', url,
+                    '-i', audioUrl,
                     '-f', 's16le',
                     '-ar', '48000',
                     '-ac', '2',
@@ -205,14 +204,14 @@ async function inicializarMusica() {
                     'pipe:1'
                 ]);
 
-                ffmpeg.stderr.on('data', d => {
+                ffmpegProc.stderr.on('data', d => {
                     const msg = d.toString().trim();
                     if (msg) console.error(`🎵 [FFmpeg stderr]: ${msg}`);
                 });
 
-                const stream = ffmpeg.stdout;
-                stream.on('error', () => ffmpeg.kill());
-                stream.on('close', () => ffmpeg.kill());
+                const stream = ffmpegProc.stdout;
+                stream.on('error', () => ffmpegProc.kill());
+                stream.on('close', () => ffmpegProc.kill());
 
                 return {
                     stream: stream,
@@ -222,7 +221,7 @@ async function inicializarMusica() {
                 console.error(`❌ [yt-dlp] Error: ${err.message}`);
                 return null; // fallback al extractor por defecto
             }
-        };
+        });
 
         // Eventos de depuración
         client.player.events.on('playerStart', (queue, track) => {
