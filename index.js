@@ -125,7 +125,7 @@ async function resolverIDs(guild) {
 async function inicializarMusica() {
     try {
         const { Player } = require('discord-player');
-        const { SpotifyExtractor, YoutubeiExtractor } = require('@discord-player/extractor');
+        const { SpotifyExtractor, YouTubeExtractor } = require('@discord-player/extractor');
 
         // Crear instancia del Player
         client.player = new Player(client, {
@@ -133,7 +133,7 @@ async function inicializarMusica() {
         });
 
         // Cargar SOLO extractores de YouTube y Spotify
-        await client.player.extractors.register(YoutubeiExtractor, {});
+        await client.player.extractors.register(YouTubeExtractor, {});
         await client.player.extractors.register(SpotifyExtractor, {});
 
         // Eventos de depuración
