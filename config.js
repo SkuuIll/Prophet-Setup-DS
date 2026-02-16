@@ -57,9 +57,15 @@ module.exports = {
         XP_MAX: 25,          // XP máximo por mensaje
         COOLDOWN: 60000,     // Cooldown en ms (60 segundos)
         ROLES_POR_NIVEL: {   // nivel: nombre del rol (Debe coincidir EXACTAMENTE con el nombre del rol en Discord)
-            5: 'Miembro',
-            10: 'Veterano',
-            20: 'VIP',
+            1: '🌱 Novato',
+            5: '🔹 Aprendiz',
+            10: '🔷 Gamer',
+            20: '💠 Pro Player',
+            30: '🌟 Veterano',
+            40: '👑 Elite',
+            50: '🔥 Leyenda',
+            75: '🐉 Maestro',
+            100: '⚡ Dios del Server',
         }
     },
 

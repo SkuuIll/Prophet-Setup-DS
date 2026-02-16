@@ -143,6 +143,7 @@ module.exports = {
                         .addFields(
                             { name: '`/nivel [usuario]`', value: 'Ver tu tarjeta de nivel y XP actual.', inline: true },
                             { name: '`/top`', value: 'Ver el ranking de los usuarios más activos.', inline: true },
+                            { name: '🌟 **Rangos de Nivel**', value: '`Novato` › `Aprendiz` › `Gamer` › `Pro Player` › `Veterano` › `Elite` › `Leyenda` › `Maestro` › `Dios del Server`', inline: false },
                             { name: '`/afk [motivo]`', value: '💤 Avisar que estás ausente (se quita al hablar).', inline: true },
                             { name: '`/snipe`', value: '👀 Recuperar el último mensaje borrado del canal.', inline: true },
                             { name: '`/suggest <idea>`', value: 'Enviar una sugerencia al servidor.', inline: true },
