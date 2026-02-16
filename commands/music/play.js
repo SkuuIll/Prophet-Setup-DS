@@ -68,7 +68,7 @@ module.exports = {
                         channel: interaction.channel
                     },
                     volume: 50,
-                    leaveOnEmpty: true,
+                    leaveOnEmpty: false,
                     leaveOnEmptyCooldown: 30000,
                     leaveOnEnd: true,
                     leaveOnEndCooldown: 60000,
@@ -92,7 +92,7 @@ module.exports = {
                         nodeOptions: {
                             metadata: { channel: interaction.channel },
                             volume: 50,
-                            leaveOnEmpty: true,
+                            leaveOnEmpty: false,
                             leaveOnEmptyCooldown: 30000,
                             leaveOnEnd: true,
                             leaveOnEndCooldown: 60000,

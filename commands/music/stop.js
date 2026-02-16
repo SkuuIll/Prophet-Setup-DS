@@ -8,13 +8,13 @@ module.exports = {
         .setDescription('Detener la música y vaciar la cola'),
 
     async execute(interaction, client) {
+        // Verificar canal de voz: Permitir control remoto si el usuario no está en NINGÚN canal.
+        // Bloquear solo si está en un canal diferente al del bot.
         const voiceChannel = interaction.member.voice.channel;
-        if (!voiceChannel) {
-            return interaction.reply({ content: '❌ Tenés que estar en un canal de voz para usar este comando.', ephemeral: true });
-        }
+        const botChannelId = interaction.guild.members.me.voice.channelId;
 
-        if (interaction.guild.members.me.voice.channelId && voiceChannel.id !== interaction.guild.members.me.voice.channelId) {
-            return interaction.reply({ content: '❌ Tenés que estar en el mismo canal de voz que yo.', ephemeral: true });
+        if (voiceChannel && botChannelId && voiceChannel.id !== botChannelId) {
+            return interaction.reply({ content: '❌ Estás en otro canal de voz. Entrá al mío o desconectate para usar este comando.', ephemeral: true });
         }
 
         const queue = useQueue(interaction.guild.id);

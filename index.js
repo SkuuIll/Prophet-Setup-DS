@@ -353,9 +353,32 @@ async function inicializarMusica() {
             const guildId = queue.guild.id;
 
             // Borrar mensaje anterior de now playing si existe
+            // Transformar mensaje anterior en historial en lugar de borrarlo
             const oldMsg = nowPlayingMessages.get(guildId);
             if (oldMsg) {
-                oldMsg.delete().catch(() => { });
+                try {
+                    if (oldMsg.embeds[0]) {
+                        const oldEmbed = EmbedBuilder.from(oldMsg.embeds[0])
+                            .setColor(0x34495E) // Dark Blue/Grey para historial
+                            .setAuthor({ name: '⏮️ Historial de reproducción' })
+                            .setFooter({ text: 'Prophet Gaming | Finalizado' })
+                            .setTimestamp(); // Mantener timestamp original o actualizar
+
+                        const replayRow = new ActionRowBuilder().addComponents(
+                            new ButtonBuilder()
+                                .setCustomId('music_replay_old')
+                                .setLabel('Volver a escuchar')
+                                .setEmoji('🔄')
+                                .setStyle(ButtonStyle.Secondary)
+                        );
+
+                        oldMsg.edit({ embeds: [oldEmbed], components: [replayRow] }).catch(() => { });
+                    } else {
+                        oldMsg.delete().catch(() => { });
+                    }
+                } catch (e) {
+                    oldMsg.delete().catch(() => { });
+                }
                 nowPlayingMessages.delete(guildId);
             }
 
@@ -368,20 +391,28 @@ async function inicializarMusica() {
                 // Collector permanente (se renueva con cada canción)
                 const collector = msg.createMessageComponentCollector({
                     componentType: ComponentType.Button,
-                    time: 3600000 // 1 hora
+                    time: 24 * 60 * 60 * 1000 // 24 horas
                 });
 
                 collector.on('collect', async i => {
                     try {
-                        // Verificar canal de voz
-                        if (!i.member.voice.channelId || i.member.voice.channelId !== i.guild.members.me?.voice?.channelId) {
-                            return i.reply({ content: '❌ Tenés que estar en el mismo canal de voz que yo.', ephemeral: true });
+                        // Verificar canal de voz: Permitir si el usuario está en el MISMO canal o en NINGUNO (control remoto)
+                        // Solo bloquear si está en un canal DIFERENTE
+                        if (i.member.voice.channelId && i.member.voice.channelId !== i.guild.members.me?.voice?.channelId) {
+                            return i.reply({ content: '❌ Estás en otro canal de voz. Entrá al mío o desconectate para usar los controles.', ephemeral: true });
                         }
 
-                        const currentQueue = client.player.queues.get(i.guild.id);
-                        if (!currentQueue || !currentQueue.isPlaying()) {
-                            return i.reply({ content: '❌ No hay nada reproduciéndose.', ephemeral: true });
+                        // Para los botones normales, verificar cola activa. Para replay_old, no es necesario.
+                        if (i.customId !== 'music_replay_old') {
+                            const currentQueue = client.player.queues.get(i.guild.id);
+                            if (!currentQueue || !currentQueue.isPlaying()) {
+                                return i.reply({ content: '❌ No hay nada reproduciéndose.', ephemeral: true });
+                            }
                         }
+
+                        // Obtener currentQueue nuevamente para usarlo dentro del switch si hace falta
+                        // Nota: Para music_replay_old no usamos currentQueue del contexto actual sino el track del closure.
+                        const currentQueue = client.player.queues.get(i.guild.id);
 
                         switch (i.customId) {
                             case 'music_prev': {
@@ -410,7 +441,7 @@ async function inicializarMusica() {
                                 break;
                             }
                             case 'music_stop': {
-                                currentQueue.node.stop();
+                                currentQueue.delete();
                                 musicHistory.delete(guildId);
                                 nowPlayingMessages.delete(guildId);
                                 await i.update({
@@ -504,6 +535,32 @@ async function inicializarMusica() {
                                 await i.reply({ embeds: [queueEmbed], ephemeral: true });
                                 break;
                             }
+                            case 'music_replay_old': {
+                                await i.deferReply({ ephemeral: true });
+                                try {
+                                    // 'track' viene del cierre (closure) de playerStart, corresponde a ESTE mensaje histórico
+                                    const voiceChannel = i.member.voice.channel;
+                                    if (!voiceChannel) return i.editReply({ content: '❌ Tenés que estar en un canal de voz.' });
+
+                                    await i.editReply({ content: `🔄 Cargando de nuevo **${track.title}**...` });
+
+                                    await client.player.play(voiceChannel, track.url, {
+                                        requestedBy: i.user,
+                                        nodeOptions: {
+                                            metadata: { channel: i.channel },
+                                            volume: 50,
+                                            leaveOnEmpty: false,
+                                            leaveOnEmptyCooldown: 30000,
+                                            leaveOnEnd: true,
+                                            leaveOnEndCooldown: 60000,
+                                        }
+                                    });
+                                } catch (e) {
+                                    console.error(e);
+                                    await i.editReply({ content: `❌ Error al reproducir: ${e.message}` });
+                                }
+                                break;
+                            }
                         }
                     } catch (err) {
                         console.error('Error en botón de música:', err.message);
@@ -588,9 +645,33 @@ async function inicializarMusica() {
             if (queue.metadata?.channel) {
                 const embed = new EmbedBuilder()
                     .setColor(0x95A5A6)
-                    .setDescription('📭 **Cola vacía.** Agregá más temas con `/play` o me desconectaré pronto.')
+                    .setDescription('📭 **Cola vacía.** Agregá más temas con `/play`.')
                     .setTimestamp();
                 queue.metadata.channel.send({ embeds: [embed] });
+
+                // Transformar el último mensaje de playing a historial
+                const oldMsg = nowPlayingMessages.get(guildId);
+                if (oldMsg) {
+                    try {
+                        if (oldMsg.embeds[0]) {
+                            const oldEmbed = EmbedBuilder.from(oldMsg.embeds[0])
+                                .setColor(0x34495E)
+                                .setAuthor({ name: '⏮️ Historial de reproducción' })
+                                .setFooter({ text: 'Prophet Gaming | Finalizado' });
+
+                            // Replay button logic relies on the existing collector attached to oldMsg
+                            const replayRow = new ActionRowBuilder().addComponents(
+                                new ButtonBuilder()
+                                    .setCustomId('music_replay_old')
+                                    .setLabel('Volver a escuchar')
+                                    .setEmoji('🔄')
+                                    .setStyle(ButtonStyle.Secondary)
+                            );
+                            oldMsg.edit({ embeds: [oldEmbed], components: [replayRow] }).catch(() => { });
+                        }
+                    } catch (e) { }
+                    nowPlayingMessages.delete(guildId);
+                }
             }
         });
 
@@ -599,14 +680,25 @@ async function inicializarMusica() {
             const guildId = queue.guild.id;
             musicHistory.delete(guildId);
             const oldMsg = nowPlayingMessages.get(guildId);
-            if (oldMsg) {
-                oldMsg.edit({ components: [] }).catch(() => { });
+            if (oldMsg && oldMsg.editable) {
+                try {
+                    const oldEmbed = EmbedBuilder.from(oldMsg.embeds[0])
+                        .setColor(0x34495E)
+                        .setAuthor({ name: '⏮️ Historial de reproducción' })
+                        .setFooter({ text: 'Prophet Gaming | Finalizado por desconexión' });
+
+                    // No podemos agregar botón de replay fácil aquí porque no tenemos el 'track' del closure a mano 
+                    // (el msg original tiene su collector, pero si editamos los componentes aquí, ¿rompemos algo?)
+                    // Mejor dejarlo como historial visual sin botones o intentar mantener el botón si ya lo tenía.
+                    // Si es 'disconnect', el bot se fue.
+                    oldMsg.edit({ embeds: [oldEmbed], components: [] }).catch(() => { });
+                } catch (e) { }
                 nowPlayingMessages.delete(guildId);
             }
         });
 
         client.player.events.on('emptyChannel', (queue) => {
-            console.log('👻 Canal de voz vacío, saliendo...');
+            console.log('👻 Canal de voz vacío, pero me quedo esperando...');
         });
 
         // Log de extractores cargados para depuración
