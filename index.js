@@ -240,10 +240,41 @@ async function inicializarMusica() {
             if (queue?.metadata?.channel) queue.metadata.channel.send(`❌ Error de reproducción: \`${error.message}\``);
         });
 
-        client.player.events.on('playerError', (queue, error) => {
+        client.player.events.on('playerError', (queue, error, track) => {
             console.error(`❌ Error de conexión: ${error.message}`);
             console.error('   Stack:', error.stack);
+            console.error('   Track:', track?.title, track?.url);
             if (queue?.metadata?.channel) queue.metadata.channel.send(`❌ Error de conexión: \`${error.message}\``);
+        });
+
+        client.player.events.on('playerSkip', (queue, track) => {
+            console.warn(`⏭️ Track saltado (no se pudo reproducir): ${track.title}`);
+            if (queue?.metadata?.channel) queue.metadata.channel.send(`⚠️ No se pudo reproducir **${track.title}**, saltando...`);
+        });
+
+        client.player.events.on('emptyQueue', (queue) => {
+            console.log('📭 Cola vacía');
+        });
+
+        client.player.events.on('disconnect', (queue) => {
+            console.log('🔌 Bot desconectado del canal de voz');
+        });
+
+        client.player.events.on('emptyChannel', (queue) => {
+            console.log('👻 Canal de voz vacío, saliendo...');
+        });
+
+        // Debug general del player
+        client.player.on('debug', (msg) => {
+            if (msg.includes('error') || msg.includes('Error') || msg.includes('fail') || msg.includes('skip')) {
+                console.log(`🔍 [Player Debug]: ${msg}`);
+            }
+        });
+
+        client.player.events.on('debug', (queue, msg) => {
+            if (msg.includes('error') || msg.includes('Error') || msg.includes('fail') || msg.includes('skip') || msg.includes('stream')) {
+                console.log(`🔍 [Queue Debug]: ${msg}`);
+            }
         });
 
         // Log de extractores cargados para depuración
