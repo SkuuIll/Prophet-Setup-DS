@@ -189,33 +189,12 @@ async function inicializarMusica() {
                     setTimeout(() => { proc.kill(); reject(new Error('yt-dlp timeout')); }, 15000);
                 });
 
-                console.log(`🎵 [yt-dlp] URL obtenida OK, creando stream con FFmpeg...`);
+                console.log(`🎵 [yt-dlp] URL obtenida OK, pasando a discord-player...`);
 
-                // Crear stream de audio con FFmpeg
-                const ffmpegProc = spawn('ffmpeg', [
-                    '-reconnect', '1',
-                    '-reconnect_streamed', '1',
-                    '-reconnect_delay_max', '5',
-                    '-i', audioUrl,
-                    '-f', 's16le',
-                    '-ar', '48000',
-                    '-ac', '2',
-                    '-loglevel', 'error',
-                    'pipe:1'
-                ]);
-
-                ffmpegProc.stderr.on('data', d => {
-                    const msg = d.toString().trim();
-                    if (msg) console.error(`🎵 [FFmpeg stderr]: ${msg}`);
-                });
-
-                const stream = ffmpegProc.stdout;
-                stream.on('error', () => ffmpegProc.kill());
-                stream.on('close', () => ffmpegProc.kill());
-
+                // Retornar la URL directa — discord-player se encarga de FFmpeg
                 return {
-                    stream: stream,
-                    type: 'raw',
+                    stream: audioUrl,
+                    type: 'url',
                 };
             } catch (err) {
                 console.error(`❌ [yt-dlp] Error: ${err.message}`);
