@@ -126,15 +126,20 @@ async function inicializarMusica() {
     try {
         const { Player } = require('discord-player');
         const { DefaultExtractors } = require('@discord-player/extractor');
-        const { YoutubeiExtractor } = require('discord-player-youtubei');
 
         // Crear instancia del Player
         client.player = new Player(client, {
             skipFFmpeg: false,
         });
 
-        // Cargar extractor de YouTube (ad-free, via youtubei.js)
-        await client.player.extractors.register(YoutubeiExtractor, {});
+        // Intentar cargar extractor de YouTube (ad-free, via youtubei.js)
+        try {
+            const { YoutubeiExtractor } = require('discord-player-youtubei');
+            await client.player.extractors.register(YoutubeiExtractor, {});
+            console.log('✅ YoutubeiExtractor cargado correctamente');
+        } catch (ytErr) {
+            console.warn('⚠️ discord-player-youtubei no disponible, usando extractores por defecto:', ytErr.message);
+        }
 
         // Cargar extractores adicionales (Spotify, SoundCloud, etc.)
         await client.player.extractors.loadMulti(DefaultExtractors);
