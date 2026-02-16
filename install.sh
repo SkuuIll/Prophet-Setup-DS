@@ -1,38 +1,105 @@
 #!/bin/bash
 
-# Este script instala todas las dependencias y configura el bot para iniciarse automáticamente con PM2
-# Ejecutar con: bash install.sh
+# ═══════════════════════════════════════════════════════════
+#  PROPHET BOT — Script de Instalación y Actualización
+#  Uso: bash install.sh          (instalación completa)
+#       bash install.sh update   (actualizar y reiniciar)
+# ═══════════════════════════════════════════════════════════
 
-echo "🚀 Iniciando instalación de Prophet Bot..."
+set -e
 
-# 1. Actualizar repositorios e instalar Node.js si no existe (asumiendo Ubuntu/Debian)
+NOMBRE_PM2="prophet-bot"
+RAMA="main"
+
+echo ""
+echo "═══════════════════════════════════════"
+echo "  🚀 Prophet Bot — Deploy Script"
+echo "  📅 $(date '+%Y-%m-%d %H:%M:%S')"
+echo "═══════════════════════════════════════"
+echo ""
+
+# ─── Detectar si es una actualización o instalación nueva ───
+if pm2 describe "$NOMBRE_PM2" > /dev/null 2>&1; then
+    ES_ACTUALIZACION=true
+    echo "🔄 Modo: ACTUALIZACIÓN (bot ya existe en PM2)"
+else
+    ES_ACTUALIZACION=false
+    echo "🆕 Modo: INSTALACIÓN NUEVA"
+fi
+
+# ─── 1. Detener el bot si está corriendo ───
+if [ "$ES_ACTUALIZACION" = true ]; then
+    echo ""
+    echo "⏹️  Deteniendo el bot..."
+    pm2 stop "$NOMBRE_PM2" 2>/dev/null || true
+    echo "   ✅ Bot detenido"
+fi
+
+# ─── 2. Actualizar código desde GitHub ───
+echo ""
+echo "📥 Descargando últimos cambios desde GitHub..."
+if git pull origin "$RAMA" 2>/dev/null; then
+    echo "   ✅ Código actualizado"
+else
+    echo "   ⚠️  No se pudo hacer git pull (puede ser la primera vez o hay conflictos)"
+fi
+
+# ─── 3. Instalar Node.js si no existe ───
 if ! command -v node &> /dev/null; then
-    echo "📦 Instalando Node.js..."
+    echo ""
+    echo "📦 Node.js no encontrado. Instalando..."
     curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -
     sudo apt-get install -y nodejs
+    echo "   ✅ Node.js $(node -v) instalado"
+else
+    echo ""
+    echo "📦 Node.js $(node -v) ya instalado"
 fi
 
-# 2. Instalar dependencias del proyecto
-echo "📦 Instalando dependencias del bot..."
-npm install
+# ─── 4. Instalar dependencias ───
+echo ""
+echo "📦 Instalando dependencias..."
+npm install --production 2>&1 | tail -5
+echo "   ✅ Dependencias instaladas"
 
-# 3. Instalar PM2 globalmente (Gestor de procesos)
+# ─── 5. Instalar PM2 si no existe ───
 if ! command -v pm2 &> /dev/null; then
-    echo "📦 Instalando PM2 globalmente..."
+    echo ""
+    echo "📦 Instalando PM2..."
     sudo npm install -g pm2
+    echo "   ✅ PM2 instalado"
 fi
 
-# 4. Iniciar el bot con PM2
-echo "🤖 Iniciando el bot con PM2..."
-pm2 start index.js --name "prophet-bot"
+# ─── 6. Iniciar o reiniciar el bot ───
+echo ""
+if [ "$ES_ACTUALIZACION" = true ]; then
+    echo "🔄 Reiniciando el bot..."
+    pm2 restart "$NOMBRE_PM2"
+    echo "   ✅ Bot reiniciado con los nuevos cambios"
+else
+    echo "🤖 Iniciando el bot por primera vez..."
+    pm2 start index.js --name "$NOMBRE_PM2"
+    echo "   ✅ Bot iniciado"
 
-# 5. Generar script de inicio automático y guardarlo
-echo "💾 Configurando inicio automático..."
-pm2 startup systemd -u root --hp /root
-pm2 save
+    # Configurar inicio automático solo en instalación nueva
+    echo ""
+    echo "💾 Configurando inicio automático..."
+    pm2 startup systemd -u root --hp /root 2>/dev/null || true
+    pm2 save
+    echo "   ✅ Inicio automático configurado"
+fi
 
-echo "✅ ¡Instalación completada! El bot se reiniciará automáticamente si la VPS se apaga."
+# ─── 7. Mostrar estado final ───
+echo ""
+echo "═══════════════════════════════════════"
+echo "  ✅ ¡Listo! Prophet Bot desplegado"
+echo "═══════════════════════════════════════"
+echo ""
+pm2 status "$NOMBRE_PM2"
+echo ""
 echo "📝 Comandos útiles:"
-echo "   pm2 status       -> Ver estado del bot"
-echo "   pm2 logs         -> Ver logs en vivo"
-echo "   pm2 restart all  -> Reiniciar el bot"
+echo "   pm2 status         → Ver estado del bot"
+echo "   pm2 logs           → Ver logs en vivo"
+echo "   pm2 logs --lines 50 → Ver últimas 50 líneas de log"
+echo "   ./install.sh       → Actualizar y reiniciar"
+echo ""
