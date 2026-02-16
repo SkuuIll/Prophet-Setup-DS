@@ -18,6 +18,17 @@ module.exports = {
 
         if (!target) return interaction.reply({ content: '❌ Usuario no encontrado.', ephemeral: true });
 
+        // DM al usuario antes de banear
+        try {
+            const dmEmbed = new EmbedBuilder()
+                .setColor(config.COLORES.ERROR)
+                .setTitle('🔨 Has sido baneado')
+                .setDescription(`Has sido baneado de **${interaction.guild.name}**`)
+                .addFields({ name: '📝 Razón', value: razon })
+                .setTimestamp();
+            await target.send({ embeds: [dmEmbed] });
+        } catch { /* DMs desactivados */ }
+
         try {
             await interaction.guild.members.ban(target, { reason: razon, deleteMessageSeconds: dias * 86400 });
         } catch (e) {

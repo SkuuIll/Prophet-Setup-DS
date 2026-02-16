@@ -19,6 +19,20 @@ module.exports = {
         if (!target) return interaction.reply({ content: '❌ Usuario no encontrado.', ephemeral: true });
         if (!target.moderatable) return interaction.reply({ content: '❌ No puedo silenciar a este usuario.', ephemeral: true });
 
+        // DM al usuario antes de silenciar
+        try {
+            const dmEmbed = new EmbedBuilder()
+                .setColor(config.COLORES.WARN)
+                .setTitle('🔇 Has sido silenciado')
+                .setDescription(`Has sido silenciado en **${interaction.guild.name}**`)
+                .addFields(
+                    { name: '⏳ Duración', value: `${minutos} minutos`, inline: true },
+                    { name: '📝 Razón', value: razon, inline: true }
+                )
+                .setTimestamp();
+            await target.user.send({ embeds: [dmEmbed] });
+        } catch { /* DMs desactivados */ }
+
         await target.timeout(minutos * 60000, razon);
 
         const embed = new EmbedBuilder()

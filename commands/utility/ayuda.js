@@ -159,14 +159,18 @@ module.exports = {
                         .addFields(
                             { name: '`/kick <usuario>`', value: 'Expulsar a un miembro.', inline: true },
                             { name: '`/ban <usuario>`', value: 'Banear permanentemente.', inline: true },
+                            { name: '`/tempban <usuario> <duración>`', value: 'Ban temporal (ej: 2h, 1d).', inline: true },
                             { name: '`/mute <usuario>`', value: 'Silenciar temporalmente.', inline: true },
                             { name: '`/warn <usuario>`', value: 'Dar una advertencia oficial.', inline: true },
                             { name: '`/clear <cantidad>`', value: 'Borrar mensajes masivamente.', inline: true },
+                            { name: '`/purge <cantidad>`', value: 'Limpieza con filtros (bots, links...).', inline: true },
+                            { name: '`/slowmode <segundos>`', value: 'Activar/desactivar modo lento.', inline: true },
                             { name: '`/setuptickets`', value: '⚙️ Configurar el panel de soporte.', inline: true },
                             { name: '`/setup-confesiones`', value: '⚙️ Configurar canal de confesiones.', inline: true },
                             { name: '`/reactionroles`', value: '⚙️ Crear panel de roles manual.', inline: true },
-                            { name: '`/reactionroles_games`', value: '⚙️ Auto-generar roles de juegos (PUBG, CSGO).', inline: true }
+                            { name: '`/reactionroles_games`', value: '⚙️ Auto-generar roles de juegos.', inline: true }
                         )
+                        .setFooter({ text: '💡 Los comandos de moderación envían un DM al usuario afectado.' })
                         .setThumbnail('https://cdn-icons-png.flaticon.com/512/9638/9638102.png');
                     break;
             }

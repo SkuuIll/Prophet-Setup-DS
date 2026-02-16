@@ -20,6 +20,20 @@ module.exports = {
         stmts.addWarn(target.id, interaction.user.id, razon);
         const warns = stmts.countWarns(target.id);
 
+        // DM al usuario
+        try {
+            const dmEmbed = new EmbedBuilder()
+                .setColor(config.COLORES.WARN)
+                .setTitle('⚠️ Advertencia recibida')
+                .setDescription(`Has recibido una advertencia en **${interaction.guild.name}**`)
+                .addFields(
+                    { name: '📝 Razón', value: razon, inline: false },
+                    { name: '⚠️ Warns totales', value: `${warns.total}`, inline: true }
+                )
+                .setTimestamp();
+            await target.user.send({ embeds: [dmEmbed] });
+        } catch { /* DMs desactivados */ }
+
         const embed = new EmbedBuilder()
             .setColor(config.COLORES.WARN)
             .setTitle('⚠️ Advertencia')

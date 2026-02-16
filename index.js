@@ -269,6 +269,41 @@ client.once('ready', async () => {
     const { verificarSorteos } = require('./modules/giveaways');
     setInterval(() => verificarSorteos(client), 30000); // Cada 30 segundos
 
+    // ── Tempban expiry checker (cada 60s) ──
+    const { stmts: dbStmts } = require('./database');
+    setInterval(async () => {
+        try {
+            const expired = dbStmts.getActiveTempbans();
+            for (const tb of expired) {
+                try {
+                    const targetGuild = client.guilds.cache.get(tb.guild_id);
+                    if (targetGuild) {
+                        await targetGuild.members.unban(tb.user_id, 'Tempban expirado - desbaneo automático');
+                        console.log(`🔓 Tempban expirado: ${tb.user_id}`);
+                        const logCh = targetGuild.channels.cache.get(config.CHANNELS.LOGS);
+                        if (logCh) {
+                            const { EmbedBuilder: EB } = require('discord.js');
+                            const unbanEmbed = new EB()
+                                .setColor(0x2ECC71)
+                                .setTitle('🔓 **DESBANEO AUTOMÁTICO**')
+                                .addFields(
+                                    { name: '👤 Usuario', value: `<@${tb.user_id}>`, inline: true },
+                                    { name: '📝 Ban original', value: tb.reason || 'Sin razón', inline: true }
+                                )
+                                .setFooter({ text: 'Prophet Gaming | Tempban expirado' })
+                                .setTimestamp();
+                            logCh.send({ embeds: [unbanEmbed] });
+                        }
+                    }
+                    dbStmts.removeTempban(tb.guild_id, tb.user_id);
+                } catch (e) {
+                    console.error(`❌ Error desbaneando ${tb.user_id}:`, e.message);
+                    dbStmts.removeTempban(tb.guild_id, tb.user_id);
+                }
+            }
+        } catch (e) { console.error('❌ Error en tempban checker:', e.message); }
+    }, 60000);
+
     console.log('');
     console.log('✅ Prophet Bot está listo');
     console.log(`🏠 Servidor: ${guild.name} (${guild.memberCount} miembros)`);

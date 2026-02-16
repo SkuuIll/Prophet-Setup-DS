@@ -17,6 +17,17 @@ module.exports = {
         if (!target) return interaction.reply({ content: '❌ Usuario no encontrado.', ephemeral: true });
         if (!target.kickable) return interaction.reply({ content: '❌ No puedo expulsar a este usuario.', ephemeral: true });
 
+        // DM al usuario antes de expulsar
+        try {
+            const dmEmbed = new EmbedBuilder()
+                .setColor(config.COLORES.ERROR)
+                .setTitle('👢 Has sido expulsado')
+                .setDescription(`Has sido expulsado de **${interaction.guild.name}**`)
+                .addFields({ name: '📝 Razón', value: razon })
+                .setTimestamp();
+            await target.user.send({ embeds: [dmEmbed] });
+        } catch { /* DMs desactivados */ }
+
         try {
             await target.kick(razon);
         } catch (e) {
