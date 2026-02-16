@@ -11,7 +11,7 @@ const config = require('../config');
  */
 async function crearPanelTickets(channel) {
     const embed = new EmbedBuilder()
-        .setColor(config.COLORES.INFO)
+        .setColor(config.COLORES.INFO || 0x3498DB)
         .setTitle('🛡️ **CENTRO DE SOPORTE — PROPHET GAMING**')
         .setDescription(
             'Bienvenido al sistema de soporte oficial. Si necesitás asistencia, nuestro equipo está listo para ayudarte.\n\n' +
@@ -23,79 +23,133 @@ async function crearPanelTickets(channel) {
             '**Instrucciones:**\n' +
             'Hacé click en el botón **"📩 Abrir Ticket"** para crear un canal privado con el Staff.'
         )
-        .setFooter({ text: 'Prophet Gaming | Sistema de Soporte' })
+        .setThumbnail('https://cdn-icons-png.flaticon.com/512/4712/4712038.png')
+        .setFooter({ text: 'Prophet Gaming | Sistema de Soporte Automático' })
         .setTimestamp();
 
-    const boton = new ActionRowBuilder().addComponents(
+    const row = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
             .setCustomId('ticket_abrir')
             .setLabel('📩 Abrir Ticket')
             .setStyle(ButtonStyle.Primary)
+            .setEmoji('🎫')
     );
 
-    await channel.send({ embeds: [embed], components: [boton] });
+    await channel.send({ embeds: [embed], components: [row] });
 }
 
 /**
  * Abrir un ticket
  */
 async function abrirTicket(interaction) {
+    // Si ya respondieron a la interacción (ej. doble click rápido), salir
+    if (interaction.replied || interaction.deferred) return;
+
     const guild = interaction.guild;
     const user = interaction.user;
 
-    const tickets = guild.channels.cache.filter(c => c.name === `ticket-${user.username.toLowerCase()}`);
-    if (tickets.size > 0) {
-        return interaction.reply({ content: `❌ Ya tenés un ticket abierto: ${tickets.first()}`, ephemeral: true });
+    // Verificar si ya tiene ticket abierto por nombre de canal (simple check)
+    // OJO: Esto puede fallar si el usuario cambia de nombre, pero para MVP está bien.
+    // Una mejora sería buscar en la DB si el usuario tiene un ticket activo.
+    const existingChannel = guild.channels.cache.find(c => c.topic === `Ticket de ${user.id}` || c.name === `ticket-${user.username.toLowerCase().replace(/[^a-z0-9]/g, '')}`);
+
+    if (existingChannel) {
+        return interaction.reply({ content: `❌ Ya tenés un ticket abierto: ${existingChannel}`, ephemeral: true });
     }
 
-    await interaction.deferReply({ ephemeral: true });
+    // Intentar deferir la respuesta para evitar timeout
+    try {
+        await interaction.deferReply({ ephemeral: true });
+    } catch (e) {
+        return; // Si falla el defer, abortamos
+    }
 
-    const staffCat = guild.channels.cache.find(c => c.name === '🛡 STAFF' && c.type === ChannelType.GuildCategory);
+    // Buscar o crear categoría de Tickets
+    let category = guild.channels.cache.find(c => c.name === 'Tickets' && c.type === ChannelType.GuildCategory);
+    if (!category) {
+        try {
+            category = await guild.channels.create({
+                name: 'Tickets',
+                type: ChannelType.GuildCategory,
+                permissionOverwrites: [
+                    { id: guild.id, deny: [PermissionFlagsBits.ViewChannel] } // Oculta para @everyone
+                ]
+            });
+        } catch (e) {
+            console.error('Error creando categoría Tickets:', e);
+        }
+    }
 
-    const ticketChannel = await guild.channels.create({
-        name: `ticket-${user.username}`,
-        type: ChannelType.GuildText,
-        parent: staffCat?.id,
-        permissionOverwrites: [
-            { id: guild.id, deny: [PermissionFlagsBits.ViewChannel] },
-            { id: user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] },
-            ...(config.ROLES.STAFF ? [{ id: config.ROLES.STAFF, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] }] : []),
-            ...(config.ROLES.MODERADOR ? [{ id: config.ROLES.MODERADOR, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] }] : []),
-            ...(config.ROLES.PROPHET ? [{ id: config.ROLES.PROPHET, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] }] : []),
-        ],
+    // Configurar permisos del canal
+    const permissionOverwrites = [
+        { id: guild.id, deny: [PermissionFlagsBits.ViewChannel] },
+        { id: user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory, PermissionFlagsBits.AttachFiles] },
+        { id: interaction.client.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ManageChannels] }
+    ];
+
+    // Añadir roles de Staff si están configurados
+    [config.ROLES.STAFF, config.ROLES.MODERADOR, config.ROLES.PROPHET].forEach(roleId => {
+        if (roleId) {
+            permissionOverwrites.push({
+                id: roleId,
+                allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory]
+            });
+        }
     });
 
-    stmts.addTicket(ticketChannel.id, user.id);
+    try {
+        const ticketChannel = await guild.channels.create({
+            name: `ticket-${user.username}`,
+            type: ChannelType.GuildText,
+            parent: category ? category.id : null,
+            topic: `Ticket de ${user.id}`,
+            permissionOverwrites: permissionOverwrites
+        });
 
-    const embed = new EmbedBuilder()
-        .setColor(config.COLORES.INFO)
-        .setTitle(`🎫 **TICKET DE SOPORTE** | ${user.displayName}`)
-        .setDescription(
-            `¡Hola ${user}! Un miembro del Staff te atenderá a la brevedad.\n\n` +
-            '**📝 Para agilizar el proceso, por favor indicá:**\n' +
-            '> 🔹 El motivo detallado de tu consulta.\n' +
-            '> 🔹 Evidencia (capturas de pantalla, IDs) si es un reporte.\n' +
-            '> 🔹 Cualquier otro detalle relevante.\n\n' +
-            '*Por favor, sé paciente y respetuoso mientras esperás.*'
-        )
-        .setFooter({ text: 'Prophet Gaming | Gestión de Tickets' })
-        .setTimestamp();
+        // Guardar en DB
+        stmts.addTicket(ticketChannel.id, user.id);
 
-    const cerrarBtn = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId('ticket_cerrar').setLabel('🔒 Cerrar Ticket').setStyle(ButtonStyle.Danger)
-    );
-
-    await ticketChannel.send({ embeds: [embed], components: [cerrarBtn] });
-    await ticketChannel.send(`${user} — Tu ticket fue creado. Staff notificado.`);
-    await interaction.editReply({ content: `✅ Ticket creado: ${ticketChannel}` });
-
-    const logChannel = guild.channels.cache.get(config.CHANNELS.LOGS);
-    if (logChannel) {
-        const logEmbed = new EmbedBuilder()
-            .setColor(config.COLORES.INFO)
-            .setDescription(`🎫 **Ticket abierto** por ${user.tag} → ${ticketChannel}`)
+        // Embed de bienvenida dentro del ticket
+        const embed = new EmbedBuilder()
+            .setColor(config.COLORES.SUCCESS || 0x2ECC71)
+            .setTitle(`🎫 Ticket #${ticketChannel.name.split('-')[1] || 'Soporte'}`)
+            .setDescription(
+                `¡Hola ${user}! Gracias por contactar al soporte de Prophet Gaming.\n\n` +
+                '**Mientras esperás a un miembro del Staff, por favor:**\n' +
+                '1️⃣ Describe tu problema detalladamente.\n' +
+                '2️⃣ Adjunta capturas o pruebas si es necesario.\n' +
+                '3️⃣ **No etiquetes al Staff innecesariamente.**\n\n' +
+                '🔒 *Para cerrar este ticket, usá el botón de abajo.*'
+            )
+            .setFooter({ text: 'Prophet Gaming | Staff Team', iconURL: guild.iconURL() })
             .setTimestamp();
-        logChannel.send({ embeds: [logEmbed] });
+
+        const row = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+                .setCustomId('ticket_cerrar')
+                .setLabel('🔒 Cerrar Ticket')
+                .setStyle(ButtonStyle.Danger)
+                .setEmoji('🔒')
+        );
+
+        await ticketChannel.send({ content: `${user} | <@&${config.ROLES.STAFF || config.ROLES.MODERADOR || user.id}>`, embeds: [embed], components: [row] });
+
+        await interaction.editReply({ content: `✅ Ticket creado correctamente: ${ticketChannel}` });
+
+        // Log
+        const logChannel = guild.channels.cache.get(config.CHANNELS.LOGS);
+        if (logChannel) {
+            const logEmbed = new EmbedBuilder()
+                .setColor(config.COLORES.INFO || 0x3498DB)
+                .setTitle('🎫 Nuevo Ticket')
+                .setDescription(`**Usuario:** ${user.tag}\n**Canal:** ${ticketChannel}\n**Razón:** Soporte General`)
+                .setTimestamp();
+            logChannel.send({ embeds: [logEmbed] });
+        }
+
+    } catch (error) {
+        console.error('Error creando ticket:', error);
+        await interaction.editReply({ content: '❌ Hubo un error al crear el canal de ticket. Por favor contacta a un administrador.' });
     }
 }
 

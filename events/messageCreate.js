@@ -11,7 +11,40 @@ module.exports = {
     async execute(message) {
         if (message.author.bot || !message.guild) return;
 
-        // ═══ SISTEMA AFK ═══
+        if (message.author.bot || !message.guild) return;
+
+        // ═══ COUNTING GAME ═══
+        const { stmts } = require('../database');
+        const countingChannelId = stmts.getConfig('COUNTING_CHANNEL')?.value;
+
+        if (countingChannelId && message.channel.id === countingChannelId) {
+            const currentCount = stmts.getConfig('COUNTING_CURRENT')?.value || 0;
+            const lastUser = stmts.getConfig('COUNTING_LAST_USER')?.value;
+            const number = parseInt(message.content);
+
+            // Si no es un número, ignorar (o borrar si eres estricto)
+            if (isNaN(number)) return;
+
+            if (message.author.id === lastUser) {
+                await message.react('❌');
+                await message.channel.send(`🚫 **${message.author}**, ¡no puedes contar dos veces seguidas! Reiniciamos a **0**. 😭`);
+                stmts.setConfig('COUNTING_CURRENT', 0);
+                stmts.setConfig('COUNTING_LAST_USER', null);
+                return;
+            }
+
+            if (number === currentCount + 1) {
+                await message.react('✅');
+                stmts.setConfig('COUNTING_CURRENT', number);
+                stmts.setConfig('COUNTING_LAST_USER', message.author.id);
+            } else {
+                await message.react('❌');
+                await message.channel.send(`💥 **${message.author}** arruinó la racha al decir **${number}**. ¡Íbamos por el **${currentCount + 1}**! Reiniciamos a **0**.`);
+                stmts.setConfig('COUNTING_CURRENT', 0);
+                stmts.setConfig('COUNTING_LAST_USER', null);
+            }
+            return; // No dar XP por contar para evitar spam farming
+        }
         // 1. Si el autor estaba AFK, quitarlo
         if (message.client.afk.has(message.author.id)) {
             message.client.afk.delete(message.author.id);

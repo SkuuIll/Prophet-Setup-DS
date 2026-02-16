@@ -41,22 +41,37 @@ module.exports = {
             if (id === 'sorteo_participar') return participarSorteo(interaction);
 
             // Reaction roles via botón
+            // Reaction roles via botón (rr_ o rr_auto_)
             if (id.startsWith('rr_')) {
-                const roleId = id.replace('rr_', '');
+                const roleId = id.replace('rr_', '').replace('auto_', '');
                 const member = interaction.member;
                 const role = interaction.guild.roles.cache.get(roleId);
-                if (!role) return interaction.reply({ content: '❌ Rol no encontrado.', ephemeral: true });
+
+                if (!role) {
+                    return interaction.reply({ content: '❌ Rol no encontrado. (Puede haber sido borrado)', ephemeral: true });
+                }
 
                 try {
                     if (member.roles.cache.has(roleId)) {
                         await member.roles.remove(role);
-                        await interaction.reply({ content: `❌ Rol **${role.name}** removido.`, ephemeral: true });
+                        await interaction.reply({ content: `➖ Te saqué el rol **${role.name}**.`, ephemeral: true });
                     } else {
                         await member.roles.add(role);
-                        await interaction.reply({ content: `✅ Rol **${role.name}** asignado.`, ephemeral: true });
+                        await interaction.reply({ content: `➕ Te di el rol **${role.name}**.`, ephemeral: true });
                     }
                 } catch (e) {
-                    await interaction.reply({ content: `❌ No pude modificar el rol: ${e.message}`, ephemeral: true });
+                    console.error('Error RR:', e);
+                    await interaction.reply({ content: `❌ No pude modificar el rol (Revisá mis permisos y jerarquía): ${e.message}`, ephemeral: true });
+                }
+            }
+        }
+
+        // ═══ MODALS (Formularios) ═══
+        if (interaction.isModalSubmit()) {
+            if (interaction.customId === 'modal_confesion') {
+                const comando = client.commands.get('confesion');
+                if (comando) {
+                    await comando.handleModal(interaction);
                 }
             }
         }
