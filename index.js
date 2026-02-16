@@ -125,15 +125,16 @@ async function resolverIDs(guild) {
 async function inicializarMusica() {
     try {
         const { Player } = require('discord-player');
-        const { DefaultExtractors } = require('@discord-player/extractor');
+        const { SpotifyExtractor, YoutubeiExtractor } = require('@discord-player/extractor');
 
         // Crear instancia del Player
         client.player = new Player(client, {
-            skipFFmpeg: false, // Usar ffmpeg-static si es necesario
+            skipFFmpeg: false,
         });
 
-        // Cargar extractores por defecto
-        await client.player.extractors.loadMulti(DefaultExtractors);
+        // Cargar SOLO extractores de YouTube y Spotify
+        await client.player.extractors.register(YoutubeiExtractor, {});
+        await client.player.extractors.register(SpotifyExtractor, {});
 
         // Eventos de depuración
         client.player.events.on('playerStart', (queue, track) => {

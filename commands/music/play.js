@@ -29,6 +29,7 @@ module.exports = {
 
         try {
             const { track } = await client.player.play(voiceChannel, query, {
+                requestedBy: interaction.user,
                 nodeOptions: {
                     metadata: {
                         channel: interaction.channel
