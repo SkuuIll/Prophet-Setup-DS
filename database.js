@@ -15,6 +15,7 @@ const DEFAULT_DATA = {
     reaction_roles: {},// { [messageId]: { [emoji]: roleId } }
     giveaways: {},    // { [messageId]: { channel_id, prize, end_time, ended, host_id, entries: [] } }
     tickets: {},      // { [channelId]: { user_id, created_at } }
+    tempbans: [],     // { guild_id, user_id, mod_id, reason, unban_at }
     config: {},       // { [key]: value }
     _warnIdCounter: 0,
 };
@@ -248,6 +249,22 @@ const stmts = {
     },
     deleteTicket(channelId) {
         delete data.tickets[channelId];
+        saveDB();
+    },
+
+    // ── Tempbans ──
+    addTempban(guildId, userId, modId, reason, unbanAt) {
+        if (!data.tempbans) data.tempbans = [];
+        data.tempbans.push({ guild_id: guildId, user_id: userId, mod_id: modId, reason, unban_at: unbanAt });
+        saveDB();
+    },
+    getActiveTempbans() {
+        if (!data.tempbans) data.tempbans = [];
+        return data.tempbans.filter(tb => tb.unban_at <= Date.now());
+    },
+    removeTempban(guildId, userId) {
+        if (!data.tempbans) data.tempbans = [];
+        data.tempbans = data.tempbans.filter(tb => !(tb.guild_id === guildId && tb.user_id === userId));
         saveDB();
     },
 
