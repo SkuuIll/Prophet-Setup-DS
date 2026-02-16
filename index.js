@@ -202,90 +202,355 @@ async function inicializarMusica() {
             }
         });
 
-        // Eventos de depuración
-        client.player.events.on('playerStart', (queue, track) => {
-            if (queue.metadata?.channel) {
-                const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType } = require('discord.js');
+        // ═══ SISTEMA DE MÚSICA PREMIUM ═══
+        const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType } = require('discord.js');
 
-                const embed = new EmbedBuilder()
-                    .setColor(config.COLORES.MUSICA || 0x9B59B6)
-                    .setTitle('🎵 Reproduciendo ahora')
-                    .setDescription(`[${track.title}](${track.url})`)
-                    .addFields(
-                        { name: '⏱️ Duración', value: track.duration, inline: true },
-                        { name: '👤 Pedida por', value: `${track.requestedBy?.username || 'Desconocido'}`, inline: true }
-                    )
-                    .setThumbnail(track.thumbnail)
-                    .setFooter({ text: 'Prophet Gaming | Música v2' });
+        // Historial de canciones por guild para botón "anterior"
+        const musicHistory = new Map();
 
-                // Botones de control
-                const row = new ActionRowBuilder().addComponents(
-                    new ButtonBuilder().setCustomId('music_pause').setEmoji('⏯️').setStyle(ButtonStyle.Secondary),
-                    new ButtonBuilder().setCustomId('music_skip').setEmoji('⏭️').setStyle(ButtonStyle.Secondary),
-                    new ButtonBuilder().setCustomId('music_stop').setEmoji('⏹️').setStyle(ButtonStyle.Danger),
-                    new ButtonBuilder().setCustomId('music_loop').setEmoji('🔁').setStyle(ButtonStyle.Secondary)
-                );
+        // Referencia al mensaje "Now Playing" activo por guild
+        const nowPlayingMessages = new Map();
 
-                queue.metadata.channel.send({ embeds: [embed], components: [row] }).then(msg => {
-                    // Collector para los botones
-                    const collector = msg.createMessageComponentCollector({
-                        componentType: ComponentType.Button,
-                        time: track.durationMS || 600000 // Escuchar por la duración de la canción o 10 min
-                    });
+        // ─── Función para crear el embed de "Reproduciendo ahora" ───
+        function crearNowPlayingEmbed(queue, track) {
+            const tracks = queue.tracks.toArray();
+            const history = musicHistory.get(queue.guild.id) || [];
 
-                    collector.on('collect', async i => {
-                        try {
-                            // Verificar que el usuario esté en el mismo canal de voz
-                            if (!i.member.voice.channelId || i.member.voice.channelId !== i.guild.members.me?.voice?.channelId) {
-                                return i.reply({ content: '❌ Tenés que estar en el mismo canal de voz que yo.', ephemeral: true });
-                            }
+            // Crear barra de progreso visual
+            const loopModes = ['❌ Off', '🔂 Canción', '🔁 Cola'];
+            const loopStatus = loopModes[queue.repeatMode] || loopModes[0];
+            const isPaused = queue.node.isPaused();
 
-                            switch (i.customId) {
-                                case 'music_pause':
-                                    queue.node.isPaused() ? queue.node.resume() : queue.node.pause();
-                                    await i.update({ content: `⏯️ **${queue.node.isPaused() ? 'Pausado' : 'Reanudado'}** por ${i.user}` });
-                                    break;
-                                case 'music_skip':
-                                    queue.node.skip();
-                                    await i.update({ content: `⏭️ **Canción saltada** por ${i.user}`, components: [] });
-                                    collector.stop();
-                                    break;
-                                case 'music_stop':
-                                    queue.node.stop();
-                                    await i.update({ content: `⏹️ **Música detenida** por ${i.user}`, components: [] });
-                                    collector.stop();
-                                    break;
-                                case 'music_loop': {
-                                    const mode = queue.repeatMode === 0 ? 1 : 0;
-                                    queue.setRepeatMode(mode);
-                                    await i.reply({ content: `🔁 Bucle: **${mode === 1 ? 'Activado (Canción)' : 'Desactivado'}**`, ephemeral: true });
-                                    break;
-                                }
-                            }
-                        } catch (err) {
-                            console.error('Error en botón de música:', err.message);
-                            try {
-                                if (!i.replied && !i.deferred) {
-                                    await i.reply({ content: '❌ Ocurrió un error al procesar la acción.', ephemeral: true });
-                                }
-                            } catch (e) { }
-                        }
-                    });
+            // Info de cola
+            let queueInfo = '';
+            if (tracks.length > 0) {
+                const nextTracks = tracks.slice(0, 3);
+                queueInfo = '\n\n📋 **Siguiente en la cola:**\n';
+                nextTracks.forEach((t, i) => {
+                    queueInfo += `\`${i + 1}.\` [${t.title.length > 40 ? t.title.substring(0, 40) + '...' : t.title}](${t.url}) — \`${t.duration}\`\n`;
                 });
+                if (tracks.length > 3) {
+                    queueInfo += `*...y ${tracks.length - 3} más*`;
+                }
+            }
+
+            const embed = new EmbedBuilder()
+                .setColor(isPaused ? 0xFFA500 : (config.COLORES.MUSICA || 0x9B59B6))
+                .setAuthor({
+                    name: isPaused ? '⏸️ En pausa' : '🎵 Reproduciendo ahora',
+                    iconURL: track.requestedBy?.displayAvatarURL?.() || undefined
+                })
+                .setTitle(track.title)
+                .setURL(track.url)
+                .setThumbnail(track.thumbnail)
+                .addFields(
+                    { name: '⏱️ Duración', value: `\`${track.duration}\``, inline: true },
+                    { name: '👤 Pedida por', value: `<@${track.requestedBy?.id || '0'}>`, inline: true },
+                    { name: '🎙️ Autor', value: track.author || 'Desconocido', inline: true },
+                    { name: '🔊 Volumen', value: `\`${queue.node.volume}%\``, inline: true },
+                    { name: '🔁 Loop', value: loopStatus, inline: true },
+                    { name: '📋 En cola', value: `\`${tracks.length} tema${tracks.length !== 1 ? 's' : ''}\``, inline: true },
+                )
+                .setFooter({
+                    text: `Prophet Gaming | Música v2 • ${history.length > 0 ? `${history.length} tema${history.length !== 1 ? 's' : ''} reproducido${history.length !== 1 ? 's' : ''}` : 'Sin historial'}`
+                })
+                .setTimestamp();
+
+            if (queueInfo) {
+                embed.setDescription(queueInfo);
+            }
+
+            return embed;
+        }
+
+        // ─── Función para crear los botones de control ───
+        function crearBotonesMusica(queue) {
+            const isPaused = queue.node.isPaused();
+            const history = musicHistory.get(queue.guild.id) || [];
+            const loopMode = queue.repeatMode;
+
+            const row1 = new ActionRowBuilder().addComponents(
+                new ButtonBuilder()
+                    .setCustomId('music_prev')
+                    .setEmoji('⏮️')
+                    .setStyle(ButtonStyle.Secondary)
+                    .setDisabled(history.length === 0),
+                new ButtonBuilder()
+                    .setCustomId('music_pause')
+                    .setEmoji(isPaused ? '▶️' : '⏸️')
+                    .setStyle(isPaused ? ButtonStyle.Success : ButtonStyle.Secondary),
+                new ButtonBuilder()
+                    .setCustomId('music_skip')
+                    .setEmoji('⏭️')
+                    .setStyle(ButtonStyle.Secondary),
+                new ButtonBuilder()
+                    .setCustomId('music_stop')
+                    .setEmoji('⏹️')
+                    .setStyle(ButtonStyle.Danger),
+                new ButtonBuilder()
+                    .setCustomId('music_replay')
+                    .setEmoji('🔄')
+                    .setStyle(ButtonStyle.Secondary),
+            );
+
+            const row2 = new ActionRowBuilder().addComponents(
+                new ButtonBuilder()
+                    .setCustomId('music_loop')
+                    .setEmoji('🔁')
+                    .setStyle(loopMode > 0 ? ButtonStyle.Primary : ButtonStyle.Secondary),
+                new ButtonBuilder()
+                    .setCustomId('music_shuffle')
+                    .setEmoji('🔀')
+                    .setStyle(ButtonStyle.Secondary),
+                new ButtonBuilder()
+                    .setCustomId('music_voldown')
+                    .setEmoji('🔉')
+                    .setStyle(ButtonStyle.Secondary),
+                new ButtonBuilder()
+                    .setCustomId('music_volup')
+                    .setEmoji('🔊')
+                    .setStyle(ButtonStyle.Secondary),
+                new ButtonBuilder()
+                    .setCustomId('music_queue')
+                    .setEmoji('📋')
+                    .setStyle(ButtonStyle.Secondary),
+            );
+
+            return [row1, row2];
+        }
+
+        // ─── Función para actualizar el mensaje now playing ───
+        async function actualizarNowPlaying(queue) {
+            const guildId = queue.guild.id;
+            const msgRef = nowPlayingMessages.get(guildId);
+            if (!msgRef || !queue.currentTrack) return;
+
+            try {
+                const embed = crearNowPlayingEmbed(queue, queue.currentTrack);
+                const rows = crearBotonesMusica(queue);
+                await msgRef.edit({ embeds: [embed], components: rows });
+            } catch (err) {
+                // El mensaje puede haber sido borrado
+            }
+        }
+
+        // ─── Evento: Nueva canción empieza a sonar ───
+        client.player.events.on('playerStart', (queue, track) => {
+            if (!queue.metadata?.channel) return;
+
+            const guildId = queue.guild.id;
+
+            // Borrar mensaje anterior de now playing si existe
+            const oldMsg = nowPlayingMessages.get(guildId);
+            if (oldMsg) {
+                oldMsg.delete().catch(() => { });
+                nowPlayingMessages.delete(guildId);
+            }
+
+            const embed = crearNowPlayingEmbed(queue, track);
+            const rows = crearBotonesMusica(queue);
+
+            queue.metadata.channel.send({ embeds: [embed], components: rows }).then(msg => {
+                nowPlayingMessages.set(guildId, msg);
+
+                // Collector permanente (se renueva con cada canción)
+                const collector = msg.createMessageComponentCollector({
+                    componentType: ComponentType.Button,
+                    time: 3600000 // 1 hora
+                });
+
+                collector.on('collect', async i => {
+                    try {
+                        // Verificar canal de voz
+                        if (!i.member.voice.channelId || i.member.voice.channelId !== i.guild.members.me?.voice?.channelId) {
+                            return i.reply({ content: '❌ Tenés que estar en el mismo canal de voz que yo.', ephemeral: true });
+                        }
+
+                        const currentQueue = client.player.queues.get(i.guild.id);
+                        if (!currentQueue || !currentQueue.isPlaying()) {
+                            return i.reply({ content: '❌ No hay nada reproduciéndose.', ephemeral: true });
+                        }
+
+                        switch (i.customId) {
+                            case 'music_prev': {
+                                const hist = musicHistory.get(guildId) || [];
+                                if (hist.length === 0) {
+                                    return i.reply({ content: '❌ No hay canciones anteriores.', ephemeral: true });
+                                }
+                                const prevTrack = hist.pop();
+                                musicHistory.set(guildId, hist);
+                                currentQueue.insertTrack(prevTrack, 0);
+                                currentQueue.node.skip();
+                                await i.reply({ content: `⏮️ Volviendo a **${prevTrack.title}**`, ephemeral: true });
+                                break;
+                            }
+                            case 'music_pause': {
+                                currentQueue.node.isPaused() ? currentQueue.node.resume() : currentQueue.node.pause();
+                                const embed = crearNowPlayingEmbed(currentQueue, currentQueue.currentTrack);
+                                const rows = crearBotonesMusica(currentQueue);
+                                await i.update({ embeds: [embed], components: rows });
+                                break;
+                            }
+                            case 'music_skip': {
+                                const skippedTrack = currentQueue.currentTrack;
+                                await i.reply({ content: `⏭️ **${skippedTrack?.title || 'Canción'}** saltada por ${i.user}`, ephemeral: true });
+                                currentQueue.node.skip();
+                                break;
+                            }
+                            case 'music_stop': {
+                                currentQueue.node.stop();
+                                musicHistory.delete(guildId);
+                                nowPlayingMessages.delete(guildId);
+                                await i.update({
+                                    embeds: [new EmbedBuilder()
+                                        .setColor(0xFF0000)
+                                        .setDescription('⏹️ **Música detenida.** La cola fue vaciada y me desconecté del canal.')
+                                        .setFooter({ text: `Detenida por ${i.user.username}` })
+                                        .setTimestamp()
+                                    ],
+                                    components: []
+                                });
+                                collector.stop();
+                                break;
+                            }
+                            case 'music_replay': {
+                                const currentTrack = currentQueue.currentTrack;
+                                if (currentTrack) {
+                                    currentQueue.insertTrack(currentTrack, 0);
+                                    currentQueue.node.skip();
+                                    await i.reply({ content: `🔄 Reproduciendo de nuevo **${currentTrack.title}**`, ephemeral: true });
+                                } else {
+                                    await i.reply({ content: '❌ No hay canción para repetir.', ephemeral: true });
+                                }
+                                break;
+                            }
+                            case 'music_loop': {
+                                const modes = [0, 1, 2]; // Off → Canción → Cola → Off
+                                const modeNames = ['❌ Desactivado', '🔂 Canción en loop', '🔁 Cola en loop'];
+                                const nextMode = (currentQueue.repeatMode + 1) % 3;
+                                currentQueue.setRepeatMode(nextMode);
+                                const embed = crearNowPlayingEmbed(currentQueue, currentQueue.currentTrack);
+                                const rows = crearBotonesMusica(currentQueue);
+                                await i.update({ embeds: [embed], components: rows });
+                                await i.followUp({ content: `${modeNames[nextMode]}`, ephemeral: true });
+                                break;
+                            }
+                            case 'music_shuffle': {
+                                currentQueue.tracks.shuffle();
+                                const embed = crearNowPlayingEmbed(currentQueue, currentQueue.currentTrack);
+                                const rows = crearBotonesMusica(currentQueue);
+                                await i.update({ embeds: [embed], components: rows });
+                                await i.followUp({ content: '🔀 Cola mezclada aleatoriamente', ephemeral: true });
+                                break;
+                            }
+                            case 'music_voldown': {
+                                const newVol = Math.max(0, currentQueue.node.volume - 10);
+                                currentQueue.node.setVolume(newVol);
+                                const embed = crearNowPlayingEmbed(currentQueue, currentQueue.currentTrack);
+                                const rows = crearBotonesMusica(currentQueue);
+                                await i.update({ embeds: [embed], components: rows });
+                                break;
+                            }
+                            case 'music_volup': {
+                                const newVol = Math.min(100, currentQueue.node.volume + 10);
+                                currentQueue.node.setVolume(newVol);
+                                const embed = crearNowPlayingEmbed(currentQueue, currentQueue.currentTrack);
+                                const rows = crearBotonesMusica(currentQueue);
+                                await i.update({ embeds: [embed], components: rows });
+                                break;
+                            }
+                            case 'music_queue': {
+                                const tracks = currentQueue.tracks.toArray();
+                                const hist = musicHistory.get(guildId) || [];
+
+                                let desc = `🎵 **Reproduciendo:** [${currentQueue.currentTrack.title}](${currentQueue.currentTrack.url}) — \`${currentQueue.currentTrack.duration}\`\n\n`;
+
+                                if (tracks.length > 0) {
+                                    desc += '📋 **Cola:**\n';
+                                    tracks.slice(0, 10).forEach((t, i) => {
+                                        desc += `\`${i + 1}.\` [${t.title.length > 45 ? t.title.substring(0, 45) + '...' : t.title}](${t.url}) — \`${t.duration}\`\n`;
+                                    });
+                                    if (tracks.length > 10) desc += `*...y ${tracks.length - 10} temas más*\n`;
+                                } else {
+                                    desc += '*La cola está vacía. Usá `/play` para agregar más temas.*\n';
+                                }
+
+                                if (hist.length > 0) {
+                                    desc += '\n⏮️ **Historial reciente:**\n';
+                                    hist.slice(-5).reverse().forEach((t, i) => {
+                                        desc += `\`${i + 1}.\` ${t.title.length > 45 ? t.title.substring(0, 45) + '...' : t.title} — \`${t.duration}\`\n`;
+                                    });
+                                }
+
+                                const queueEmbed = new EmbedBuilder()
+                                    .setColor(config.COLORES.MUSICA || 0x9B59B6)
+                                    .setTitle('🎶 Cola de reproducción')
+                                    .setDescription(desc)
+                                    .setFooter({ text: `${tracks.length} en cola • ${hist.length} reproducidas • Volumen: ${currentQueue.node.volume}%` })
+                                    .setTimestamp();
+
+                                await i.reply({ embeds: [queueEmbed], ephemeral: true });
+                                break;
+                            }
+                        }
+                    } catch (err) {
+                        console.error('Error en botón de música:', err.message);
+                        try {
+                            if (!i.replied && !i.deferred) {
+                                await i.reply({ content: '❌ Error al procesar.', ephemeral: true });
+                            }
+                        } catch (e) { }
+                    }
+                });
+
+                collector.on('end', () => {
+                    // Si el collector expira, remover botones
+                    msg.edit({ components: [] }).catch(() => { });
+                    nowPlayingMessages.delete(guildId);
+                });
+            });
+
+            // Guardar track actual al historial al cambiar de canción
+            if (!musicHistory.has(guildId)) {
+                musicHistory.set(guildId, []);
             }
         });
 
+        // ─── Evento: Track agregado a la cola (no al reproducir, solo al agregar a cola existente) ───
         client.player.events.on('audioTrackAdd', (queue, track) => {
-            if (queue.metadata?.channel) {
-                const { EmbedBuilder } = require('discord.js');
-                const embed = new EmbedBuilder()
-                    .setColor(config.COLORES.MUSICA || 0x9B59B6)
-                    .setDescription(`✅ **${track.title}** agregada a la cola.`)
-                    .setFooter({ text: `Duración: ${track.duration}` });
-                queue.metadata.channel.send({ embeds: [embed] });
-            }
+            if (!queue.metadata?.channel) return;
+
+            const tracks = queue.tracks.toArray();
+            const position = tracks.findIndex(t => t.id === track.id) + 1;
+
+            const embed = new EmbedBuilder()
+                .setColor(0x2ECC71)
+                .setAuthor({ name: '➕ Agregada a la cola' })
+                .setTitle(track.title)
+                .setURL(track.url)
+                .setThumbnail(track.thumbnail)
+                .addFields(
+                    { name: '⏱️ Duración', value: `\`${track.duration}\``, inline: true },
+                    { name: '📋 Posición', value: `\`#${position || tracks.length}\``, inline: true },
+                    { name: '👤 Pedida por', value: `<@${track.requestedBy?.id || '0'}>`, inline: true },
+                )
+                .setFooter({ text: `${tracks.length} tema${tracks.length !== 1 ? 's' : ''} en cola` })
+                .setTimestamp();
+
+            queue.metadata.channel.send({ embeds: [embed] });
         });
 
+        // ─── Guardar historial cuando cambia de canción ───
+        client.player.events.on('playerFinish', (queue, track) => {
+            const guildId = queue.guild.id;
+            if (!musicHistory.has(guildId)) musicHistory.set(guildId, []);
+            const hist = musicHistory.get(guildId);
+            hist.push(track);
+            // Mantener máximo 50 tracks en historial
+            if (hist.length > 50) hist.shift();
+        });
+
+        // ─── Eventos de error ───
         client.player.events.on('error', (queue, error) => {
             console.error(`❌ Error de player: ${error.message}`);
             console.error('   Stack:', error.stack);
@@ -304,29 +569,32 @@ async function inicializarMusica() {
             if (queue?.metadata?.channel) queue.metadata.channel.send(`⚠️ No se pudo reproducir **${track.title}**, saltando...`);
         });
 
+        // ─── Eventos informativos ───
         client.player.events.on('emptyQueue', (queue) => {
             console.log('📭 Cola vacía');
+            const guildId = queue.guild.id;
+            if (queue.metadata?.channel) {
+                const embed = new EmbedBuilder()
+                    .setColor(0x95A5A6)
+                    .setDescription('📭 **Cola vacía.** Agregá más temas con `/play` o me desconectaré pronto.')
+                    .setTimestamp();
+                queue.metadata.channel.send({ embeds: [embed] });
+            }
         });
 
         client.player.events.on('disconnect', (queue) => {
             console.log('🔌 Bot desconectado del canal de voz');
+            const guildId = queue.guild.id;
+            musicHistory.delete(guildId);
+            const oldMsg = nowPlayingMessages.get(guildId);
+            if (oldMsg) {
+                oldMsg.edit({ components: [] }).catch(() => { });
+                nowPlayingMessages.delete(guildId);
+            }
         });
 
         client.player.events.on('emptyChannel', (queue) => {
             console.log('👻 Canal de voz vacío, saliendo...');
-        });
-
-        // Debug general del player
-        client.player.on('debug', (msg) => {
-            if (msg.includes('error') || msg.includes('Error') || msg.includes('fail') || msg.includes('skip')) {
-                console.log(`🔍 [Player Debug]: ${msg}`);
-            }
-        });
-
-        client.player.events.on('debug', (queue, msg) => {
-            if (msg.includes('error') || msg.includes('Error') || msg.includes('fail') || msg.includes('skip') || msg.includes('stream')) {
-                console.log(`🔍 [Queue Debug]: ${msg}`);
-            }
         });
 
         // Log de extractores cargados para depuración
