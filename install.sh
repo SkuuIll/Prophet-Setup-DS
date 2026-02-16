@@ -2,8 +2,8 @@
 
 # ═══════════════════════════════════════════════════════════
 #  PROPHET BOT — Script de Instalación y Actualización
-#  Uso: bash install.sh          (instalación completa)
-#       bash install.sh update   (actualizar y reiniciar)
+#  Uso: ./install.sh   (detecta automáticamente si es
+#        instalación nueva o actualización)
 # ═══════════════════════════════════════════════════════════
 
 set -e
@@ -18,30 +18,32 @@ echo "  📅 $(date '+%Y-%m-%d %H:%M:%S')"
 echo "═══════════════════════════════════════"
 echo ""
 
-# ─── Detectar si es una actualización o instalación nueva ───
-if pm2 describe "$NOMBRE_PM2" > /dev/null 2>&1; then
+# ─── Detectar si es actualización ───
+ES_ACTUALIZACION=false
+if command -v pm2 &> /dev/null && pm2 describe "$NOMBRE_PM2" > /dev/null 2>&1; then
     ES_ACTUALIZACION=true
-    echo "🔄 Modo: ACTUALIZACIÓN (bot ya existe en PM2)"
+    echo "🔄 Modo: ACTUALIZACIÓN"
 else
-    ES_ACTUALIZACION=false
     echo "🆕 Modo: INSTALACIÓN NUEVA"
 fi
 
-# ─── 1. Detener el bot si está corriendo ───
+# ─── 1. Detener y limpiar procesos PM2 duplicados ───
 if [ "$ES_ACTUALIZACION" = true ]; then
     echo ""
     echo "⏹️  Deteniendo el bot..."
-    pm2 stop "$NOMBRE_PM2" 2>/dev/null || true
-    echo "   ✅ Bot detenido"
+    pm2 delete "$NOMBRE_PM2" 2>/dev/null || true
+    echo "   ✅ Bot detenido y procesos limpiados"
 fi
 
 # ─── 2. Actualizar código desde GitHub ───
 echo ""
 echo "📥 Descargando últimos cambios desde GitHub..."
-if git pull origin "$RAMA" 2>/dev/null; then
+if git pull origin "$RAMA"; then
     echo "   ✅ Código actualizado"
 else
-    echo "   ⚠️  No se pudo hacer git pull (puede ser la primera vez o hay conflictos)"
+    echo "   ⚠️  No se pudo hacer git pull (puede haber conflictos)"
+    echo "   Intentá resolver los conflictos manualmente y volvé a correr el script."
+    exit 1
 fi
 
 # ─── 3. Instalar Node.js si no existe ───
@@ -53,7 +55,7 @@ if ! command -v node &> /dev/null; then
     echo "   ✅ Node.js $(node -v) instalado"
 else
     echo ""
-    echo "📦 Node.js $(node -v) ya instalado"
+    echo "📦 Node.js $(node -v) detectado"
 fi
 
 # ─── 4. Instalar dependencias ───
@@ -70,26 +72,21 @@ if ! command -v pm2 &> /dev/null; then
     echo "   ✅ PM2 instalado"
 fi
 
-# ─── 6. Iniciar o reiniciar el bot ───
+# ─── 6. Iniciar el bot (siempre una sola instancia) ───
 echo ""
-if [ "$ES_ACTUALIZACION" = true ]; then
-    echo "🔄 Reiniciando el bot..."
-    pm2 restart "$NOMBRE_PM2"
-    echo "   ✅ Bot reiniciado con los nuevos cambios"
-else
-    echo "🤖 Iniciando el bot por primera vez..."
-    pm2 start index.js --name "$NOMBRE_PM2"
-    echo "   ✅ Bot iniciado"
+echo "🤖 Iniciando el bot..."
+pm2 start index.js --name "$NOMBRE_PM2"
+echo "   ✅ Bot iniciado"
 
-    # Configurar inicio automático solo en instalación nueva
+# ─── 7. Configurar inicio automático (solo si no está configurado) ───
+if [ "$ES_ACTUALIZACION" = false ]; then
     echo ""
     echo "💾 Configurando inicio automático..."
     pm2 startup systemd -u root --hp /root 2>/dev/null || true
-    pm2 save
-    echo "   ✅ Inicio automático configurado"
 fi
+pm2 save
 
-# ─── 7. Mostrar estado final ───
+# ─── 8. Estado final ───
 echo ""
 echo "═══════════════════════════════════════"
 echo "  ✅ ¡Listo! Prophet Bot desplegado"
@@ -100,6 +97,6 @@ echo ""
 echo "📝 Comandos útiles:"
 echo "   pm2 status         → Ver estado del bot"
 echo "   pm2 logs           → Ver logs en vivo"
-echo "   pm2 logs --lines 50 → Ver últimas 50 líneas de log"
+echo "   pm2 logs --lines 50 → Ver últimas 50 líneas"
 echo "   ./install.sh       → Actualizar y reiniciar"
 echo ""
