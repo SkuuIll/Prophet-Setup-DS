@@ -13,12 +13,17 @@ module.exports = {
 
     // Canales especiales (se resuelven por nombre al iniciar index.js)
     CHANNELS: {
-        BIENVENIDOS: '👋│bienvenidos',
-        LOGS: '🤖│logs-bots',
-        REGLAS: '📌│reglas',
-        ANUNCIOS: '📢│anuncios',
-        COMANDOS_BOT: '🤖│comandos-bot',
-        SUGERENCIAS: '❓│preguntas', // Usamos preguntas por ahora
+        REGLAS: '📜・reglas',
+        BIENVENIDOS: '👋・bienvenidos',
+        ANUNCIOS: '📢・anuncios',
+        ROLES: '🏷️・roles',
+        CHAT: '💬・chat',
+        CHAT_VIP: '�・chat-vip',
+        MULTIMEDIA: '🖼️・multimedia',
+        SOPORTE: '❓・soporte',
+        COMANDOS_BOT: '🤖・bot-comandos',
+        STREAMS: '🖥️・streams',
+        LOGS: '⚙️・logs',
     },
 
     // Roles del servidor
@@ -60,13 +65,29 @@ module.exports = {
 
     // Anti-spam
     ANTISPAM: {
-        MAX_MENSAJES: 5,        // Mensajes permitidos en el intervalo
+        MAX_MENSAJES: 8,        // Mensajes permitidos (Aumentado para ser más permisivo)
         INTERVALO: 3000,        // Intervalo en ms (3 segundos)
-        MUTE_DURACION: 300000,  // Duración del mute en ms (5 minutos)
-        MAX_MENCIONES: 5,       // Máximo de menciones por mensaje
-        MAX_MAYUSCULAS: 70,     // Porcentaje máximo de mayúsculas
+        MUTE_DURACION: 60000,   // Duración del mute en ms (Reducido a 1 minuto)
+        MAX_MENCIONES: 10,      // Máximo de menciones por mensaje (Aumentado)
+        MAX_MAYUSCULAS: 80,     // Porcentaje máximo de mayúsculas (Aumentado)
         FILTRAR_INVITES: true,  // Filtrar invitaciones de Discord
-        FILTRAR_LINKS: false,   // Filtrar todos los links
+        FILTRAR_LINKS: true,    // Filtrar links externos
+        WHITELIST_DOMAINS: [    // Dominios permitidos (Links conocidos)
+            // Redes Sociales / Video
+            'youtube.com', 'youtu.be', 'twitch.tv', 'twitter.com', 'x.com',
+            'instagram.com', 'facebook.com', 'tiktok.com', 'reddit.com', 'discord.com', 'discord.gg',
+
+            // Gaming Platforms
+            'steamcommunity.com', 'steampowered.com', 'epicgames.com', 'battle.net',
+            'roblox.com', 'minecraft.net', 'xbox.com', 'playstation.com', 'nintendo.com',
+            'ea.com', 'origin.com', 'ubisoft.com', 'riotgames.com', 'blizzard.com',
+            'rockstargames.com', 'activision.com',
+
+            // Tools / Images / Misc
+            'google.com', 'imgur.com', 'tenor.com', 'giphy.com',
+            'github.com', 'pastebin.com', 'wikipedia.org',
+            'spotify.com', 'soundcloud.com', 'kick.com'
+        ],
         PALABRAS_PROHIBIDAS: [
             // Agregar palabras prohibidas acá
         ],
@@ -79,11 +100,11 @@ module.exports = {
         EDAD_MINIMA: 604800000, // Edad mínima de cuenta (7 días en ms)
     },
 
-    // Moderación
+    // Moderación (Más permisivo)
     MODERACION: {
-        WARNS_PARA_MUTE: 3,
-        WARNS_PARA_KICK: 5,
-        MUTE_DURACION: 3600000,  // 1 hora
+        WARNS_PARA_MUTE: 5,      // Aumentado de 3 a 5
+        WARNS_PARA_KICK: 10,     // Aumentado de 5 a 10
+        MUTE_DURACION: 600000,   // 10 minutos
     },
 
     // Música

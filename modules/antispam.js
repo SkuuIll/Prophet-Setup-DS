@@ -52,11 +52,30 @@ function verificarSpam(message) {
         }
     }
 
-    // 3. Links externos
+    // 3. Links externos (con whitelist)
     if (config.ANTISPAM.FILTRAR_LINKS) {
         const linkRegex = /https?:\/\/[^\s]+/gi;
-        if (linkRegex.test(content)) {
-            return { esSpam: true, razon: 'Link externo no autorizado' };
+        const links = content.match(linkRegex);
+
+        if (links) {
+            for (const link of links) {
+                try {
+                    const url = new URL(link);
+                    const domain = url.hostname.toLowerCase().replace(/^www\./, '');
+
+                    // Revisar whitelist (coincidencia exacta o subdominio)
+                    const allowed = config.ANTISPAM.WHITELIST_DOMAINS.some(wl =>
+                        domain === wl || domain.endsWith('.' + wl)
+                    );
+
+                    if (!allowed) {
+                        return { esSpam: true, razon: `Link no autorizado: ${domain}` };
+                    }
+                } catch (e) {
+                    // Si falla el parseo URL pero paso el regex, mejor bloquear
+                    return { esSpam: true, razon: 'Link sospechoso' };
+                }
+            }
         }
     }
 

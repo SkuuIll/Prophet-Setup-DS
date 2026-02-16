@@ -98,13 +98,18 @@ async function resolverIDs(guild) {
     const buscarCanal = (nombre) => guild.channels.cache.find(c => c.name === nombre);
     const buscarRol = (nombre) => guild.roles.cache.find(r => r.name === nombre);
 
-    // Canales
-    config.CHANNELS.BIENVENIDOS = buscarCanal('👋│bienvenidos')?.id;
-    config.CHANNELS.LOGS = buscarCanal('🤖│logs-bots')?.id;
-    config.CHANNELS.REGLAS = buscarCanal('📌│reglas')?.id;
-    config.CHANNELS.ANUNCIOS = buscarCanal('📢│anuncios')?.id;
-    config.CHANNELS.COMANDOS_BOT = buscarCanal('🤖│comandos-bot')?.id;
-    config.SUGERENCIAS.CHANNEL_ID = buscarCanal('❓│preguntas')?.id; // Provisional
+    // Canales (nuevos nombres del rediseño)
+    config.CHANNELS.REGLAS = buscarCanal('📜・reglas')?.id;
+    config.CHANNELS.BIENVENIDOS = buscarCanal('👋・bienvenidos')?.id;
+    config.CHANNELS.ANUNCIOS = buscarCanal('📢・anuncios')?.id;
+    config.CHANNELS.ROLES = buscarCanal('🏷️・roles')?.id;
+    config.CHANNELS.CHAT = buscarCanal('💬・chat')?.id;
+    config.CHANNELS.CHAT_VIP = buscarCanal('💎・chat-vip')?.id;
+    config.CHANNELS.MULTIMEDIA = buscarCanal('🖼️・multimedia')?.id;
+    config.CHANNELS.SOPORTE = buscarCanal('❓・soporte')?.id;
+    config.CHANNELS.COMANDOS_BOT = buscarCanal('🤖・bot-comandos')?.id;
+    config.CHANNELS.STREAMS = buscarCanal('🖥️・streams')?.id;
+    config.CHANNELS.LOGS = buscarCanal('⚙️・logs')?.id;
 
     // Roles
     config.ROLES.PROPHET = buscarRol('👑 Prophet')?.id;
