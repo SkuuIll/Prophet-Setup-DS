@@ -18,7 +18,7 @@ module.exports = {
         ANUNCIOS: '📢・anuncios',
         ROLES: '🏷️・roles',
         CHAT: '💬・chat',
-        CHAT_VIP: '�・chat-vip',
+        CHAT_VIP: '💎・chat-vip',
         MULTIMEDIA: '🖼️・multimedia',
         SOPORTE: '❓・soporte',
         COMANDOS_BOT: '🤖・bot-comandos',
