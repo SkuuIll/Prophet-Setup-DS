@@ -126,13 +126,17 @@ async function inicializarMusica() {
     try {
         const { Player } = require('discord-player');
         const { DefaultExtractors } = require('@discord-player/extractor');
+        const { YoutubeiExtractor } = require('discord-player-youtubei');
 
         // Crear instancia del Player
         client.player = new Player(client, {
             skipFFmpeg: false,
         });
 
-        // Cargar extractores (YouTube está integrado en el core de discord-player)
+        // Cargar extractor de YouTube (ad-free, via youtubei.js)
+        await client.player.extractors.register(YoutubeiExtractor, {});
+
+        // Cargar extractores adicionales (Spotify, SoundCloud, etc.)
         await client.player.extractors.loadMulti(DefaultExtractors);
 
         // Eventos de depuración
