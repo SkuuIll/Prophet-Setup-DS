@@ -216,22 +216,32 @@ async function inicializarMusica() {
             const tracks = queue.tracks.toArray();
             const history = musicHistory.get(queue.guild.id) || [];
 
-            // Crear barra de progreso visual
             const loopModes = ['❌ Off', '🔂 Canción', '🔁 Cola'];
             const loopStatus = loopModes[queue.repeatMode] || loopModes[0];
             const isPaused = queue.node.isPaused();
 
-            // Info de cola
-            let queueInfo = '';
+            // Info de cola — SIEMPRE visible
+            let queueInfo = '\n\n━━━━━━━━━━━━━━━━━━━━━━\n📋 **Cola de reproducción:**\n';
             if (tracks.length > 0) {
-                const nextTracks = tracks.slice(0, 3);
-                queueInfo = '\n\n📋 **Siguiente en la cola:**\n';
+                const nextTracks = tracks.slice(0, 5);
                 nextTracks.forEach((t, i) => {
-                    queueInfo += `\`${i + 1}.\` [${t.title.length > 40 ? t.title.substring(0, 40) + '...' : t.title}](${t.url}) — \`${t.duration}\`\n`;
+                    const titulo = t.title.length > 38 ? t.title.substring(0, 38) + '...' : t.title;
+                    queueInfo += `\`${i + 1}.\` [${titulo}](${t.url}) — \`${t.duration}\`\n`;
                 });
-                if (tracks.length > 3) {
-                    queueInfo += `*...y ${tracks.length - 3} más*`;
+                if (tracks.length > 5) {
+                    queueInfo += `\n*...y ${tracks.length - 5} tema${tracks.length - 5 !== 1 ? 's' : ''} más en cola*`;
                 }
+            } else {
+                queueInfo += '*Cola vacía — Usá `/play` para agregar más temas* 🎶';
+            }
+
+            // Historial reciente
+            if (history.length > 0) {
+                queueInfo += '\n\n⏮️ **Reproducidos:**\n';
+                history.slice(-3).reverse().forEach((t, i) => {
+                    const titulo = t.title.length > 38 ? t.title.substring(0, 38) + '...' : t.title;
+                    queueInfo += `\`${i + 1}.\` ${titulo} — \`${t.duration}\`\n`;
+                });
             }
 
             const embed = new EmbedBuilder()
@@ -243,6 +253,7 @@ async function inicializarMusica() {
                 .setTitle(track.title)
                 .setURL(track.url)
                 .setThumbnail(track.thumbnail)
+                .setDescription(queueInfo)
                 .addFields(
                     { name: '⏱️ Duración', value: `\`${track.duration}\``, inline: true },
                     { name: '👤 Pedida por', value: `<@${track.requestedBy?.id || '0'}>`, inline: true },
@@ -252,13 +263,9 @@ async function inicializarMusica() {
                     { name: '📋 En cola', value: `\`${tracks.length} tema${tracks.length !== 1 ? 's' : ''}\``, inline: true },
                 )
                 .setFooter({
-                    text: `Prophet Gaming | Música v2 • ${history.length > 0 ? `${history.length} tema${history.length !== 1 ? 's' : ''} reproducido${history.length !== 1 ? 's' : ''}` : 'Sin historial'}`
+                    text: `Prophet Gaming | Música v2 • ${history.length > 0 ? `${history.length} reproducido${history.length !== 1 ? 's' : ''}` : 'Sin historial'}`
                 })
                 .setTimestamp();
-
-            if (queueInfo) {
-                embed.setDescription(queueInfo);
-            }
 
             return embed;
         }
