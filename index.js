@@ -216,6 +216,8 @@ async function inicializarMusica() {
         // Referencia al mensaje "Now Playing" activo por guild
         const nowPlayingMessages = new Map();
 
+        const { stmts } = require('./database');
+
         // ─── Función para crear el embed de "Reproduciendo ahora" ───
         function crearNowPlayingEmbed(queue, track) {
             const tracks = queue.tracks.toArray();
@@ -489,6 +491,12 @@ async function inicializarMusica() {
             if (!queue.metadata?.channel) return;
             const guildId = queue.guild.id;
 
+            stmts.addLog('MUSIC_START', {
+                song: track.title,
+                url: track.url,
+                requestedBy: track.requestedBy?.tag || 'Unknown'
+            });
+
             const embed = crearNowPlayingEmbed(queue, track);
             const rows = crearBotonesMusica(queue);
 
@@ -585,6 +593,9 @@ async function inicializarMusica() {
         client.player.events.on('emptyQueue', (queue) => {
             console.log('📭 Cola vacía');
             const guildId = queue.guild.id;
+
+            stmts.addLog('MUSIC_END', { guildId, reason: 'Queue empty' });
+
             if (queue.metadata?.channel) {
                 const embed = new EmbedBuilder()
                     .setColor(0x95A5A6)
@@ -609,6 +620,8 @@ async function inicializarMusica() {
             console.log('🔌 Bot desconectado del canal de voz');
             const guildId = queue.guild.id;
             musicHistory.delete(guildId);
+
+            stmts.addLog('MUSIC_DISCONNECT', { guildId });
 
             const data = nowPlayingMessages.get(guildId);
             if (data && data.msg) {
@@ -681,6 +694,9 @@ client.once('ready', async () => {
                     if (targetGuild) {
                         await targetGuild.members.unban(tb.user_id, 'Tempban expirado - desbaneo automático');
                         console.log(`🔓 Tempban expirado: ${tb.user_id}`);
+
+                        stmts.addLog('SYSTEM_UNBAN', { userId: tb.user_id, guildId: tb.guild_id });
+
                         const logCh = targetGuild.channels.cache.get(config.CHANNELS.LOGS);
                         if (logCh) {
                             const { EmbedBuilder: EB } = require('discord.js');
@@ -711,6 +727,8 @@ client.once('ready', async () => {
     console.log('');
 
     client.user.setActivity('Prophet Gaming 🎮', { type: 3 }); // "Watching"
+
+    stmts.addLog('SYSTEM_BOOT', { version: '2.0.1', message: 'Prophet Bot iniciado correctamente' });
 });
 
 // Cargar todo

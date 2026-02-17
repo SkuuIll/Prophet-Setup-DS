@@ -17,6 +17,7 @@ const DEFAULT_DATA = {
     tickets: {},      // { [channelId]: { user_id, created_at } }
     tempbans: [],     // { guild_id, user_id, mod_id, reason, unban_at }
     config: {},       // { [key]: value }
+    logs: [],         // { type, data, timestamp }
     _warnIdCounter: 0,
 };
 
@@ -272,9 +273,21 @@ const stmts = {
     getConfig(key) {
         return data.config[key] !== undefined ? { value: data.config[key] } : null;
     },
-    setConfig(key, value) {
-        data.config[key] = value;
+    // ── Logs / Memoria de Acciones ──
+    addLog(type, details) {
+        if (!data.logs) data.logs = [];
+        data.logs.push({
+            type,
+            details,
+            timestamp: new Date().toISOString()
+        });
+        // Mantener últimos 100 eventos
+        if (data.logs.length > 100) data.logs.shift();
         saveDB();
+    },
+    getLogs(limit = 10) {
+        if (!data.logs) data.logs = [];
+        return data.logs.slice(-limit).reverse();
     },
 };
 

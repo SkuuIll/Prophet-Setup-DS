@@ -17,6 +17,13 @@ module.exports = {
 
             try {
                 await comando.execute(interaction, client);
+                // Registrar en memoria de acciones
+                stmts.addLog('COMMAND', {
+                    user: interaction.user.tag,
+                    userId: interaction.user.id,
+                    command: interaction.commandName,
+                    channel: interaction.channel.name
+                });
             } catch (error) {
                 console.error(`Error en /${interaction.commandName}:`, error.message);
                 const respuesta = {
