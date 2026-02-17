@@ -39,11 +39,14 @@ fi
 # ─── 2. Actualizar código desde GitHub ───
 echo ""
 echo "📥 Descargando últimos cambios desde GitHub..."
+# Resetear cambios locales para evitar conflictos
+git fetch --all
+git reset --hard origin/"$RAMA"
+
 if git pull origin "$RAMA"; then
-    echo "   ✅ Código actualizado"
+    echo "   ✅ Código actualizado y limpio"
 else
-    echo "   ⚠️  No se pudo hacer git pull (puede haber conflictos)"
-    echo "   Intentá resolver los conflictos manualmente y volvé a correr el script."
+    echo "   ⚠️  No se pudo hacer git pull"
     exit 1
 fi
 
