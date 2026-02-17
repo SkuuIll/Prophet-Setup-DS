@@ -81,6 +81,17 @@ else
     echo "🎵 FFmpeg detectado ✅"
 fi
 
+# ─── 4b. Instalar yt-dlp (opcional pero recomendado) ───
+if ! command -v yt-dlp &> /dev/null; then
+    echo ""
+    echo "🎵 yt-dlp no encontrado. Instalando..."
+    sudo wget https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -O /usr/local/bin/yt-dlp
+    sudo chmod a+rx /usr/local/bin/yt-dlp
+    echo "   ✅ yt-dlp instalado"
+else
+    echo "🎵 yt-dlp detectado ✅"
+fi
+
 # ─── 5. Limpiar e instalar dependencias ───
 echo ""
 echo "📦 Instalando dependencias..."

@@ -334,7 +334,8 @@ async function inicializarMusica() {
         // ─── Función para actualizar el mensaje now playing ───
         async function actualizarNowPlaying(queue) {
             const guildId = queue.guild.id;
-            const msgRef = nowPlayingMessages.get(guildId);
+            const data = nowPlayingMessages.get(guildId);
+            const msgRef = data?.msg;
             if (!msgRef || !queue.currentTrack) return;
 
             try {
@@ -347,236 +348,178 @@ async function inicializarMusica() {
         }
 
         // ─── Evento: Nueva canción empieza a sonar ───
-        client.player.events.on('playerStart', (queue, track) => {
-            if (!queue.metadata?.channel) return;
+        // ─── Setup Collector Helper ───
+        function setupCollector(msg, guildId) {
+            const collector = msg.createMessageComponentCollector({
+                componentType: ComponentType.Button,
+                time: 24 * 60 * 60 * 1000 // 24 horas
+            });
 
-            const guildId = queue.guild.id;
-
-            // Borrar mensaje anterior de now playing si existe
-            // Transformar mensaje anterior en historial en lugar de borrarlo
-            const oldMsg = nowPlayingMessages.get(guildId);
-            if (oldMsg) {
+            collector.on('collect', async i => {
                 try {
-                    if (oldMsg.embeds[0]) {
-                        const oldEmbed = EmbedBuilder.from(oldMsg.embeds[0])
-                            .setColor(0x34495E) // Dark Blue/Grey para historial
-                            .setAuthor({ name: '⏮️ Historial de reproducción' })
-                            .setFooter({ text: 'Prophet Gaming | Finalizado' })
-                            .setTimestamp(); // Mantener timestamp original o actualizar
-
-                        const replayRow = new ActionRowBuilder().addComponents(
-                            new ButtonBuilder()
-                                .setCustomId('music_replay_old')
-                                .setLabel('Volver a escuchar')
-                                .setEmoji('🔄')
-                                .setStyle(ButtonStyle.Secondary)
-                        );
-
-                        oldMsg.edit({ embeds: [oldEmbed], components: [replayRow] }).catch(() => { });
-                    } else {
-                        oldMsg.delete().catch(() => { });
+                    if (i.member.voice.channelId && i.member.voice.channelId !== i.guild.members.me?.voice?.channelId) {
+                        return i.reply({ content: '❌ Estás en otro canal de voz. Entrá al mío o desconectate para usar los controles.', ephemeral: true });
                     }
-                } catch (e) {
-                    oldMsg.delete().catch(() => { });
+
+                    const currentQueue = client.player.queues.get(i.guild.id);
+                    // Solo checkear playing si no es replay_old (que ya no existe)
+                    if (!currentQueue || (!currentQueue.isPlaying() && i.customId !== 'music_queue')) {
+                        return i.reply({ content: '❌ No hay nada reproduciéndose.', ephemeral: true });
+                    }
+
+                    switch (i.customId) {
+                        case 'music_prev': {
+                            const hist = musicHistory.get(guildId) || [];
+                            if (hist.length === 0) {
+                                return i.reply({ content: '❌ No hay canciones anteriores.', ephemeral: true });
+                            }
+                            const prevTrack = hist.pop();
+                            musicHistory.set(guildId, hist);
+                            currentQueue.insertTrack(prevTrack, 0);
+                            currentQueue.node.skip();
+                            await i.reply({ content: `⏮️ Volviendo a **${prevTrack.title}**`, ephemeral: true });
+                            break;
+                        }
+                        case 'music_pause': {
+                            currentQueue.node.isPaused() ? currentQueue.node.resume() : currentQueue.node.pause();
+                            await actualizarNowPlaying(currentQueue);
+                            if (!i.replied) await i.deferUpdate();
+                            break;
+                        }
+                        case 'music_skip': {
+                            const skippedTrack = currentQueue.currentTrack;
+                            await i.reply({ content: `⏭️ **${skippedTrack?.title || 'Canción'}** saltada por ${i.user}`, ephemeral: true });
+                            currentQueue.node.skip();
+                            break;
+                        }
+                        case 'music_stop': {
+                            currentQueue.delete();
+                            // emptyQueue se encargará de actualizar el mensaje
+                            if (!i.replied) await i.deferUpdate();
+                            break;
+                        }
+                        case 'music_replay': {
+                            currentQueue.node.seek(0);
+                            await i.reply({ content: `🔄 Reproduciendo de nuevo **${currentQueue.currentTrack?.title}**`, ephemeral: true });
+                            break;
+                        }
+                        case 'music_loop': {
+                            const modeNames = ['❌ Desactivado', '🔂 Canción en loop', '🔁 Cola en loop'];
+                            const nextMode = (currentQueue.repeatMode + 1) % 3;
+                            currentQueue.setRepeatMode(nextMode);
+                            await actualizarNowPlaying(currentQueue);
+                            await i.followUp({ content: `${modeNames[nextMode]}`, ephemeral: true });
+                            break;
+                        }
+                        case 'music_shuffle': {
+                            currentQueue.tracks.shuffle();
+                            await actualizarNowPlaying(currentQueue);
+                            await i.followUp({ content: '🔀 Cola mezclada aleatoriamente', ephemeral: true });
+                            break;
+                        }
+                        case 'music_voldown': {
+                            const newVol = Math.max(0, currentQueue.node.volume - 10);
+                            currentQueue.node.setVolume(newVol);
+                            await actualizarNowPlaying(currentQueue);
+                            if (!i.replied) await i.deferUpdate();
+                            break;
+                        }
+                        case 'music_volup': {
+                            const newVol = Math.min(100, currentQueue.node.volume + 10);
+                            currentQueue.node.setVolume(newVol);
+                            await actualizarNowPlaying(currentQueue);
+                            if (!i.replied) await i.deferUpdate();
+                            break;
+                        }
+                        case 'music_queue': {
+                            const tracks = currentQueue.tracks.toArray();
+                            const hist = musicHistory.get(guildId) || [];
+
+                            let desc = `🎵 **Reproduciendo:** [${currentQueue.currentTrack.title}](${currentQueue.currentTrack.url}) — \`${currentQueue.currentTrack.duration}\`\n\n`;
+
+                            if (tracks.length > 0) {
+                                desc += '📋 **Cola:**\n';
+                                tracks.slice(0, 10).forEach((t, i) => {
+                                    desc += `\`${i + 1}.\` [${t.title.length > 45 ? t.title.substring(0, 45) + '...' : t.title}](${t.url}) — \`${t.duration}\`\n`;
+                                });
+                                if (tracks.length > 10) desc += `*...y ${tracks.length - 10} temas más*\n`;
+                            } else {
+                                desc += '*La cola está vacía. Usá `/play` para agregar más temas.*\n';
+                            }
+
+                            if (hist.length > 0) {
+                                desc += '\n⏮️ **Historial reciente:**\n';
+                                hist.slice(-5).reverse().forEach((t, i) => {
+                                    desc += `\`${i + 1}.\` ${t.title.length > 45 ? t.title.substring(0, 45) + '...' : t.title} — \`${t.duration}\`\n`;
+                                });
+                            }
+
+                            const queueEmbed = new EmbedBuilder()
+                                .setColor(config.COLORES.MUSICA || 0x9B59B6)
+                                .setTitle('🎶 Cola de reproducción')
+                                .setDescription(desc)
+                                .setFooter({ text: `${tracks.length} en cola • ${hist.length} reproducidas • Volumen: ${currentQueue.node.volume}%` })
+                                .setTimestamp();
+
+                            await i.reply({ embeds: [queueEmbed], ephemeral: true });
+                            break;
+                        }
+                    }
+                } catch (err) {
+                    console.error('Error en botón de música:', err.message);
                 }
-                nowPlayingMessages.delete(guildId);
-            }
+            });
+
+            collector.on('end', (collected, reason) => {
+                if (reason === 'renew') return;
+                // Si expira por tiempo, limpiamos botones pero dejamos embed
+                // O chequeamos si sigue siendo nuestro mensaje
+                const data = nowPlayingMessages.get(guildId);
+                if (data && data.msg.id === msg.id) {
+                    msg.edit({ components: [] }).catch(() => { });
+                    nowPlayingMessages.delete(guildId);
+                }
+            });
+
+            return collector;
+        }
+
+        // ─── Evento: Nueva canción empieza a sonar ───
+        client.player.events.on('playerStart', async (queue, track) => {
+            if (!queue.metadata?.channel) return;
+            const guildId = queue.guild.id;
 
             const embed = crearNowPlayingEmbed(queue, track);
             const rows = crearBotonesMusica(queue);
 
-            queue.metadata.channel.send({ embeds: [embed], components: rows }).then(msg => {
-                nowPlayingMessages.set(guildId, msg);
+            const data = nowPlayingMessages.get(guildId);
 
-                // Collector permanente (se renueva con cada canción)
-                const collector = msg.createMessageComponentCollector({
-                    componentType: ComponentType.Button,
-                    time: 24 * 60 * 60 * 1000 // 24 horas
-                });
+            // Intentar actualizar mensaje existente
+            if (data && data.msg) {
+                try {
+                    // Si existe el collector anterior, lo paramos con 'renew'
+                    if (data.collector) data.collector.stop('renew');
 
-                collector.on('collect', async i => {
-                    try {
-                        // Verificar canal de voz: Permitir si el usuario está en el MISMO canal o en NINGUNO (control remoto)
-                        // Solo bloquear si está en un canal DIFERENTE
-                        if (i.member.voice.channelId && i.member.voice.channelId !== i.guild.members.me?.voice?.channelId) {
-                            return i.reply({ content: '❌ Estás en otro canal de voz. Entrá al mío o desconectate para usar los controles.', ephemeral: true });
-                        }
+                    const msg = data.msg;
+                    await msg.edit({ embeds: [embed], components: rows });
 
-                        // Para los botones normales, verificar cola activa. Para replay_old, no es necesario.
-                        if (i.customId !== 'music_replay_old') {
-                            const currentQueue = client.player.queues.get(i.guild.id);
-                            if (!currentQueue || !currentQueue.isPlaying()) {
-                                return i.reply({ content: '❌ No hay nada reproduciéndose.', ephemeral: true });
-                            }
-                        }
+                    // Renovar collector
+                    const newCollector = setupCollector(msg, guildId);
+                    nowPlayingMessages.set(guildId, { msg, collector: newCollector });
 
-                        // Obtener currentQueue nuevamente para usarlo dentro del switch si hace falta
-                        // Nota: Para music_replay_old no usamos currentQueue del contexto actual sino el track del closure.
-                        const currentQueue = client.player.queues.get(i.guild.id);
-
-                        switch (i.customId) {
-                            case 'music_prev': {
-                                const hist = musicHistory.get(guildId) || [];
-                                if (hist.length === 0) {
-                                    return i.reply({ content: '❌ No hay canciones anteriores.', ephemeral: true });
-                                }
-                                const prevTrack = hist.pop();
-                                musicHistory.set(guildId, hist);
-                                currentQueue.insertTrack(prevTrack, 0);
-                                currentQueue.node.skip();
-                                await i.reply({ content: `⏮️ Volviendo a **${prevTrack.title}**`, ephemeral: true });
-                                break;
-                            }
-                            case 'music_pause': {
-                                currentQueue.node.isPaused() ? currentQueue.node.resume() : currentQueue.node.pause();
-                                const embed = crearNowPlayingEmbed(currentQueue, currentQueue.currentTrack);
-                                const rows = crearBotonesMusica(currentQueue);
-                                await i.update({ embeds: [embed], components: rows });
-                                break;
-                            }
-                            case 'music_skip': {
-                                const skippedTrack = currentQueue.currentTrack;
-                                await i.reply({ content: `⏭️ **${skippedTrack?.title || 'Canción'}** saltada por ${i.user}`, ephemeral: true });
-                                currentQueue.node.skip();
-                                break;
-                            }
-                            case 'music_stop': {
-                                currentQueue.delete();
-                                musicHistory.delete(guildId);
-                                nowPlayingMessages.delete(guildId);
-                                await i.update({
-                                    embeds: [new EmbedBuilder()
-                                        .setColor(0xFF0000)
-                                        .setDescription('⏹️ **Música detenida.** La cola fue vaciada y me desconecté del canal.')
-                                        .setFooter({ text: `Detenida por ${i.user.username}` })
-                                        .setTimestamp()
-                                    ],
-                                    components: []
-                                });
-                                collector.stop();
-                                break;
-                            }
-                            case 'music_replay': {
-                                const currentTrack = currentQueue.currentTrack;
-                                if (currentTrack) {
-                                    currentQueue.insertTrack(currentTrack, 0);
-                                    currentQueue.node.skip();
-                                    await i.reply({ content: `🔄 Reproduciendo de nuevo **${currentTrack.title}**`, ephemeral: true });
-                                } else {
-                                    await i.reply({ content: '❌ No hay canción para repetir.', ephemeral: true });
-                                }
-                                break;
-                            }
-                            case 'music_loop': {
-                                const modes = [0, 1, 2]; // Off → Canción → Cola → Off
-                                const modeNames = ['❌ Desactivado', '🔂 Canción en loop', '🔁 Cola en loop'];
-                                const nextMode = (currentQueue.repeatMode + 1) % 3;
-                                currentQueue.setRepeatMode(nextMode);
-                                const embed = crearNowPlayingEmbed(currentQueue, currentQueue.currentTrack);
-                                const rows = crearBotonesMusica(currentQueue);
-                                await i.update({ embeds: [embed], components: rows });
-                                await i.followUp({ content: `${modeNames[nextMode]}`, ephemeral: true });
-                                break;
-                            }
-                            case 'music_shuffle': {
-                                currentQueue.tracks.shuffle();
-                                const embed = crearNowPlayingEmbed(currentQueue, currentQueue.currentTrack);
-                                const rows = crearBotonesMusica(currentQueue);
-                                await i.update({ embeds: [embed], components: rows });
-                                await i.followUp({ content: '🔀 Cola mezclada aleatoriamente', ephemeral: true });
-                                break;
-                            }
-                            case 'music_voldown': {
-                                const newVol = Math.max(0, currentQueue.node.volume - 10);
-                                currentQueue.node.setVolume(newVol);
-                                const embed = crearNowPlayingEmbed(currentQueue, currentQueue.currentTrack);
-                                const rows = crearBotonesMusica(currentQueue);
-                                await i.update({ embeds: [embed], components: rows });
-                                break;
-                            }
-                            case 'music_volup': {
-                                const newVol = Math.min(100, currentQueue.node.volume + 10);
-                                currentQueue.node.setVolume(newVol);
-                                const embed = crearNowPlayingEmbed(currentQueue, currentQueue.currentTrack);
-                                const rows = crearBotonesMusica(currentQueue);
-                                await i.update({ embeds: [embed], components: rows });
-                                break;
-                            }
-                            case 'music_queue': {
-                                const tracks = currentQueue.tracks.toArray();
-                                const hist = musicHistory.get(guildId) || [];
-
-                                let desc = `🎵 **Reproduciendo:** [${currentQueue.currentTrack.title}](${currentQueue.currentTrack.url}) — \`${currentQueue.currentTrack.duration}\`\n\n`;
-
-                                if (tracks.length > 0) {
-                                    desc += '📋 **Cola:**\n';
-                                    tracks.slice(0, 10).forEach((t, i) => {
-                                        desc += `\`${i + 1}.\` [${t.title.length > 45 ? t.title.substring(0, 45) + '...' : t.title}](${t.url}) — \`${t.duration}\`\n`;
-                                    });
-                                    if (tracks.length > 10) desc += `*...y ${tracks.length - 10} temas más*\n`;
-                                } else {
-                                    desc += '*La cola está vacía. Usá `/play` para agregar más temas.*\n';
-                                }
-
-                                if (hist.length > 0) {
-                                    desc += '\n⏮️ **Historial reciente:**\n';
-                                    hist.slice(-5).reverse().forEach((t, i) => {
-                                        desc += `\`${i + 1}.\` ${t.title.length > 45 ? t.title.substring(0, 45) + '...' : t.title} — \`${t.duration}\`\n`;
-                                    });
-                                }
-
-                                const queueEmbed = new EmbedBuilder()
-                                    .setColor(config.COLORES.MUSICA || 0x9B59B6)
-                                    .setTitle('🎶 Cola de reproducción')
-                                    .setDescription(desc)
-                                    .setFooter({ text: `${tracks.length} en cola • ${hist.length} reproducidas • Volumen: ${currentQueue.node.volume}%` })
-                                    .setTimestamp();
-
-                                await i.reply({ embeds: [queueEmbed], ephemeral: true });
-                                break;
-                            }
-                            case 'music_replay_old': {
-                                await i.deferReply({ ephemeral: true });
-                                try {
-                                    // 'track' viene del cierre (closure) de playerStart, corresponde a ESTE mensaje histórico
-                                    const voiceChannel = i.member.voice.channel;
-                                    if (!voiceChannel) return i.editReply({ content: '❌ Tenés que estar en un canal de voz.' });
-
-                                    await i.editReply({ content: `🔄 Cargando de nuevo **${track.title}**...` });
-
-                                    await client.player.play(voiceChannel, track.url, {
-                                        requestedBy: i.user,
-                                        nodeOptions: {
-                                            metadata: { channel: i.channel },
-                                            volume: 50,
-                                            leaveOnEmpty: false,
-                                            leaveOnEmptyCooldown: 30000,
-                                            leaveOnEnd: true,
-                                            leaveOnEndCooldown: 60000,
-                                        }
-                                    });
-                                } catch (e) {
-                                    console.error(e);
-                                    await i.editReply({ content: `❌ Error al reproducir: ${e.message}` });
-                                }
-                                break;
-                            }
-                        }
-                    } catch (err) {
-                        console.error('Error en botón de música:', err.message);
-                        try {
-                            if (!i.replied && !i.deferred) {
-                                await i.reply({ content: '❌ Error al procesar.', ephemeral: true });
-                            }
-                        } catch (e) { }
-                    }
-                });
-
-                collector.on('end', () => {
-                    // Si el collector expira, remover botones
-                    msg.edit({ components: [] }).catch(() => { });
+                    // History check
+                    if (!musicHistory.has(guildId)) musicHistory.set(guildId, []);
+                    return; // Éxito, no mandamos nuevo mensaje
+                } catch (e) {
+                    // Si falló (borrado), continuamos para enviar nuevo
                     nowPlayingMessages.delete(guildId);
-                });
+                }
+            }
+
+            // Enviar nuevo mensaje si no había uno o falló la edición
+            queue.metadata.channel.send({ embeds: [embed], components: rows }).then(msg => {
+                const collector = setupCollector(msg, guildId);
+                nowPlayingMessages.set(guildId, { msg, collector });
             });
 
             // Guardar track actual al historial al cambiar de canción
@@ -647,30 +590,17 @@ async function inicializarMusica() {
                     .setColor(0x95A5A6)
                     .setDescription('📭 **Cola vacía.** Agregá más temas con `/play`.')
                     .setTimestamp();
-                queue.metadata.channel.send({ embeds: [embed] });
 
-                // Transformar el último mensaje de playing a historial
-                const oldMsg = nowPlayingMessages.get(guildId);
-                if (oldMsg) {
+                // Actualizar mensaje existente si hay uno
+                const data = nowPlayingMessages.get(guildId);
+                if (data && data.msg) {
                     try {
-                        if (oldMsg.embeds[0]) {
-                            const oldEmbed = EmbedBuilder.from(oldMsg.embeds[0])
-                                .setColor(0x34495E)
-                                .setAuthor({ name: '⏮️ Historial de reproducción' })
-                                .setFooter({ text: 'Prophet Gaming | Finalizado' });
-
-                            // Replay button logic relies on the existing collector attached to oldMsg
-                            const replayRow = new ActionRowBuilder().addComponents(
-                                new ButtonBuilder()
-                                    .setCustomId('music_replay_old')
-                                    .setLabel('Volver a escuchar')
-                                    .setEmoji('🔄')
-                                    .setStyle(ButtonStyle.Secondary)
-                            );
-                            oldMsg.edit({ embeds: [oldEmbed], components: [replayRow] }).catch(() => { });
-                        }
+                        if (data.collector) data.collector.stop('renew');
+                        data.msg.edit({ embeds: [embed], components: [] }).catch(() => { });
                     } catch (e) { }
                     nowPlayingMessages.delete(guildId);
+                } else {
+                    queue.metadata.channel.send({ embeds: [embed] });
                 }
             }
         });
@@ -679,19 +609,20 @@ async function inicializarMusica() {
             console.log('🔌 Bot desconectado del canal de voz');
             const guildId = queue.guild.id;
             musicHistory.delete(guildId);
-            const oldMsg = nowPlayingMessages.get(guildId);
-            if (oldMsg && oldMsg.editable) {
-                try {
-                    const oldEmbed = EmbedBuilder.from(oldMsg.embeds[0])
-                        .setColor(0x34495E)
-                        .setAuthor({ name: '⏮️ Historial de reproducción' })
-                        .setFooter({ text: 'Prophet Gaming | Finalizado por desconexión' });
 
-                    // No podemos agregar botón de replay fácil aquí porque no tenemos el 'track' del closure a mano 
-                    // (el msg original tiene su collector, pero si editamos los componentes aquí, ¿rompemos algo?)
-                    // Mejor dejarlo como historial visual sin botones o intentar mantener el botón si ya lo tenía.
-                    // Si es 'disconnect', el bot se fue.
-                    oldMsg.edit({ embeds: [oldEmbed], components: [] }).catch(() => { });
+            const data = nowPlayingMessages.get(guildId);
+            if (data && data.msg) {
+                try {
+                    if (data.collector) data.collector.stop('renew');
+
+                    if (data.msg.editable) {
+                        const oldEmbed = EmbedBuilder.from(data.msg.embeds[0] || {})
+                            .setColor(0x34495E)
+                            .setAuthor({ name: '⏮️ Historial de reproducción' })
+                            .setFooter({ text: 'Prophet Gaming | Finalizado por desconexión' });
+
+                        data.msg.edit({ embeds: [oldEmbed], components: [] }).catch(() => { });
+                    }
                 } catch (e) { }
                 nowPlayingMessages.delete(guildId);
             }
