@@ -17,23 +17,35 @@ module.exports = {
             return interaction.reply({ content: `❌ ${target.tag} no tiene datos todavía.`, ephemeral: true });
         }
 
-        const progreso = data.xp / data.xpSiguiente;
-        const barra = barraProgreso(progreso);
+        await interaction.deferReply();
 
-        const embed = new EmbedBuilder()
-            .setColor(config.COLORES.NIVEL)
-            .setTitle(`📊 Nivel de ${target.displayName}`)
-            .setThumbnail(target.displayAvatarURL({ size: 128 }))
-            .addFields(
-                { name: '🏆 Nivel', value: `**${data.level}**`, inline: true },
-                { name: '⭐ XP', value: `**${data.xp}** / ${data.xpSiguiente}`, inline: true },
-                { name: '🏅 Ranking', value: `#${data.rank}`, inline: true },
-                { name: '💬 Mensajes', value: `${data.messages}`, inline: true },
-                { name: 'Progreso', value: `${barra} ${Math.round(progreso * 100)}%` }
-            )
-            .setFooter({ text: 'Prophet Gaming | Niveles' })
-            .setTimestamp();
+        try {
+            const { generarTarjetaNivel } = require('../../utils/canvas');
+            const buffer = await generarTarjetaNivel(target, data);
 
-        await interaction.reply({ embeds: [embed] });
+            const { AttachmentBuilder } = require('discord.js');
+            const attachment = new AttachmentBuilder(buffer, { name: `nivel-${target.id}.png` });
+
+            await interaction.editReply({ files: [attachment] });
+        } catch (error) {
+            console.error('Error generando tarjeta de nivel:', error);
+            // Fallback al embed tradicional si falla el canvas
+            const progreso = data.xp / data.xpSiguiente;
+            const barra = barraProgreso(progreso);
+
+            const embed = new EmbedBuilder()
+                .setColor(config.COLORES.NIVEL)
+                .setTitle(`📊 Nivel de ${target.displayName}`)
+                .setThumbnail(target.displayAvatarURL({ size: 128 }))
+                .addFields(
+                    { name: '🏆 Nivel', value: `**${data.level}**`, inline: true },
+                    { name: '⭐ XP', value: `**${data.xp}** / ${data.xpSiguiente}`, inline: true },
+                    { name: '🏅 Ranking', value: `#${data.rank}`, inline: true },
+                    { name: 'Progreso', value: `${barra} ${Math.round(progreso * 100)}%` }
+                )
+                .setFooter({ text: 'Prophet Gaming | Niveles (Modo simple)' });
+
+            await interaction.editReply({ embeds: [embed] });
+        }
     }
 };

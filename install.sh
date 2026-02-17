@@ -130,7 +130,7 @@ node -e "require('discord-player-youtubei')" 2>/dev/null && echo "   ✅ discord
 if [ "$MUSIC_OK" = false ]; then
     echo ""
     echo "   ⚠️  Faltan módulos de música. Reinstalando suite completa..."
-    npm install discord-player@latest @discord-player/extractor@latest @discord-player/ffmpeg @discord-player/opus discord-player-youtubei@latest @discordjs/voice ffmpeg-static libsodium-wrappers --save
+    npm install discord-player@latest @discord-player/extractor@latest @discord-player/ffmpeg @discord-player/opus discord-player-youtubei@latest @discordjs/voice ffmpeg-static libsodium-wrappers canvas node-fetch --save
     echo "   ✅ Reinstalación de música completada"
 fi
 
