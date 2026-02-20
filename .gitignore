@@ -31,3 +31,6 @@ logs/
 # Other
 Plan/*.txt
 ProphetBot/node_modules/
+
+# Bot Runtime Data
+data/
