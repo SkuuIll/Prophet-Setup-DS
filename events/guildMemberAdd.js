@@ -36,7 +36,7 @@ module.exports = {
         if (member.user.bot && config.ROLES.BOTS) {
             try {
                 await member.roles.add(config.ROLES.BOTS, 'Bot detectado');
-            } catch (e) { }
+            } catch (e) { console.debug('[Bienvenida] Error asignando rol Bots:', e.message); }
             return;
         }
 

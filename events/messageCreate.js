@@ -83,7 +83,7 @@ module.exports = {
 
                 const welcomeMsg = await message.reply({ embeds: [embed] });
                 setTimeout(() => welcomeMsg.delete().catch(() => { }), 8000);
-            } catch (e) { }
+            } catch (e) { console.debug('[AFK] Error enviando mensaje de bienvenida:', e.message); }
         }
 
         // 2. Si mencionan a un usuario AFK
@@ -105,8 +105,8 @@ module.exports = {
         // ═══ ANTI-SPAM ═══
         const spam = verificarSpam(message);
         if (spam.esSpam) {
-            try { await message.delete(); } catch (e) { }
-            try { await message.member.timeout(config.ANTISPAM.MUTE_DURACION, `AutoMod: ${spam.razon}`); } catch (e) { }
+            try { await message.delete(); } catch (e) { console.debug('[AntiSpam] Error borrando mensaje:', e.message); }
+            try { await message.member.timeout(config.ANTISPAM.MUTE_DURACION, `AutoMod: ${spam.razon}`); } catch (e) { console.debug('[AntiSpam] Error silenciando usuario:', e.message); }
 
             try {
                 const embed = new EmbedBuilder()
@@ -122,7 +122,7 @@ module.exports = {
                 const canal = message.channel;
                 const aviso = await canal.send({ embeds: [embed] });
                 setTimeout(() => aviso.delete().catch(() => { }), 10000);
-            } catch (e) { }
+            } catch (e) { console.debug('[AntiSpam] Error enviando aviso:', e.message); }
 
             // Log
             const logChannel = message.guild.channels.cache.get(config.CHANNELS.LOGS);
