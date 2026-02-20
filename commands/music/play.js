@@ -75,7 +75,9 @@ module.exports = {
                 }
             });
 
-            return interaction.editReply({ content: `🎵 Cargando **${track.title}**...` });
+            await interaction.editReply({ content: `✅ **${track.title}** añadido a la cola.` });
+            setTimeout(() => interaction.deleteReply().catch(() => { }), 3000);
+            return;
 
         } catch (firstError) {
             // Si falla con URL, intentar buscar por nombre del video
@@ -99,7 +101,9 @@ module.exports = {
                         }
                     });
 
-                    return interaction.editReply({ content: `🎵 Cargando **${track.title}**...` });
+                    await interaction.editReply({ content: `✅ **${track.title}** añadido a la cola.` });
+                    setTimeout(() => interaction.deleteReply().catch(() => { }), 3000);
+                    return;
                 } catch (secondError) {
                     console.error('Play fallback error:', secondError.message);
                 }
