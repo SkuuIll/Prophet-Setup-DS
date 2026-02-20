@@ -895,7 +895,7 @@ client.once('ready', async () => {
                         await targetGuild.members.unban(tb.user_id, 'Tempban expirado - desbaneo automático');
                         console.log(`🔓 Tempban expirado: ${tb.user_id}`);
 
-                        stmts.addLog('SYSTEM_UNBAN', { userId: tb.user_id, guildId: tb.guild_id });
+                        dbStmts.addLog('SYSTEM_UNBAN', { userId: tb.user_id, guildId: tb.guild_id });
 
                         const logCh = targetGuild.channels.cache.get(config.CHANNELS.LOGS);
                         if (logCh) {
@@ -929,7 +929,7 @@ client.once('ready', async () => {
 
     client.user.setActivity('Prophet Gaming 🎮', { type: 3 }); // "Watching"
 
-    stmts.addLog('SYSTEM_BOOT', { version: '2.5.0', message: 'Prophet Bot iniciado correctamente' });
+    dbStmts.addLog('SYSTEM_BOOT', { version: '2.5.0', message: 'Prophet Bot iniciado correctamente' });
 });
 
 // Cargar todo
