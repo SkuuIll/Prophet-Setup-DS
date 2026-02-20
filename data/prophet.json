@@ -1,0 +1,377 @@
+{
+  "users": {
+    "780576683857412106": {
+      "user_id": "780576683857412106",
+      "xp": 129,
+      "level": 1,
+      "messages": 8,
+      "last_xp": 1771466254172
+    },
+    "1472731664558981283": {
+      "user_id": "1472731664558981283",
+      "xp": 24,
+      "level": 0,
+      "messages": 1,
+      "last_xp": 1771197375620
+    },
+    "1038244901315432539": {
+      "user_id": "1038244901315432539",
+      "xp": 16,
+      "level": 0,
+      "messages": 1,
+      "last_xp": 1771197800280
+    },
+    "655836778439376929": {
+      "user_id": "655836778439376929",
+      "xp": 19,
+      "level": 0,
+      "messages": 2,
+      "last_xp": 1771281246353
+    }
+  },
+  "warns": [],
+  "reaction_roles": {},
+  "giveaways": {},
+  "tickets": {},
+  "tempbans": [],
+  "config": {},
+  "logs": [
+    {
+      "type": "MUSIC_START",
+      "details": {
+        "song": "Roze Oficial, Max Carra, Valen, RAMKY EN LOS CONTROLES - Tu jardín con enanitos (Official Video)",
+        "url": "https://youtube.com/watch?v=XbRE4yxSTxY",
+        "requestedBy": "skuuill"
+      },
+      "timestamp": "2026-02-17T14:55:05.081Z"
+    },
+    {
+      "type": "COMMAND",
+      "details": {
+        "user": "skuuill",
+        "userId": "780576683857412106",
+        "command": "play",
+        "channel": "🤖・bot-comandos"
+      },
+      "timestamp": "2026-02-17T14:55:05.407Z"
+    },
+    {
+      "type": "MUSIC_START",
+      "details": {
+        "song": "Estaba aquí pensando - La Repandilla x Aneley (Video Oficial)",
+        "url": "https://youtube.com/watch?v=kvPNpzzPNu4",
+        "requestedBy": "skuuill"
+      },
+      "timestamp": "2026-02-17T14:55:14.980Z"
+    },
+    {
+      "type": "MUSIC_START",
+      "details": {
+        "song": "El Bogueto ❌ Anuel AA ❌ Yung Beef ❌ Fuerza Regida - Cuando No Era Cantante Remix , Official video",
+        "url": "https://youtube.com/watch?v=NVLgkXylEuQ",
+        "requestedBy": "skuuill"
+      },
+      "timestamp": "2026-02-17T14:55:26.596Z"
+    },
+    {
+      "type": "MUSIC_START",
+      "details": {
+        "song": "La T y La M - Soy Favela (Official Audio)",
+        "url": "https://youtube.com/watch?v=4BXIuQWhrZ8",
+        "requestedBy": "skuuill"
+      },
+      "timestamp": "2026-02-17T15:01:27.273Z"
+    },
+    {
+      "type": "MUSIC_START",
+      "details": {
+        "song": "Cazzu - Con Otra (Video Oficial)",
+        "url": "https://youtube.com/watch?v=OA3KsYPhZbw",
+        "requestedBy": "skuuill"
+      },
+      "timestamp": "2026-02-17T15:04:18.044Z"
+    },
+    {
+      "type": "MUSIC_START",
+      "details": {
+        "song": "ROSALÍA - La Perla (Official Video) ft. Yahritza Y Su Esencia",
+        "url": "https://youtube.com/watch?v=GkTWxDB21cA",
+        "requestedBy": "skuuill"
+      },
+      "timestamp": "2026-02-17T15:08:31.658Z"
+    },
+    {
+      "type": "MUSIC_START",
+      "details": {
+        "song": "DesaKTa2  //  NO SE VE - CHINGON",
+        "url": "https://youtube.com/watch?v=isTEKg4S_WE",
+        "requestedBy": "skuuill"
+      },
+      "timestamp": "2026-02-17T22:33:08.818Z"
+    },
+    {
+      "type": "COMMAND",
+      "details": {
+        "user": "skuuill",
+        "userId": "780576683857412106",
+        "command": "ayuda",
+        "channel": "🛡️・chat-staff"
+      },
+      "timestamp": "2026-02-18T00:11:44.757Z"
+    },
+    {
+      "type": "MUSIC_START",
+      "details": {
+        "song": "Q' Lokura , Los Herrera - CUIDADO QUE TE SUPERO (Estadio Geba)",
+        "url": "https://youtube.com/watch?v=KCRCmHxcSHI",
+        "requestedBy": "skuuill"
+      },
+      "timestamp": "2026-02-18T00:35:35.406Z"
+    },
+    {
+      "type": "MUSIC_START",
+      "details": {
+        "song": "Roze Oficial, Max Carra, Valen, RAMKY EN LOS CONTROLES - Tu jardín con enanitos (Official Video)",
+        "url": "https://youtube.com/watch?v=XbRE4yxSTxY",
+        "requestedBy": "skuuill"
+      },
+      "timestamp": "2026-02-18T12:56:17.850Z"
+    },
+    {
+      "type": "COMMAND",
+      "details": {
+        "user": "skuuill",
+        "userId": "780576683857412106",
+        "command": "play",
+        "channel": "🤖・bot-comandos"
+      },
+      "timestamp": "2026-02-18T12:56:18.155Z"
+    },
+    {
+      "type": "MUSIC_START",
+      "details": {
+        "song": "Estaba aquí pensando - La Repandilla x Aneley (Video Oficial)",
+        "url": "https://youtube.com/watch?v=kvPNpzzPNu4",
+        "requestedBy": "skuuill"
+      },
+      "timestamp": "2026-02-18T12:59:16.855Z"
+    },
+    {
+      "type": "MUSIC_START",
+      "details": {
+        "song": "El Bogueto ❌ Anuel AA ❌ Yung Beef ❌ Fuerza Regida - Cuando No Era Cantante Remix , Official video",
+        "url": "https://youtube.com/watch?v=NVLgkXylEuQ",
+        "requestedBy": "skuuill"
+      },
+      "timestamp": "2026-02-18T13:02:22.704Z"
+    },
+    {
+      "type": "MUSIC_START",
+      "details": {
+        "song": "La T y La M - Soy Favela (Official Audio)",
+        "url": "https://youtube.com/watch?v=4BXIuQWhrZ8",
+        "requestedBy": "skuuill"
+      },
+      "timestamp": "2026-02-18T13:08:23.061Z"
+    },
+    {
+      "type": "MUSIC_START",
+      "details": {
+        "song": "Cazzu - Con Otra (Video Oficial)",
+        "url": "https://youtube.com/watch?v=OA3KsYPhZbw",
+        "requestedBy": "skuuill"
+      },
+      "timestamp": "2026-02-18T13:11:13.505Z"
+    },
+    {
+      "type": "MUSIC_START",
+      "details": {
+        "song": "ROSALÍA - La Perla (Official Video) ft. Yahritza Y Su Esencia",
+        "url": "https://youtube.com/watch?v=GkTWxDB21cA",
+        "requestedBy": "skuuill"
+      },
+      "timestamp": "2026-02-18T13:15:27.239Z"
+    },
+    {
+      "type": "MUSIC_START",
+      "details": {
+        "song": "DesaKTa2  //  NO SE VE - CHINGON",
+        "url": "https://youtube.com/watch?v=isTEKg4S_WE",
+        "requestedBy": "skuuill"
+      },
+      "timestamp": "2026-02-18T13:19:00.113Z"
+    },
+    {
+      "type": "MUSIC_START",
+      "details": {
+        "song": "Q' Lokura , Los Herrera - CUIDADO QUE TE SUPERO (Estadio Geba)",
+        "url": "https://youtube.com/watch?v=KCRCmHxcSHI",
+        "requestedBy": "skuuill"
+      },
+      "timestamp": "2026-02-18T13:21:55.944Z"
+    },
+    {
+      "type": "MUSIC_START",
+      "details": {
+        "song": "Luciano Pereyra, Ezequiel y La Clave, Un Poco de Ruido y Pinky SD - Si No Es Muy Tarde",
+        "url": "https://youtube.com/watch?v=P5iXvjML0hg",
+        "requestedBy": "skuuill"
+      },
+      "timestamp": "2026-02-18T13:24:47.856Z"
+    },
+    {
+      "type": "MUSIC_START",
+      "details": {
+        "song": "Q' LoKura - Quédate / Soy Favela / Lo que hay x aquí",
+        "url": "https://youtube.com/watch?v=Xf8YBQorg6g",
+        "requestedBy": "skuuill"
+      },
+      "timestamp": "2026-02-18T13:28:05.218Z"
+    },
+    {
+      "type": "MUSIC_START",
+      "details": {
+        "song": "W Sound 05 \"LA PLENA\" - Beéle, Westcol, Ovy On The Drums",
+        "url": "https://youtube.com/watch?v=F1_aOX0acbY",
+        "requestedBy": "skuuill"
+      },
+      "timestamp": "2026-02-18T13:34:08.845Z"
+    },
+    {
+      "type": "MUSIC_START",
+      "details": {
+        "song": "BENJI BENDI FT VILLANO 13 - GATA FINA",
+        "url": "https://youtube.com/watch?v=WXmVCOdO8mc",
+        "requestedBy": "skuuill"
+      },
+      "timestamp": "2026-02-18T13:36:41.839Z"
+    },
+    {
+      "type": "MUSIC_START",
+      "details": {
+        "song": "JERE KLEIN X KATTEYES - TODO K VER (VIDEO OFICIAL)",
+        "url": "https://youtube.com/watch?v=FQmNXNh8w2k",
+        "requestedBy": "skuuill"
+      },
+      "timestamp": "2026-02-18T13:39:58.789Z"
+    },
+    {
+      "type": "MUSIC_START",
+      "details": {
+        "song": "La Kuppé - Cuidado Que Te Supero / Calumnia / Tattoo (Video Oficial)",
+        "url": "https://youtube.com/watch?v=pEI7r4TFi3g",
+        "requestedBy": "skuuill"
+      },
+      "timestamp": "2026-02-18T13:42:39.873Z"
+    },
+    {
+      "type": "MUSIC_START",
+      "details": {
+        "song": "El Bogueto , Yung Beef , Cuando No Era Cantante , No Hay Loco Que No Corone 👑 ( Visualizer )",
+        "url": "https://youtube.com/watch?v=w_LJ7_0YLBk",
+        "requestedBy": "skuuill"
+      },
+      "timestamp": "2026-02-18T13:48:35.422Z"
+    },
+    {
+      "type": "MUSIC_START",
+      "details": {
+        "song": "BAD BUNNY - BAILE INoLVIDABLE (Video Oficial) | DeBÍ TiRAR MáS FOToS",
+        "url": "https://youtube.com/watch?v=a1Femq4NPxs",
+        "requestedBy": "skuuill"
+      },
+      "timestamp": "2026-02-18T13:52:09.923Z"
+    },
+    {
+      "type": "MUSIC_START",
+      "details": {
+        "song": "Gonzalo Nawel ft. @DvannMa - Rocha (Remix) (Video Lyric Oficial)",
+        "url": "https://youtube.com/watch?v=fADJLmidraw",
+        "requestedBy": "skuuill"
+      },
+      "timestamp": "2026-02-18T13:58:30.569Z"
+    },
+    {
+      "type": "MUSIC_START",
+      "details": {
+        "song": "Q' Lokura x La T y La M - Un Montón De Estrellas / El Doctorado / Siguiendo La Luna",
+        "url": "https://youtube.com/watch?v=vFCkw3NiKQc",
+        "requestedBy": "skuuill"
+      },
+      "timestamp": "2026-02-18T14:02:30.252Z"
+    },
+    {
+      "type": "MUSIC_START",
+      "details": {
+        "song": "Felix Record - Cuentame (Video Oficial)",
+        "url": "https://youtube.com/watch?v=OiAhoxJ3op8",
+        "requestedBy": "skuuill"
+      },
+      "timestamp": "2026-02-18T14:16:10.355Z"
+    },
+    {
+      "type": "MUSIC_START",
+      "details": {
+        "song": "Marama, The la Planta, Valen Vargas - Enemigos (Remix)",
+        "url": "https://youtube.com/watch?v=D1IC0qix10k",
+        "requestedBy": "skuuill"
+      },
+      "timestamp": "2026-02-18T14:19:45.522Z"
+    },
+    {
+      "type": "MUSIC_START",
+      "details": {
+        "song": "DesaKTa2 x Valentina Márquez // Si Esta Casa Hablara - Tu Misterioso Alguien  (En Vivo)",
+        "url": "https://youtube.com/watch?v=cDOM5FWNNpg",
+        "requestedBy": "skuuill"
+      },
+      "timestamp": "2026-02-18T14:23:03.410Z"
+    },
+    {
+      "type": "MUSIC_START",
+      "details": {
+        "song": "Alleh & Yorghaki - capaz (merengueton) (visualizer)",
+        "url": "https://youtube.com/watch?v=cMhT1SqxqHY",
+        "requestedBy": "skuuill"
+      },
+      "timestamp": "2026-02-18T14:26:44.767Z"
+    },
+    {
+      "type": "MUSIC_START",
+      "details": {
+        "song": "DADDY YANKEE \\|\\| BZRP Music Sessions #0/66",
+        "url": "https://youtube.com/watch?v=qNw8ejrI0nM",
+        "requestedBy": "skuuill"
+      },
+      "timestamp": "2026-02-18T14:29:47.356Z"
+    },
+    {
+      "type": "MUSIC_START",
+      "details": {
+        "song": "Ryan Castro, Kapo, Gangsta - LA VILLA (Video Oficial) | HOPI SENDÉ",
+        "url": "https://youtube.com/watch?v=EochZ-iyrqQ",
+        "requestedBy": "skuuill"
+      },
+      "timestamp": "2026-02-19T02:14:53.632Z"
+    },
+    {
+      "type": "MUSIC_START",
+      "details": {
+        "song": "The La Planta - Mix Cumbia 3 | Valen Vargas - Luna Dile \\\\ Sin Testigos ( Video Oficial ) ",
+        "url": "https://youtube.com/watch?v=mxm9BUf07nk",
+        "requestedBy": "skuuill"
+      },
+      "timestamp": "2026-02-20T00:11:13.122Z"
+    },
+    {
+      "type": "MUSIC_START",
+      "details": {
+        "song": "ESA TE DEJÓ, TE QUISE OLVIDAR, JAMAS VAS A DECIRLE - Los Herrera",
+        "url": "https://youtube.com/watch?v=CfhQ-UcdZu4",
+        "requestedBy": "skuuill"
+      },
+      "timestamp": "2026-02-20T00:15:18.462Z"
+    }
+  ],
+  "_warnIdCounter": 0
+}
