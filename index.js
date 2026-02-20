@@ -140,11 +140,22 @@ async function inicializarMusica() {
             skipFFmpeg: false,
             ytdlOptions: {
                 quality: 'highestaudio',
-                highWaterMark: 1 << 24, // 16MB buffer (más estable que 32MB)
-                dlChunkSize: 0,         // Desactivar chunking para descarga continua
-                ipv6Block: true,        // Forzar IPv4
+                highWaterMark: 1 << 21, // Bajamos a 2MB (Flujo constante, evita picos de GC)
+                dlChunkSize: 0,
+                ipv6Block: true,
+                filter: 'audioonly',
             },
+            // Opciones críticas para evitar desconexiones de FFmpeg
+            ffmpegOptions: {
+                args: [
+                    '-reconnect', '1',
+                    '-reconnect_streamed', '1',
+                    '-reconnect_delay_max', '5',
+                    '-analyzeduration', '0',
+                ]
+            }
         });
+
 
         // Intentar cargar YoutubeiExtractor para BÚSQUEDA y metadata de YouTube
         try {
@@ -161,6 +172,22 @@ async function inicializarMusica() {
 
         // Cargar extractores adicionales (Spotify, SoundCloud, etc.)
         await client.player.extractors.loadMulti(DefaultExtractors);
+
+        // ═══ DEBUGGING AVANZADO ═══
+        client.player.events.on('playerError', (queue, error) => {
+            console.error(`❌ [PlayerError] ${error.message}`);
+        });
+
+        client.player.events.on('error', (queue, error) => {
+            console.error(`❌ [ConnectionError] ${error.message}`);
+        });
+
+        client.player.events.on('debug', (queue, message) => {
+            // Filtrar logs irrelevantes, mostrar solo buffering/streaming
+            if (message.includes('[StreamDispatcher]') || message.includes('buffering') || message.includes('connection')) {
+                console.log(`🐛 [Debug] ${message}`);
+            }
+        });
 
         // ═══ HOOK: Usar yt-dlp para obtener el stream de audio ═══
         // discord-player v7 usa un registro global para onBeforeCreateStream
@@ -753,14 +780,8 @@ async function inicializarMusica() {
         });
 
         client.player.events.on('playerSkip', (queue, track) => {
-            console.warn(`⏭️ Track saltado (no se pudo reproducir): ${track.title}`);
-            if (queue?.metadata?.channel) {
-                const embed = new EmbedBuilder()
-                    .setColor(MUSIC_COLORS.SKIP)
-                    .setDescription(`> ⏭️ **${formatearTitulo(track.title, 50)}** no se pudo reproducir y fue saltada automáticamente.`)
-                    .setTimestamp();
-                queue.metadata.channel.send({ embeds: [embed] }).then(m => setTimeout(() => m.delete().catch(() => { }), 8000));
-            }
+            console.warn(`⏭️ Track saltado: ${track.title}`);
+            // No enviar mensaje al chat para no spamear ni confundir skip manual con error.
         });
 
         // ─── Eventos informativos ───
