@@ -9,7 +9,7 @@ module.exports = {
     async execute(oldState, newState) {
         if (newState.member.user.bot) return;
 
-        // ---------- LOGIC DE JOINT-TO-CREATE ----------
+        // ---------- LOGIC DE JOINT-TO-CREATE Y ESTADOS ----------
         const { stmts } = require('../database');
 
         // El id del canal que "genera" las salas, tomado de la DB
@@ -19,33 +19,49 @@ module.exports = {
         const categoryId = configCat ? configCat.value : null;
 
         const STATUSES = [
-            '💎 VIP Lounge',
-            '🎮 Puro Tryhard',
-            '🔥 En racha positiva',
-            '🎶 Charla y música',
-            '👽 Teorías conspirativas',
-            '🍺 Chill y relax',
-            '💥 Rompiéndola toda',
-            '😴 Modo AFK / Descanso',
-            '🌟 Partidas épicas',
-            '🔪 Modo Sigilo',
-            '🏎️ Acelerando a fondo',
-            '👻 Cazando fantasmas',
-            '🧙‍♂️ Lanzando hechizos',
-            '🚀 Rumbo a la luna',
-            '🍕 Comiendo pizza',
-            '🎙️ Podcast en vivo',
-            '😎 Puros pros acá',
-            '🤡 Troleando un rato',
-            '🛠️ Construyendo cosas',
-            '🎯 Apuntando cabezas',
-            '🧗‍♂️ Escalando de rango',
-            '🕵️‍♂️ Modo Investigador',
-            '🌌 Explorando el universo',
-            '👾 Matando marcianos'
+            "🤬 Modo Tóxico ON",
+            "🧂 Más salado que el mar",
+            "📉 Perdiendo RP...",
+            "💀 Carreados por el team",
+            "🐒 Equipo de macacos",
+            "🚮 Basura espacial",
+            "🔥 Tilteados al máximo",
+            "🖱️ Rompiendo periféricos",
+            "💦 Sudando sangre",
+            "🏆 Smurfeando chilling",
+            "❌ Alt + F4 inminente",
+            "🤡 Circo de 5 pistas",
+            "🤝 Carrileando bronces",
+            "🛑 Lag mental",
+            "♿ Mi team da pena",
+            "🎮 Feedeando intencionalmente",
+            "🚪 Desinstalando el juego",
+            "🤐 Muteall y a ganar",
+            "🔪 Apuñaladas al team",
+            "🚑 Llama a la ambulancia",
+            "🦶 Jugando con los pies",
+            "💻 Monitor apagado",
+            "🗑️ Directo a la basura",
+            "🦍 Mentalidad de Plata IV",
+            "💤 Dormido esperando gank",
+            "🥊 Boxeando al teclado",
+            "💥 0/10 power spike",
+            "🐔 Campeando",
+            "🐛 El juego está bug!",
+            "🤖 Somos todos bots",
+            "👀 Jugando a ciegas",
+            "🗣️ Mucho texto, poco aim",
+            "🐌 Reflejos de caracol",
+            "🧠 -100 IQ plays",
+            "🧱 Hablándole a la pared",
+            "🚨 Reporte en progreso...",
+            "💩 Mis mecánicas dan asco",
+            "🤡 Los payasos del server",
+            "💣 A punto de explotar",
+            "🚫 Chat restringido"
         ];
 
-        // Si entró a un canal de voz y es el canal generador
+        // 1. Lógica del creador de salas temporales
         if (newState.channelId && newState.channelId === generatorId) {
             try {
                 // Crear canal temporal
@@ -65,41 +81,39 @@ module.exports = {
                 // Mover al usuario al canal recién creado
                 await newState.member.voice.setChannel(newChannel.id);
 
-                // Asignarle un estado al azar al canal de voz usando @discordjs/voice para entrar 1 seg
-                const { joinVoiceChannel } = require('@discordjs/voice');
+                // Asignarle un estado al azar usando la API REST directamente SIN entrar al canal
                 const randomStatus = STATUSES[Math.floor(Math.random() * STATUSES.length)];
 
                 try {
-                    const connection = joinVoiceChannel({
-                        channelId: newChannel.id,
-                        guildId: newChannel.guild.id,
-                        adapterCreator: newChannel.guild.voiceAdapterCreator,
-                        selfDeaf: true,
-                        selfMute: true
+                    await newState.client.rest.put(`/channels/${newChannel.id}/voice-status`, {
+                        body: { status: randomStatus }
                     });
-
-                    setTimeout(async () => {
-                        try {
-                            await newState.client.rest.put(`/channels/${newChannel.id}/voice-status`, {
-                                body: { status: randomStatus }
-                            });
-                        } catch (e) {
-                            console.error('Error al setear el voice status:', e.message);
-                        }
-                        // Desconectamos para que salga del canal
-                        connection.destroy();
-                    }, 500); // 0.5 segundos después de entrar
-
                 } catch (e) {
-                    console.error('Error conectando temporalmente:', e.message);
+                    console.error('Error al setear el voice status por REST:', e.message);
                 }
 
             } catch (error) {
                 console.error('Error creando canal temporal:', error);
             }
         }
+        // 2. Lógica para asignar estado random si ingresa a otro canal normal (que no sea el creador)
+        else if (newState.channelId) {
+            // Verificar si el canal está recién ocupándose o si queremos cambiarlo siempre
+            // Lo ideal es cambiar el estado si es la primera persona en entrar al canal
+            const channel = newState.channel;
+            if (channel && channel.members.size === 1) { // Acaba de entrar el primer usuario
+                const randomStatus = STATUSES[Math.floor(Math.random() * STATUSES.length)];
+                try {
+                    await newState.client.rest.put(`/channels/${channel.id}/voice-status`, {
+                        body: { status: randomStatus }
+                    });
+                } catch (e) {
+                    // Ignorar errores si no tiene perms para canales que no son del bot etc
+                }
+            }
+        }
 
-        // Si salió del canal, checkear el canal que dejó
+        // Si salió del canal, checkear el canal que dejó (Para borrar temporales o limpiar su estado)
         if (oldState.channelId) {
             const leftChannel = oldState.channel;
             if (leftChannel
@@ -109,8 +123,20 @@ module.exports = {
                 // El canal pertenece a la categoría de temporales, no es el maestro, y quedó vacío. Lo borramos.
                 leftChannel.delete('Canal de voz temporal vacío').catch(() => { });
             }
+            else if (leftChannel && leftChannel.members.size === 0) {
+                // Si es un canal normal y se vacía, podríamos limpiar el status
+                // Retrasamos un segundito la limpieza para no saturar Rate Limits de Discord
+                setTimeout(async () => {
+                    try {
+                        // Discord API acepta string vacío o null, pero a veces omite si es rate-limit
+                        await oldState.client.rest.put(`/channels/${leftChannel.id}/voice-status`, {
+                            body: { status: "" }
+                        });
+                    } catch (e) { }
+                }, 1000);
+            }
         }
-        // ---------- FIN LOGIC JOINT-TO-CREATE ----------
+        // ---------- FIN LOGIC JOINT-TO-CREATE Y ESTADOS ----------
 
         // Logs originales
         const logChannelId = config.CHANNELS.LOGS;
