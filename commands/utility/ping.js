@@ -12,10 +12,10 @@ module.exports = {
         const latency = sent.createdTimestamp - interaction.createdTimestamp;
         const apiPing = Math.round(interaction.client.ws.ping);
 
-        // Indicadores de calidad
+        // Indicadores de calidad (ajustados para VPS Argentina → Discord US)
         const getIndicator = (ms) => {
-            if (ms < 100) return { emoji: '🟢', text: 'Excelente' };
-            if (ms < 200) return { emoji: '🟡', text: 'Buena' };
+            if (ms < 250) return { emoji: '🟢', text: 'Excelente' };
+            if (ms < 400) return { emoji: '🟡', text: 'Aceptable' };
             return { emoji: '🔴', text: 'Alta' };
         };
 
