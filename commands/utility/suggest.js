@@ -5,8 +5,8 @@ const config = require('../../config');
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('suggest')
-        .setDescription('Enviar una sugerencia al servidor')
-        .addStringOption(o => o.setName('propuesta').setDescription('Tu sugerencia').setRequired(true)),
+        .setDescription('💡 Enviar una sugerencia al servidor')
+        .addStringOption(o => o.setName('propuesta').setDescription('Tu sugerencia para el servidor').setRequired(true)),
 
     async execute(interaction) {
         const suggestion = interaction.options.getString('propuesta');
@@ -14,21 +14,32 @@ module.exports = {
         const channel = interaction.guild.channels.cache.get(channelId);
 
         if (!channel) {
-            return interaction.reply({ content: '❌ El canal de sugerencias no está configurado o no existe.', ephemeral: true });
+            return interaction.reply({
+                content: '> ❌ El canal de sugerencias no está configurado o no existe.',
+                ephemeral: true
+            });
         }
 
         const embed = new EmbedBuilder()
-            .setColor(config.COLORES.INFO)
-            .setAuthor({ name: interaction.user.tag, iconURL: interaction.user.displayAvatarURL() })
-            .setTitle('💡 Nueva Sugerencia')
-            .setDescription(suggestion)
-            .setFooter({ text: 'Prophet Gaming | Sugerencias' })
+            .setColor(config.COLORES.INFO || 0x42A5F5)
+            .setAuthor({ name: '💡  Nueva sugerencia', iconURL: interaction.user.displayAvatarURL() })
+            .setDescription(
+                `> ${suggestion}\n\n` +
+                `**Propuesta por:** ${interaction.user}\n` +
+                `**Estado:** 🟡 En revisión`
+            )
+            .setFooter({ text: `Prophet  ·  Sugerencias  ·  Reaccioná para votar` })
             .setTimestamp();
 
         const msg = await channel.send({ embeds: [embed] });
         await msg.react('✅');
         await msg.react('❌');
 
-        await interaction.reply({ content: '✅ Sugerencia enviada correctamente.', ephemeral: true });
+        const confirmEmbed = new EmbedBuilder()
+            .setColor(config.COLORES.SUCCESS || 0x69F0AE)
+            .setDescription('> ✅ **¡Sugerencia enviada!** La comunidad puede votar con ✅/❌.')
+            .setFooter({ text: 'Prophet  ·  Sugerencias' });
+
+        await interaction.reply({ embeds: [confirmEmbed], ephemeral: true });
     }
 };

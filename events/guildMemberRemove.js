@@ -12,16 +12,25 @@ module.exports = {
         const logChannel = member.guild.channels.cache.get(config.CHANNELS.LOGS);
         if (!logChannel) return;
 
+        // Calcular cuánto tiempo estuvo en el servidor
+        const tiempoEnServidor = member.joinedTimestamp
+            ? Math.floor((Date.now() - member.joinedTimestamp) / 86400000)
+            : null;
+        const duracion = tiempoEnServidor !== null
+            ? (tiempoEnServidor > 0 ? `\`${tiempoEnServidor}\` días` : 'menos de un día')
+            : 'desconocido';
+
         const embed = new EmbedBuilder()
-            .setColor(config.COLORES.ERROR)
-            .setTitle('📤 **Salida de Miembro**')
+            .setColor(config.COLORES.ERROR || 0xEF5350)
+            .setAuthor({ name: '📤  Salida de miembro' })
             .setDescription(
-                `**Usuario:** ${member.user.tag}\n` +
-                `**ID:** \`${member.id}\`\n\n` +
-                `📉 **Contador actual:** \`${member.guild.memberCount}\` miembros`
+                `> **Usuario:** ${member.user.tag}\n` +
+                `> **ID:** \`${member.id}\`\n` +
+                `> **Tiempo en servidor:** ${duracion}\n\n` +
+                `> 📉 **Miembros actuales:** \`${member.guild.memberCount}\``
             )
             .setThumbnail(member.user.displayAvatarURL({ size: 64 }))
-            .setFooter({ text: 'Prophet Gaming | Registro de Salidas' })
+            .setFooter({ text: 'Prophet  ·  Log de salidas' })
             .setTimestamp();
 
         logChannel.send({ embeds: [embed] });

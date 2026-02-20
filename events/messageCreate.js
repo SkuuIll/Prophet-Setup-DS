@@ -1,4 +1,4 @@
-// ═══ EVENTO: messageCreate (XP + Anti-spam) ═══
+// ═══ EVENTO: messageCreate (XP + Anti-spam + AFK + Counting) ═══
 
 const { EmbedBuilder } = require('discord.js');
 const config = require('../config');
@@ -20,12 +20,15 @@ module.exports = {
             const lastUser = stmts.getConfig('COUNTING_LAST_USER')?.value;
             const number = parseInt(message.content);
 
-            // Si no es un número, ignorar (o borrar si eres estricto)
             if (isNaN(number)) return;
 
             if (message.author.id === lastUser) {
                 await message.react('❌');
-                await message.channel.send(`🚫 **${message.author}**, ¡no puedes contar dos veces seguidas! Reiniciamos a **0**. 😭`);
+                const embed = new EmbedBuilder()
+                    .setColor(config.COLORES.ERROR || 0xEF5350)
+                    .setDescription(`> 🚫 **${message.author}**, ¡no podés contar dos veces seguidas!\n> La racha se reinició a **0**. 😭`)
+                    .setFooter({ text: 'Prophet  ·  Juego de Contar' });
+                await message.channel.send({ embeds: [embed] });
                 stmts.setConfig('COUNTING_CURRENT', 0);
                 stmts.setConfig('COUNTING_LAST_USER', null);
                 return;
@@ -35,24 +38,51 @@ module.exports = {
                 await message.react('✅');
                 stmts.setConfig('COUNTING_CURRENT', number);
                 stmts.setConfig('COUNTING_LAST_USER', message.author.id);
+
+                // Celebración cada 100 números
+                if (number % 100 === 0) {
+                    const embed = new EmbedBuilder()
+                        .setColor(config.COLORES.PRINCIPAL || 0xBB86FC)
+                        .setDescription(`> 🎉 **¡Increíble!** Llegamos a **${number}**. ¡Sigan así!`)
+                        .setFooter({ text: 'Prophet  ·  Juego de Contar' });
+                    message.channel.send({ embeds: [embed] });
+                }
             } else {
                 await message.react('❌');
-                await message.channel.send(`💥 **${message.author}** arruinó la racha al decir **${number}**. ¡Íbamos por el **${currentCount + 1}**! Reiniciamos a **0**.`);
+                const embed = new EmbedBuilder()
+                    .setColor(config.COLORES.ERROR || 0xEF5350)
+                    .setDescription(`> 💥 **${message.author}** rompió la racha al decir **${number}**.\n> Íbamos por el **${currentCount + 1}**. Reiniciamos a **0**.`)
+                    .setFooter({ text: 'Prophet  ·  Juego de Contar' });
+                await message.channel.send({ embeds: [embed] });
                 stmts.setConfig('COUNTING_CURRENT', 0);
                 stmts.setConfig('COUNTING_LAST_USER', null);
             }
-            return; // No dar XP por contar para evitar spam farming
+            return;
         }
+
+        // ═══ SISTEMA AFK ═══
+
         // 1. Si el autor estaba AFK, quitarlo
         if (message.client.afk.has(message.author.id)) {
+            const afkData = message.client.afk.get(message.author.id);
             message.client.afk.delete(message.author.id);
+
             try {
-                // Restaurar nick si tenía [AFK]
                 if (message.member.displayName.startsWith('[AFK] ')) {
                     await message.member.setNickname(message.member.displayName.replace('[AFK] ', ''));
                 }
-                const welcomeMsg = await message.reply(`👋 ¡Bienvenido de vuelta, ${message.author}! He eliminado tu estado AFK.`);
-                setTimeout(() => welcomeMsg.delete().catch(() => { }), 5000);
+                const tiempoAFK = Math.floor((Date.now() - afkData.timestamp) / 1000);
+                let duracion = `${tiempoAFK}s`;
+                if (tiempoAFK >= 3600) duracion = `${Math.floor(tiempoAFK / 3600)}h ${Math.floor((tiempoAFK % 3600) / 60)}m`;
+                else if (tiempoAFK >= 60) duracion = `${Math.floor(tiempoAFK / 60)}m ${tiempoAFK % 60}s`;
+
+                const embed = new EmbedBuilder()
+                    .setColor(config.COLORES.SUCCESS || 0x69F0AE)
+                    .setDescription(`> 👋 **¡Bienvenido de vuelta, ${message.author}!**\n> Estuviste AFK por \`${duracion}\`.`)
+                    .setFooter({ text: 'Prophet  ·  Sistema AFK' });
+
+                const welcomeMsg = await message.reply({ embeds: [embed] });
+                setTimeout(() => welcomeMsg.delete().catch(() => { }), 8000);
             } catch (e) { }
         }
 
@@ -61,8 +91,12 @@ module.exports = {
             message.mentions.users.forEach(user => {
                 const afkData = message.client.afk.get(user.id);
                 if (afkData && user.id !== message.author.id) {
-                    const tiempo = Math.floor((Date.now() - afkData.timestamp) / 1000);
-                    message.reply(`💤 **${user.username}** está AFK: ${afkData.reason} (hace <t:${Math.floor(afkData.timestamp / 1000)}:R>)`)
+                    const embed = new EmbedBuilder()
+                        .setColor(config.COLORES.WARN || 0xFFB74D)
+                        .setDescription(`> 💤 **${user.username}** está AFK: *${afkData.reason}*\n> Ausente desde <t:${Math.floor(afkData.timestamp / 1000)}:R>`)
+                        .setFooter({ text: 'Prophet  ·  Sistema AFK' });
+
+                    message.reply({ embeds: [embed] })
                         .then(m => setTimeout(() => m.delete().catch(() => { }), 10000));
                 }
             });
@@ -71,20 +105,19 @@ module.exports = {
         // ═══ ANTI-SPAM ═══
         const spam = verificarSpam(message);
         if (spam.esSpam) {
-            try {
-                await message.delete();
-            } catch (e) { }
+            try { await message.delete(); } catch (e) { }
+            try { await message.member.timeout(config.ANTISPAM.MUTE_DURACION, `AutoMod: ${spam.razon}`); } catch (e) { }
 
-            try {
-                await message.member.timeout(config.ANTISPAM.MUTE_DURACION, `AutoMod: ${spam.razon}`);
-            } catch (e) { }
-
-            // Notificar al usuario
             try {
                 const embed = new EmbedBuilder()
-                    .setColor(config.COLORES.ERROR)
-                    .setDescription(`⚠️ ${message.author}, fuiste silenciado por **${config.ANTISPAM.MUTE_DURACION / 60000} minutos**.\n**Razón:** ${spam.razon}`)
-                    .setFooter({ text: 'Prophet Gaming | AutoMod' });
+                    .setColor(config.COLORES.ERROR || 0xEF5350)
+                    .setAuthor({ name: '🛡️  AutoMod — Prophet' })
+                    .setDescription(
+                        `> ${message.author}, fuiste silenciado por **${config.ANTISPAM.MUTE_DURACION / 60000} minutos**.\n` +
+                        `> **Motivo:** ${spam.razon}`
+                    )
+                    .setFooter({ text: 'Prophet  ·  Protección automática' })
+                    .setTimestamp();
 
                 const canal = message.channel;
                 const aviso = await canal.send({ embeds: [embed] });
@@ -95,9 +128,15 @@ module.exports = {
             const logChannel = message.guild.channels.cache.get(config.CHANNELS.LOGS);
             if (logChannel) {
                 const logEmbed = new EmbedBuilder()
-                    .setColor(config.COLORES.WARN)
-                    .setTitle('🛡️ AutoMod')
-                    .setDescription(`**Usuario:** ${message.author.tag} (${message.author.id})\n**Acción:** Timeout ${config.ANTISPAM.MUTE_DURACION / 60000}min\n**Razón:** ${spam.razon}\n**Canal:** ${message.channel}`)
+                    .setColor(config.COLORES.WARN || 0xFFB74D)
+                    .setAuthor({ name: '🛡️  AutoMod — Acción ejecutada' })
+                    .setDescription(
+                        `> **Usuario:** ${message.author.tag} (\`${message.author.id}\`)\n` +
+                        `> **Acción:** Timeout ${config.ANTISPAM.MUTE_DURACION / 60000}min\n` +
+                        `> **Motivo:** ${spam.razon}\n` +
+                        `> **Canal:** ${message.channel}`
+                    )
+                    .setFooter({ text: 'Prophet  ·  Log de AutoMod' })
                     .setTimestamp();
                 logChannel.send({ embeds: [logEmbed] });
             }
@@ -109,16 +148,22 @@ module.exports = {
 
         if (resultado.subioNivel) {
             const embed = new EmbedBuilder()
-                .setColor(config.COLORES.NIVEL)
-                .setTitle('🎉 ¡Subiste de nivel!')
-                .setDescription(`${message.author} subió a **Nivel ${resultado.nuevoNivel}**!`)
-                .setThumbnail(message.author.displayAvatarURL({ size: 64 }))
-                .setFooter({ text: 'Prophet Gaming | Niveles' });
+                .setColor(config.COLORES.NIVEL || 0xBB86FC)
+                .setAuthor({ name: '🎉  ¡Subiste de nivel!' })
+                .setDescription(
+                    `> ${message.author} subió a **Nivel ${resultado.nuevoNivel}**!\n` +
+                    `> ¡Seguí participando para desbloquear más recompensas!`
+                )
+                .setThumbnail(message.author.displayAvatarURL({ size: 128 }))
+                .setFooter({ text: 'Prophet  ·  Sistema de Niveles' })
+                .setTimestamp();
 
             if (resultado.rolNuevo) {
-                embed.addFields({ name: '🎭 Nuevo rol desbloqueado', value: resultado.rolNuevo });
+                embed.addFields({
+                    name: '🏅 Nuevo rol desbloqueado',
+                    value: `> ¡Obtuviste el rol **${resultado.rolNuevo}**!`
+                });
 
-                // Asignar el rol
                 const rol = message.guild.roles.cache.find(r => r.name === resultado.rolNuevo);
                 if (rol && message.member) {
                     try {

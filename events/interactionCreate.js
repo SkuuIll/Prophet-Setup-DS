@@ -17,7 +17,6 @@ module.exports = {
 
             try {
                 await comando.execute(interaction, client);
-                // Registrar en memoria de acciones
                 stmts.addLog('COMMAND', {
                     user: interaction.user.tag,
                     userId: interaction.user.id,
@@ -26,14 +25,23 @@ module.exports = {
                 });
             } catch (error) {
                 console.error(`Error en /${interaction.commandName}:`, error.message);
-                const respuesta = {
-                    content: '❌ Hubo un error ejecutando el comando.',
-                    ephemeral: true
-                };
+                const errorEmbed = new EmbedBuilder()
+                    .setColor(config.COLORES.ERROR || 0xEF5350)
+                    .setAuthor({ name: '⚠️  Error del sistema' })
+                    .setDescription(
+                        `> No se pudo ejecutar \`/${interaction.commandName}\`.\n` +
+                        `> Si el problema persiste, avisá al Staff.\n\n` +
+                        `\`\`\`\n${error.message.substring(0, 200)}\n\`\`\``
+                    )
+                    .setFooter({ text: 'Prophet Bot  ·  Error handler' })
+                    .setTimestamp();
+
+                const respuesta = { embeds: [errorEmbed], ephemeral: true };
+
                 if (interaction.replied || interaction.deferred) {
-                    await interaction.followUp(respuesta);
+                    await interaction.followUp(respuesta).catch(() => { });
                 } else {
-                    await interaction.reply(respuesta);
+                    await interaction.reply(respuesta).catch(() => { });
                 }
             }
             return;
@@ -48,27 +56,38 @@ module.exports = {
             if (id === 'sorteo_participar') return participarSorteo(interaction);
 
             // Reaction roles via botón
-            // Reaction roles via botón (rr_ o rr_auto_)
             if (id.startsWith('rr_')) {
                 const roleId = id.replace('rr_', '').replace('auto_', '');
                 const member = interaction.member;
                 const role = interaction.guild.roles.cache.get(roleId);
 
                 if (!role) {
-                    return interaction.reply({ content: '❌ Rol no encontrado. (Puede haber sido borrado)', ephemeral: true });
+                    return interaction.reply({
+                        content: '> ❌ **Rol no encontrado** — Es posible que haya sido eliminado del servidor.',
+                        ephemeral: true
+                    });
                 }
 
                 try {
                     if (member.roles.cache.has(roleId)) {
                         await member.roles.remove(role);
-                        await interaction.reply({ content: `➖ Te saqué el rol **${role.name}**.`, ephemeral: true });
+                        await interaction.reply({
+                            content: `> ➖ Se te removió el rol **${role.name}**.`,
+                            ephemeral: true
+                        });
                     } else {
                         await member.roles.add(role);
-                        await interaction.reply({ content: `➕ Te di el rol **${role.name}**.`, ephemeral: true });
+                        await interaction.reply({
+                            content: `> ✅ Se te asignó el rol **${role.name}**.`,
+                            ephemeral: true
+                        });
                     }
                 } catch (e) {
                     console.error('Error RR:', e);
-                    await interaction.reply({ content: `❌ No pude modificar el rol (Revisá mis permisos y jerarquía): ${e.message}`, ephemeral: true });
+                    await interaction.reply({
+                        content: `> ❌ **Error de permisos** — No pude modificar el rol. Avisá al Staff.\n> \`${e.message}\``,
+                        ephemeral: true
+                    });
                 }
             }
         }
@@ -82,8 +101,5 @@ module.exports = {
                 }
             }
         }
-
-        // ═══ REACTION ROLES (legacy reactions) ═══
-        // Se manejan directamente por los botones ahora
     }
 };

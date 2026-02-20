@@ -1,6 +1,6 @@
 // ═══ EVENTO: guildMemberAdd (Bienvenida) ═══
 
-const { EmbedBuilder } = require('discord.js');
+const { EmbedBuilder, AttachmentBuilder } = require('discord.js');
 const config = require('../config');
 const { verificarRaid } = require('../modules/antispam');
 
@@ -14,9 +14,10 @@ module.exports = {
             const logChannel = member.guild.channels.cache.get(config.CHANNELS.LOGS);
             if (logChannel) {
                 const embed = new EmbedBuilder()
-                    .setColor(config.COLORES.ERROR)
-                    .setTitle('🚨 ¡POSIBLE RAID DETECTADO!')
-                    .setDescription(raid.razon)
+                    .setColor(config.COLORES.ERROR || 0xEF5350)
+                    .setAuthor({ name: '🚨  ALERTA — Posible raid detectado' })
+                    .setDescription(`> ${raid.razon}\n\n> Revisá las entradas recientes y considerá activar medidas de seguridad.`)
+                    .setFooter({ text: 'Prophet  ·  Anti-Raid' })
                     .setTimestamp();
                 logChannel.send({ embeds: [embed] });
             }
@@ -36,33 +37,33 @@ module.exports = {
             try {
                 await member.roles.add(config.ROLES.BOTS, 'Bot detectado');
             } catch (e) { }
-            return; // No enviar bienvenida a bots
+            return;
         }
 
         // Embed de bienvenida
         const welcomeChannel = member.guild.channels.cache.get(config.CHANNELS.BIENVENIDOS);
         if (!welcomeChannel) return;
 
-        const { AttachmentBuilder } = require('discord.js');
         const banner = new AttachmentBuilder(config.ASSETS.BANNER, { name: 'banner.png' });
         const logo = new AttachmentBuilder(config.ASSETS.LOGO, { name: 'logo.png' });
 
         const embed = new EmbedBuilder()
-            .setColor(config.COLORES.PRINCIPAL)
-            .setTitle(`✨ ¡Bienvenido/a a ${member.guild.name}!`)
+            .setColor(config.COLORES.PRINCIPAL || 0xBB86FC)
+            .setAuthor({ name: `✨ ¡Nuevo miembro!`, iconURL: 'attachment://logo.png' })
+            .setTitle(`¡Bienvenido/a, ${member.user.username}!`)
             .setDescription(
-                `¡Hola ${member}! 👋 Nos alegra mucho tenerte con nosotros.\n` +
-                `Sos el miembro **#${member.guild.memberCount}** de la comunidad Prophet. 🎉\n\n` +
-                `**📜 Primeros Pasos para empezar:**\n` +
+                `Hola ${member}, nos alegra muchísimo tenerte acá. 👋\n` +
+                `Sos el miembro **#${member.guild.memberCount}** de la familia Prophet. 🎉\n\n` +
+                `**📜 Primeros pasos:**\n` +
                 `> 📌 Leé las **reglas** en <#${config.CHANNELS.REGLAS}>\n` +
                 `> 💬 Presentate en el chat y contanos qué jugás\n` +
                 `> 🎮 Unite a las partidas y divertite con la comunidad\n` +
-                `> 🎵 Probá los comandos de música y economía\n\n` +
+                `> 🎵 Probá los comandos de música con \`/play\`\n\n` +
                 `*¡Esperamos que la pases genial! Si necesitás ayuda, abrí un ticket.* 🎫`
             )
-            .setThumbnail('attachment://logo.png')
+            .setThumbnail(member.user.displayAvatarURL({ size: 256, dynamic: true }))
             .setImage('attachment://banner.png')
-            .setFooter({ text: 'Prophet Gaming | ¡Bienvenido a la familia!', iconURL: 'attachment://logo.png' })
+            .setFooter({ text: `Prophet Gaming  ·  ¡Bienvenido a la familia!`, iconURL: 'attachment://logo.png' })
             .setTimestamp();
 
         welcomeChannel.send({ embeds: [embed], files: [banner, logo] });

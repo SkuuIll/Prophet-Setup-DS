@@ -1,4 +1,4 @@
-// ═══ EVENTO: messageDelete + messageUpdate (Logs) ═══
+// ═══ EVENTO: messageDelete (Logs + Snipe) ═══
 
 const { EmbedBuilder } = require('discord.js');
 const config = require('../config');
@@ -8,7 +8,7 @@ module.exports = {
     once: false,
     async execute(message) {
         if (!message.guild || message.author?.bot) return;
-        if (message.partial) return; // No tenemos el contenido
+        if (message.partial) return;
 
         // ═══ SNIPE SYSTEM ═══
         if (message.content || message.attachments.size > 0) {
@@ -24,19 +24,21 @@ module.exports = {
         if (!logChannel) return;
 
         const embed = new EmbedBuilder()
-            .setColor(config.COLORES.ERROR)
-            .setTitle('🗑️ Mensaje eliminado')
-            .addFields(
-                { name: 'Autor', value: `${message.author?.tag || 'Desconocido'} (${message.author?.id || '?'})`, inline: true },
-                { name: 'Canal', value: `${message.channel}`, inline: true },
-                { name: 'Contenido', value: message.content?.slice(0, 1024) || '[sin texto]' }
+            .setColor(config.COLORES.ERROR || 0xEF5350)
+            .setAuthor({ name: '🗑️  Mensaje eliminado' })
+            .setDescription(
+                `> **Autor:** ${message.author?.tag || 'Desconocido'} (\`${message.author?.id || '?'}\`)\n` +
+                `> **Canal:** ${message.channel}\n\n` +
+                `**Contenido:**\n\`\`\`\n${(message.content || '[sin texto]').slice(0, 900)}\n\`\`\``
             )
+            .setFooter({ text: 'Prophet  ·  Log de mensajes' })
             .setTimestamp();
 
         if (message.attachments.size > 0) {
+            const archivos = message.attachments.map(a => `[${a.name}](${a.url})`).join('\n');
             embed.addFields({
-                name: 'Archivos adjuntos',
-                value: message.attachments.map(a => a.url).join('\n').slice(0, 1024)
+                name: '📎 Archivos adjuntos',
+                value: archivos.slice(0, 1024)
             });
         }
 

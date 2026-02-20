@@ -15,14 +15,15 @@ module.exports = {
         if (!logChannel) return;
 
         const embed = new EmbedBuilder()
-            .setColor(config.COLORES.WARN)
-            .setTitle('✏️ Mensaje editado')
-            .addFields(
-                { name: 'Autor', value: `${newMessage.author.tag} (${newMessage.author.id})`, inline: true },
-                { name: 'Canal', value: `${newMessage.channel}`, inline: true },
-                { name: 'Antes', value: oldMessage.content.slice(0, 1024) },
-                { name: 'Después', value: newMessage.content.slice(0, 1024) }
+            .setColor(config.COLORES.WARN || 0xFFB74D)
+            .setAuthor({ name: '✏️  Mensaje editado' })
+            .setDescription(
+                `> **Autor:** ${newMessage.author.tag} (\`${newMessage.author.id}\`)\n` +
+                `> **Canal:** ${newMessage.channel}  ·  [Ir al mensaje](${newMessage.url})\n\n` +
+                `**Antes:**\n\`\`\`\n${oldMessage.content.slice(0, 450)}\n\`\`\`\n` +
+                `**Después:**\n\`\`\`\n${newMessage.content.slice(0, 450)}\n\`\`\``
             )
+            .setFooter({ text: 'Prophet  ·  Log de ediciones' })
             .setTimestamp();
 
         logChannel.send({ embeds: [embed] });

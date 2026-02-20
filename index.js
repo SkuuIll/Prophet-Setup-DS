@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════
-//  PROPHET BOT v2.0 — Entry Point
+//  PROPHET BOT v2.5 — Entry Point
 //  Bot privado para Prophet Gaming
 // ═══════════════════════════════════════════════════
 
@@ -863,7 +863,7 @@ async function inicializarMusica() {
 client.once('ready', async () => {
     console.log('');
     console.log('═══════════════════════════════════════');
-    console.log(`  🤖 Prophet Bot v2.0`);
+    console.log(`  🤖 Prophet Bot v2.5`);
     console.log(`  📡 ${client.user.tag}`);
     console.log(`  📅 ${new Date().toLocaleString('es-AR')}`);
     console.log('═══════════════════════════════════════');
@@ -901,13 +901,14 @@ client.once('ready', async () => {
                         if (logCh) {
                             const { EmbedBuilder: EB } = require('discord.js');
                             const unbanEmbed = new EB()
-                                .setColor(0x2ECC71)
-                                .setTitle('🔓 **DESBANEO AUTOMÁTICO**')
-                                .addFields(
-                                    { name: '👤 Usuario', value: `<@${tb.user_id}>`, inline: true },
-                                    { name: '📝 Ban original', value: tb.reason || 'Sin razón', inline: true }
+                                .setColor(0x69F0AE)
+                                .setAuthor({ name: '🔓  Desbaneo automático' })
+                                .setDescription(
+                                    `> **Usuario:** <@${tb.user_id}> (\`${tb.user_id}\`)\n` +
+                                    `> **Ban original:** ${tb.reason || 'Sin razón'}\n` +
+                                    `> **Moderador original:** <@${tb.mod_id || 'Desconocido'}>`
                                 )
-                                .setFooter({ text: 'Prophet Gaming | Tempban expirado' })
+                                .setFooter({ text: 'Prophet  ·  Tempban expirado' })
                                 .setTimestamp();
                             logCh.send({ embeds: [unbanEmbed] });
                         }
@@ -928,7 +929,7 @@ client.once('ready', async () => {
 
     client.user.setActivity('Prophet Gaming 🎮', { type: 3 }); // "Watching"
 
-    stmts.addLog('SYSTEM_BOOT', { version: '2.0.1', message: 'Prophet Bot iniciado correctamente' });
+    stmts.addLog('SYSTEM_BOOT', { version: '2.5.0', message: 'Prophet Bot iniciado correctamente' });
 });
 
 // Cargar todo

@@ -273,6 +273,10 @@ const stmts = {
     getConfig(key) {
         return data.config[key] !== undefined ? { value: data.config[key] } : null;
     },
+    setConfig(key, value) {
+        data.config[key] = value;
+        saveDB();
+    },
     // ── Logs / Memoria de Acciones ──
     addLog(type, details) {
         if (!data.logs) data.logs = [];

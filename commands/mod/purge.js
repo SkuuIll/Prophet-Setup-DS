@@ -1,11 +1,20 @@
 // ═══ COMANDO: /purge ═══
 const { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits } = require('discord.js');
+const { stmts } = require('../../database');
 const config = require('../../config');
+
+const FILTROS_NOMBRES = {
+    'bots': '🤖 Solo bots',
+    'humanos': '👤 Solo humanos',
+    'archivos': '📎 Con archivos',
+    'links': '🔗 Con links',
+    'no_pinned': '📌 Sin fijados'
+};
 
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('purge')
-        .setDescription('Limpiar mensajes del canal con filtros avanzados')
+        .setDescription('🧹 Limpiar mensajes del canal con filtros avanzados')
         .addIntegerOption(o => o.setName('cantidad').setDescription('Cantidad de mensajes (1-100)').setRequired(true).setMinValue(1).setMaxValue(100))
         .addUserOption(o => o.setName('usuario').setDescription('Solo mensajes de este usuario'))
         .addStringOption(o => o.setName('filtro').setDescription('Tipo de filtro')
@@ -25,59 +34,64 @@ module.exports = {
 
         await interaction.deferReply({ ephemeral: true });
 
-        // Fetch mensajes
         let mensajes = await interaction.channel.messages.fetch({ limit: cantidad });
 
         // Solo mensajes de menos de 14 días
         const limite14d = Date.now() - 1209600000;
         mensajes = mensajes.filter(m => m.createdTimestamp > limite14d);
 
-        // Aplicar filtro de usuario
-        if (usuario) {
-            mensajes = mensajes.filter(m => m.author.id === usuario.id);
-        }
+        if (usuario) mensajes = mensajes.filter(m => m.author.id === usuario.id);
 
-        // Aplicar filtros avanzados
-        if (filtro === 'bots') {
-            mensajes = mensajes.filter(m => m.author.bot);
-        } else if (filtro === 'humanos') {
-            mensajes = mensajes.filter(m => !m.author.bot);
-        } else if (filtro === 'archivos') {
-            mensajes = mensajes.filter(m => m.attachments.size > 0);
-        } else if (filtro === 'links') {
-            mensajes = mensajes.filter(m => /https?:\/\//i.test(m.content));
-        } else if (filtro === 'no_pinned') {
-            mensajes = mensajes.filter(m => !m.pinned);
-        }
+        if (filtro === 'bots') mensajes = mensajes.filter(m => m.author.bot);
+        else if (filtro === 'humanos') mensajes = mensajes.filter(m => !m.author.bot);
+        else if (filtro === 'archivos') mensajes = mensajes.filter(m => m.attachments.size > 0);
+        else if (filtro === 'links') mensajes = mensajes.filter(m => /https?:\/\//i.test(m.content));
+        else if (filtro === 'no_pinned') mensajes = mensajes.filter(m => !m.pinned);
 
         if (mensajes.size === 0) {
-            return interaction.editReply({ content: '⚠️ No se encontraron mensajes que coincidan con los filtros.' });
+            return interaction.editReply({ content: '> ⚠️ **Sin resultados** — No se encontraron mensajes que coincidan con los filtros.' });
         }
 
         const borrados = await interaction.channel.bulkDelete(mensajes, true);
 
-        // Construir resumen
-        let descripcion = `🧹 Se eliminaron **${borrados.size}** mensajes`;
-        if (usuario) descripcion += ` de **${usuario.tag}**`;
-        if (filtro) descripcion += ` (filtro: ${filtro})`;
+        const filtrosAplicados = [];
+        if (usuario) filtrosAplicados.push(`👤 ${usuario.tag}`);
+        if (filtro) filtrosAplicados.push(FILTROS_NOMBRES[filtro] || filtro);
 
-        await interaction.editReply({ content: `✅ ${descripcion}` });
+        const embed = new EmbedBuilder()
+            .setColor(config.COLORES.SUCCESS || 0x69F0AE)
+            .setDescription(
+                `> ✅ Se eliminaron **${borrados.size}** mensajes en ${interaction.channel}.` +
+                (filtrosAplicados.length > 0 ? `\n> **Filtros:** ${filtrosAplicados.join(' · ')}` : '')
+            )
+            .setFooter({ text: 'Prophet  ·  Moderación' });
+
+        await interaction.editReply({ embeds: [embed] });
 
         // Log
+        stmts.addLog('PURGE', {
+            mod: interaction.user.tag,
+            count: borrados.size,
+            channel: interaction.channel.name,
+            filter: filtro,
+            targetUser: usuario?.tag || null
+        });
+
         const logChannel = interaction.guild.channels.cache.get(config.CHANNELS.LOGS);
         if (logChannel) {
-            const embed = new EmbedBuilder()
-                .setColor(config.COLORES.INFO || 0x3498DB)
-                .setTitle('🧹 Purge ejecutado')
-                .addFields(
-                    { name: '📍 Canal', value: `<#${interaction.channel.id}>`, inline: true },
-                    { name: '🗑️ Mensajes', value: `${borrados.size}`, inline: true },
-                    { name: '🛡️ Moderador', value: `<@${interaction.user.id}>`, inline: true },
+            const logEmbed = new EmbedBuilder()
+                .setColor(config.COLORES.INFO || 0x42A5F5)
+                .setAuthor({ name: '🧹  Purge ejecutado' })
+                .setDescription(
+                    `> **Canal:** ${interaction.channel}\n` +
+                    `> **Mensajes borrados:** \`${borrados.size}\`\n` +
+                    `> **Moderador:** ${interaction.user}\n` +
+                    (usuario ? `> **Filtro usuario:** ${usuario.tag}\n` : '') +
+                    (filtro ? `> **Filtro tipo:** ${FILTROS_NOMBRES[filtro] || filtro}` : '')
                 )
+                .setFooter({ text: 'Prophet  ·  Log de moderación' })
                 .setTimestamp();
-            if (usuario) embed.addFields({ name: '👤 Filtro usuario', value: `${usuario.tag}`, inline: true });
-            if (filtro) embed.addFields({ name: '🔍 Filtro', value: filtro, inline: true });
-            logChannel.send({ embeds: [embed] });
+            logChannel.send({ embeds: [logEmbed] });
         }
     }
 };
