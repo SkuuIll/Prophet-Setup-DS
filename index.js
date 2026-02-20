@@ -148,6 +148,7 @@ async function inicializarMusica() {
             // Opciones críticas para evitar desconexiones de FFmpeg
             ffmpegOptions: {
                 args: [
+                    '-re', // Leer input en tiempo real (evita leer muy rápido y colapsar buffer)
                     '-reconnect', '1',
                     '-reconnect_streamed', '1',
                     '-reconnect_delay_max', '5',
@@ -162,7 +163,7 @@ async function inicializarMusica() {
             const { YoutubeiExtractor } = require('discord-player-youtubei');
             await client.player.extractors.register(YoutubeiExtractor, {
                 streamOptions: {
-                    useClient: 'ANDROID',
+                    useClient: 'WEB',
                 },
             });
             console.log('✅ YoutubeiExtractor cargado (búsqueda + metadata)');
