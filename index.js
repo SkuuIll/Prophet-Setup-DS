@@ -140,7 +140,9 @@ async function inicializarMusica() {
             skipFFmpeg: false,
             ytdlOptions: {
                 quality: 'highestaudio',
-                highWaterMark: 1 << 25,
+                highWaterMark: 1 << 24, // 16MB buffer (más estable que 32MB)
+                dlChunkSize: 0,         // Desactivar chunking para descarga continua
+                ipv6Block: true,        // Forzar IPv4
             },
         });
 
