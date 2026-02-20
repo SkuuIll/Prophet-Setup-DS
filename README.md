@@ -149,6 +149,14 @@ Un ecosistema financiero completo que mantiene a los usuarios activos:
 | `/embed` | Constructor de embeds personalizados |
 | `/ayuda` | Guía completa de todos los sistemas |
 
+### 🎙️ Canales Dinámicos (Join-To-Create)
+El bot cuenta con un sistema interactivo de creación de salas privadas (`🔊 Salas Temporales`):
+- Los usuarios se unen a `➕ Crear Sala` y el bot automáticamente les genera un canal de voz privado instantáneo donde tienen control total.
+- El canal creado desaparece **inmediatamente al quedar vacío**.
+- **💥 Estados Automáticos Tóxicos & Gaming:** Cada vez que se crea una sala o un usuario ingresa como primero a un canal público vacío, el bot inyecta silenciosamente un Estado de Voz hiper random:
+
+> `🤬 Modo Tóxico ON` · `🧂 Más salado que el mar` · `📉 Perdiendo RP...` · `💀 Carreados por el team` · `🐒 Equipo de macacos` · `🚮 Basura espacial` · `🔥 Tilteados al máximo` · `🖱️ Rompiendo periféricos` · `💦 Sudando sangre` · `🏆 Smurfeando chilling` · `❌ Alt + F4 inminente` · `🤡 Circo de 5 pistas` · `🤝 Carrileando bronces` · `🛑 Lag mental` · `♿ Mi team da pena` · `🎮 Feedeando intencionalmente` · `🚪 Desinstalando el juego` · `🤐 Muteall y a ganar` · `🔪 Apuñaladas al team` · `🚑 Llama a la ambulancia` · `🦶 Jugando con los pies` · `💻 Monitor apagado` · `🗑️ Directo a la basura` · `🦍 Mentalidad de Plata IV` · `💤 Dormido esperando gank` · `🥊 Boxeando al teclado` · `💥 0/10 power spike` · `🐔 Campeando` · `🐛 El juego está bug!` · `🤖 Somos todos bots` · `👀 Jugando a ciegas` · `🗣️ Mucho texto, poco aim` · `🐌 Reflejos de caracol` · `🧠 -100 IQ plays` · `🧱 Hablándole a la pared` · `🚨 Reporte en progreso...` · `💩 Mis mecánicas dan asco` · `🤡 Los payasos del server` · `💣 A punto de explotar` · `🚫 Chat restringido`
+
 ### ⚙️ Administración
 
 | Comando | Descripción |
