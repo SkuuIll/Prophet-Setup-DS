@@ -190,6 +190,50 @@ client.once('ready', async () => {
         } catch (e) { console.error('❌ Error en tempban checker:', e.message); }
     }, 60000);
 
+    // 🎂 Comprobador de cumpleaños (Todos los días a las 00:00)
+    const schedule = require('node-schedule');
+    schedule.scheduleJob('0 0 * * *', async () => {
+        try {
+            // Obtener el día y mes actual (formato DD/MM)
+            const hoy = new Date();
+            const dia = String(hoy.getDate()).padStart(2, '0');
+            const mes = String(hoy.getMonth() + 1).padStart(2, '0');
+            const fechaString = `${dia}/${mes}`;
+
+            const cumplenHoy = dbStmts.getTodayBirthdays(fechaString);
+            if (cumplenHoy.length > 0) {
+                const chatGeneral = guild.channels.cache.get(config.CHANNELS.CHAT);
+                const rolCumple = guild.roles.cache.find(r => r.name.toLowerCase().includes('cumple'));
+
+                if (chatGeneral) {
+                    let menciones = cumplanHoy.map(c => `<@${c.id}>`).join(', ');
+                    const embed = new EmbedBuilder()
+                        .setColor(config.COLORES.EXITO || 0xFF1493)
+                        .setTitle('🎉 ¡Día de Cumpleaños! 🎉')
+                        .setDescription(`Hoy es el cumpleaños de ${menciones}. ¡Deseenles un muy feliz día de parte de toda la familia Prophet! 🎂🎁`)
+                        .setImage('https://media.tenor.com/2Pz2yB_6kL0AAAAC/happy-birthday.gif');
+
+                    await chatGeneral.send({ content: '@everyone', embeds: [embed] });
+                }
+
+                if (rolCumple) {
+                    for (const row of cumplenHoy) {
+                        try {
+                            const member = await guild.members.fetch(row.id);
+                            if (member) {
+                                await member.roles.add(rolCumple, 'Cumpleañero del día');
+                                // Quitarlo a las 23:59
+                                setTimeout(() => member.roles.remove(rolCumple, 'Pasó su cumpleaños').catch(() => { }), 86340000);
+                            }
+                        } catch (e) { }
+                    }
+                }
+            }
+        } catch (e) {
+            console.error('Error procesando cumpleaños:', e);
+        }
+    });
+
     console.log('');
     console.log('✅ Prophet Bot está listo');
     console.log(`🏠 Servidor: ${guild.name} (${guild.memberCount} miembros)`);

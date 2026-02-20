@@ -23,7 +23,15 @@ db.exec(`
         balance INTEGER DEFAULT 0,
         bank INTEGER DEFAULT 0,
         last_daily INTEGER DEFAULT 0,
-        last_work INTEGER DEFAULT 0
+        last_work INTEGER DEFAULT 0,
+        birthday TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS starboards (
+        message_id TEXT PRIMARY KEY,
+        star_message_id TEXT,
+        channel_id TEXT,
+        stars INTEGER DEFAULT 0
     );
 
     CREATE TABLE IF NOT EXISTS user_inventory (
@@ -364,12 +372,32 @@ const stmts = {
         }
     },
     getLogs(limit = 10) {
-        const rows = db.prepare('SELECT * FROM logs ORDER BY timestamp DESC LIMIT ?').all(limit);
-        return rows.map(r => ({
-            type: r.type,
-            details: JSON.parse(r.details),
-            timestamp: r.timestamp
+        return db.prepare('SELECT * FROM logs ORDER BY id DESC LIMIT ?').all(limit).map(l => ({
+            ...l,
+            details: JSON.parse(l.details)
         }));
+    },
+    // ── Starboard ──
+    getStarboard(messageId) {
+        return db.prepare('SELECT * FROM starboards WHERE message_id = ?').get(messageId);
+    },
+    updateStarboard(messageId, starMessageId, channelId, stars) {
+        db.prepare('INSERT OR REPLACE INTO starboards (message_id, star_message_id, channel_id, stars) VALUES (?, ?, ?, ?)').run(messageId, starMessageId, channelId, stars);
+    },
+    removeStarboard(messageId) {
+        db.prepare('DELETE FROM starboards WHERE message_id = ?').run(messageId);
+    },
+    // ── Birthdays ──
+    setBirthday(userId, dateStr) {
+        getOrCreateUser(userId);
+        db.prepare('UPDATE users SET birthday = ? WHERE id = ?').run(dateStr, userId);
+    },
+    getBirthday(userId) {
+        return db.prepare('SELECT birthday FROM users WHERE id = ?').get(userId)?.birthday;
+    },
+    getTodayBirthdays(memDayMonth) {
+        // SQL LIKE operator for e.g '%/05'
+        return db.prepare(`SELECT id FROM users WHERE birthday LIKE ?`).all(`%${memDayMonth}`);
     }
 };
 

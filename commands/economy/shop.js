@@ -1,143 +1,100 @@
 // ═══ COMANDO: /shop ═══
-const { SlashCommandBuilder, EmbedBuilder, StringSelectMenuBuilder, ActionRowBuilder, ComponentType } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, ComponentType } = require('discord.js');
 const { stmts } = require('../../database');
 const config = require('../../config');
 
-const SHOP_ITEMS = [
-    {
-        id: 'vip_ticket',
-        name: '🎟️ Pase VIP (1 Sem)',
-        description: 'Obtené acceso temporal al rol VIP por una semana.',
-        price: 50000,
-        type: 'role',
-        roleId: config.ROLES.VIP
-    },
-    {
-        id: 'prophet_sword',
-        name: '⚔️ Espada del Profeta',
-        description: 'Una espada legendaria forjada en código.',
-        price: 15000,
-        type: 'collectible'
-    },
-    {
-        id: 'shield_aegis',
-        name: '🛡️ Escudo Égida',
-        description: 'Protección divina para tu inventario.',
-        price: 10000,
-        type: 'collectible'
-    },
-    {
-        id: 'xp_potion',
-        name: '🧪 Poción de XP',
-        description: 'Bébela para ganar experiencia extra (Próximamente).',
-        price: 2500,
-        type: 'consumable'
-    },
-    {
-        id: 'mystery_box',
-        name: '🎁 Caja Misteriosa',
-        description: '¿Qué tendrá adentro? Usala y descubrilo.',
-        price: 1000,
-        type: 'consumable'
-    }
+// Configuración de la tienda de roles
+const ROLE_SHOP = [
+    { id: 'rol_neon', name: 'Color Neón', desc: 'Rol con color verde neón brillante', price: 5000, emoji: '🟢' },
+    { id: 'rol_diablo', name: 'Color Diablo', desc: 'Rol con color rojo sangre', price: 5000, emoji: '🔴' },
+    { id: 'rol_vip', name: 'Rango VIP Temporal', desc: 'Acceso a canales VIP (30 Días)', price: 15000, emoji: '💎' },
 ];
 
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('shop')
-        .setDescription('🛒 Abre la tienda del servidor para comprar items y roles'),
+        .setDescription('🛒 Abre la tienda de roles para gastar tu economía'),
 
     async execute(interaction) {
-        const economy = stmts.getEconomy(interaction.user.id);
-
-        const itemList = SHOP_ITEMS.map(item => {
-            const asequible = economy.balance >= item.price ? '✅' : '🔒';
-            return `${asequible} **${item.name}** — \`${config.ECONOMIA.CURRENCY} ${item.price.toLocaleString()}\`\n> ${item.description}`;
-        }).join('\n\n');
+        const userId = interaction.user.id;
+        const eco = stmts.getEconomy(userId);
 
         const embed = new EmbedBuilder()
-            .setColor(config.COLORES.PRINCIPAL || 0xBB86FC)
-            .setAuthor({ name: '🛒  Tienda de Prophet Gaming' })
-            .setDescription(
-                `¡Bienvenido a la tienda, **${interaction.user.username}**!\n\n` +
-                `> 💵 **Tu saldo:** ${config.ECONOMIA.CURRENCY} ${economy.balance.toLocaleString()}\n` +
-                `> 🏦 **Banco:** ${config.ECONOMIA.CURRENCY} ${economy.bank.toLocaleString()}\n\n` +
-                `─────────────────────────\n\n` +
-                itemList +
-                `\n\n*Seleccioná un artículo del menú para comprarlo.*`
-            )
-            .setFooter({ text: 'Prophet Economy  ·  Tienda' })
-            .setTimestamp();
+            .setColor(config.COLORES.EXITO || 0x69F0AE)
+            .setAuthor({ name: '🛒  Tienda del Servidor', iconURL: interaction.guild.iconURL() })
+            .setDescription(`Tu saldo: **${config.ECONOMIA.CURRENCY} ${eco.balance.toLocaleString()}**\n\nSelecciona el artículo que quieras comprar en el menú.`);
 
-        const options = SHOP_ITEMS.map(item => ({
-            label: `${item.name} — ${config.ECONOMIA.CURRENCY}${item.price.toLocaleString()}`,
-            description: item.description.substring(0, 100),
+        const options = ROLE_SHOP.map(item => ({
+            label: `${item.name} — ${config.ECONOMIA.CURRENCY} ${item.price}`,
+            description: item.desc,
             value: item.id,
+            emoji: item.emoji
         }));
 
-        const row = new ActionRowBuilder()
-            .addComponents(
-                new StringSelectMenuBuilder()
-                    .setCustomId('shop_select')
-                    .setPlaceholder('🛒 Seleccioná un artículo...')
-                    .addOptions(options)
-            );
+        const menu = new StringSelectMenuBuilder()
+            .setCustomId('shop_selector')
+            .setPlaceholder('Explorar tienda...')
+            .addOptions(options);
 
-        const reply = await interaction.reply({
-            embeds: [embed],
-            components: [row],
-            fetchReply: true
-        });
+        const row = new ActionRowBuilder().addComponents(menu);
 
-        const collector = reply.createMessageComponentCollector({
+        const msg = await interaction.reply({ embeds: [embed], components: [row], fetchReply: true });
+
+        const collector = msg.createMessageComponentCollector({
             componentType: ComponentType.StringSelect,
-            filter: i => i.user.id === interaction.user.id,
-            time: 60000
+            time: 60000,
+            filter: i => i.user.id === interaction.user.id
         });
 
         collector.on('collect', async i => {
             const selectedId = i.values[0];
-            const item = SHOP_ITEMS.find(it => it.id === selectedId);
+            const item = ROLE_SHOP.find(x => x.id === selectedId);
 
-            if (!item) return i.reply({ content: '> ❌ Artículo no válido.', ephemeral: true });
+            if (!item) return;
 
-            const currentEco = stmts.getEconomy(interaction.user.id);
-            if (currentEco.balance < item.price) {
-                const falta = item.price - currentEco.balance;
+            // Refetch balance to avoid race conditions
+            const currEco = stmts.getEconomy(userId);
+
+            if (currEco.balance < item.price) {
                 return i.reply({
-                    content: `> ❌ **Fondos insuficientes** — Te faltan **${config.ECONOMIA.CURRENCY} ${falta.toLocaleString()}**.`,
+                    content: `❌ **Dinero insuficiente.** Cuesta ${config.ECONOMIA.CURRENCY} ${item.price.toLocaleString()}, pero tienes ${config.ECONOMIA.CURRENCY} ${currEco.balance.toLocaleString()}.`,
                     ephemeral: true
                 });
             }
 
-            const success = stmts.removeMoney(interaction.user.id, item.price, 'balance');
-            if (!success) return i.reply({ content: '> ❌ Error en la transacción.', ephemeral: true });
+            // Aca debes linkear "item.id" con un discord Role Real
+            // Ej: const roleId = config.ROLES.VIP o guild.roles.cache.find(r => r.name === item.name)
+            // Para este caso, vamos a intentar buscar el rol literal por nombre
+            const role = i.guild.roles.cache.find(r => r.name.toLowerCase().includes(item.name.toLowerCase().split(' ')[1] || item.name.toLowerCase()));
 
-            stmts.addItem(interaction.user.id, item.id, 1);
+            if (!role && item.id !== 'rol_vip') {
+                return i.reply({ content: `❌ El Staff todavía no creó el rol "${item.name}" en el servidor para darte.`, ephemeral: true });
+            }
 
-            if (item.type === 'role' && item.roleId) {
-                const role = interaction.guild.roles.cache.get(item.roleId);
-                if (role) {
-                    try {
-                        await interaction.member.roles.add(role);
-                        await i.reply({
-                            content: `> ✅ **¡Compra exitosa!** Recibiste el rol **${role.name}** y **${item.name}** se guardó en tu inventario.`,
-                            ephemeral: true
-                        });
-                    } catch (e) {
-                        await i.reply({
-                            content: `> ⚠️ **Compra realizada**, pero hubo un error al asignar el rol. Avisá al Staff. Item guardado.`,
-                            ephemeral: true
-                        });
-                    }
-                } else {
-                    await i.reply({ content: `> ⚠️ **Compra realizada**. El rol configurado no existe en el servidor. Item guardado.`, ephemeral: true });
+            // Comprar
+            stmts.removeMoney(userId, item.price, 'balance');
+
+            try {
+                if (role) await i.member.roles.add(role);
+                // Si es VIP, le damos el rol VIP configurado en config.js
+                if (item.id === 'rol_vip' && config.ROLES.VIP) {
+                    const vipRole = i.guild.roles.cache.find(r => r.name === config.ROLES.VIP);
+                    if (vipRole) await i.member.roles.add(vipRole);
                 }
-            } else {
+
                 await i.reply({
-                    content: `> ✅ **¡Compra exitosa!** Compraste **${item.name}** por **${config.ECONOMIA.CURRENCY} ${item.price.toLocaleString()}**.`,
+                    content: `✅ **Compra exitosa!** Has gastado ${config.ECONOMIA.CURRENCY} ${item.price.toLocaleString()} en \`${item.name}\`.`,
                     ephemeral: true
                 });
+
+                // Actualizar embed original
+                embed.setDescription(`Tu saldo: **${config.ECONOMIA.CURRENCY} ${(currEco.balance - item.price).toLocaleString()}**\n\n✅ Compraste ${item.name} exitosamente.`);
+                await interaction.editReply({ embeds: [embed] });
+
+            } catch (e) {
+                // Revert charge if role fails
+                stmts.addMoney(userId, item.price, 'balance');
+                await i.reply({ content: `❌ **Error:** No tengo permisos para darte el rol. Se te ha devuelto el dinero.`, ephemeral: true });
             }
         });
 

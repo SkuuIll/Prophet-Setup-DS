@@ -177,13 +177,34 @@ async function cerrarTicket(interaction) {
         await user.send({ embeds: [embed] });
     } catch (e) { }
 
-    const logChannel = interaction.guild.channels.cache.get(config.CHANNELS.LOGS);
-    if (logChannel) {
-        const logEmbed = new EmbedBuilder()
-            .setColor(config.COLORES.ERROR)
-            .setDescription(`🎫 **Ticket cerrado** por ${interaction.user.tag} (usuario: <@${ticket.user_id}>)`)
-            .setTimestamp();
-        logChannel.send({ embeds: [logEmbed] });
+    try {
+        const discordTranscripts = require('discord-html-transcripts');
+        const attachment = await discordTranscripts.createTranscript(channel, {
+            limit: -1,
+            returnType: 'attachment',
+            filename: `ticket-${ticket.user_id}.html`,
+            saveImages: true,
+            footerText: "Exportado {number} mensaje{s}"
+        });
+
+        const logChannel = interaction.guild.channels.cache.get(config.CHANNELS.LOGS);
+        if (logChannel) {
+            const logEmbed = new EmbedBuilder()
+                .setColor(config.COLORES.ERROR)
+                .setDescription(`🎫 **Ticket cerrado** por ${interaction.user.tag} (usuario: <@${ticket.user_id}>)`)
+                .setTimestamp();
+            await logChannel.send({ embeds: [logEmbed], files: [attachment] });
+        }
+    } catch (e) {
+        console.error('Error generando transcript:', e);
+        const logChannel = interaction.guild.channels.cache.get(config.CHANNELS.LOGS);
+        if (logChannel) {
+            const logEmbed = new EmbedBuilder()
+                .setColor(config.COLORES.ERROR)
+                .setDescription(`🎫 **Ticket cerrado** por ${interaction.user.tag} (usuario: <@${ticket.user_id}>)\n*Hubo un error al generar el transcript.*`)
+                .setTimestamp();
+            logChannel.send({ embeds: [logEmbed] });
+        }
     }
 
     stmts.deleteTicket(channel.id);

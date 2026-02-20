@@ -14,11 +14,13 @@
         "@discordjs/voice": "^0.19.0",
         "better-sqlite3": "^12.6.2",
         "canvas": "^3.2.1",
+        "discord-html-transcripts": "^3.2.0",
         "discord-player": "^7.1.0",
         "discord-player-youtubei": "latest",
         "discord.js": "^14.25.1",
         "dotenv": "^17.3.1",
         "node-fetch": "^3.3.2",
+        "node-schedule": "^2.1.1",
         "sodium-native": "^5.0.10"
     }
 }
