@@ -129,9 +129,7 @@ module.exports = {
                 }
             }
 
-            message.channel.send({ embeds: [embed] }).then(msg => {
-                setTimeout(() => msg.delete().catch(() => { }), 15000);
-            });
+            message.channel.send({ embeds: [embed] });
         }
     }
 };
