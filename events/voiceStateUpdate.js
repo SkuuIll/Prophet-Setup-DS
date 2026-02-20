@@ -14,9 +14,36 @@ module.exports = {
 
         // El id del canal que "genera" las salas, tomado de la DB
         const configData = stmts.getConfig('voice_generator_id');
-        const generatorId = configData ? JSON.parse(configData) : null;
+        const generatorId = configData ? configData.value : null;
         const configCat = stmts.getConfig('voice_category_id');
-        const categoryId = configCat ? JSON.parse(configCat) : null;
+        const categoryId = configCat ? configCat.value : null;
+
+        const STATUSES = [
+            '💎 VIP Lounge',
+            '🎮 Puro Tryhard',
+            '🔥 En racha positiva',
+            '🎶 Charla y música',
+            '👽 Teorías conspirativas',
+            '🍺 Chill y relax',
+            '💥 Rompiéndola toda',
+            '😴 Modo AFK / Descanso',
+            '🌟 Partidas épicas',
+            '🔪 Modo Sigilo',
+            '🏎️ Acelerando a fondo',
+            '👻 Cazando fantasmas',
+            '🧙‍♂️ Lanzando hechizos',
+            '🚀 Rumbo a la luna',
+            '🍕 Comiendo pizza',
+            '🎙️ Podcast en vivo',
+            '😎 Puros pros acá',
+            '🤡 Troleando un rato',
+            '🛠️ Construyendo cosas',
+            '🎯 Apuntando cabezas',
+            '🧗‍♂️ Escalando de rango',
+            '🕵️‍♂️ Modo Investigador',
+            '🌌 Explorando el universo',
+            '👾 Matando marcianos'
+        ];
 
         // Si entró a un canal de voz y es el canal generador
         if (newState.channelId && newState.channelId === generatorId) {
@@ -38,9 +65,35 @@ module.exports = {
                 // Mover al usuario al canal recién creado
                 await newState.member.voice.setChannel(newChannel.id);
 
-                // Guardarlo en set temporal (o solo depender de que borramos si no tiene el generatorId)
-                // A fines prácticos: podemos borrar CUALQUIER canal vacío en esa categoría 
-                // que NO sea el generador. Ver la lógica abajo.
+                // Asignarle un estado al azar al canal de voz usando @discordjs/voice para entrar 1 seg
+                const { joinVoiceChannel } = require('@discordjs/voice');
+                const randomStatus = STATUSES[Math.floor(Math.random() * STATUSES.length)];
+
+                try {
+                    const connection = joinVoiceChannel({
+                        channelId: newChannel.id,
+                        guildId: newChannel.guild.id,
+                        adapterCreator: newChannel.guild.voiceAdapterCreator,
+                        selfDeaf: true,
+                        selfMute: true
+                    });
+
+                    setTimeout(async () => {
+                        try {
+                            await newState.client.rest.put(`/channels/${newChannel.id}/voice-status`, {
+                                body: { status: randomStatus }
+                            });
+                        } catch (e) {
+                            console.error('Error al setear el voice status:', e.message);
+                        }
+                        // Desconectamos para que salga del canal
+                        connection.destroy();
+                    }, 500); // 0.5 segundos después de entrar
+
+                } catch (e) {
+                    console.error('Error conectando temporalmente:', e.message);
+                }
+
             } catch (error) {
                 console.error('Error creando canal temporal:', error);
             }

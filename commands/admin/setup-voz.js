@@ -17,7 +17,7 @@ module.exports = {
         try {
             // Crea una categoría para alojar los canales
             const category = await guild.channels.create({
-                name: '🔊 Salas Temporales',
+                name: '⟬🔊⟭ ═══ 𝗦𝗔𝗟𝗔𝗦 𝗧𝗘𝗠𝗣𝗢𝗥𝗔𝗟𝗘𝗦 ═══',
                 type: ChannelType.GuildCategory
             });
 
