@@ -194,6 +194,9 @@ const stmts = {
     getTop(limit) {
         return db.prepare('SELECT * FROM users ORDER BY xp DESC LIMIT ?').all(limit);
     },
+    getEcoTop(limit = 10) {
+        return db.prepare('SELECT id, balance, bank, (balance + bank) as total FROM users ORDER BY total DESC LIMIT ?').all(limit);
+    },
     getRank(userId) {
         const user = stmts.getUser(userId);
         const userXp = user ? user.xp : 0;

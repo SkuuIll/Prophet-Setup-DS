@@ -81,4 +81,76 @@ async function generarTarjetaNivel(user, data) {
     return canvas.toBuffer();
 }
 
-module.exports = { generarTarjetaNivel };
+/**
+ * Genera una imagen de bienvenida dinámica
+ */
+async function generarBienvenida(member) {
+    // Usar el banner como fondo base si es posible, sino crear gradient
+    const canvas = createCanvas(1024, 450);
+    const ctx = canvas.getContext('2d');
+
+    // Fondo: intentamos cargar el banner, si no, gradient
+    try {
+        const bg = await loadImage('./assets/banner.png');
+        ctx.drawImage(bg, 0, 0, canvas.width, canvas.height);
+
+        // Poner una capa oscura por encima para que resalten las letras
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+    } catch (e) {
+        // Fallback gradient solid si no hay banner
+        const grad = ctx.createLinearGradient(0, 0, 1024, 450);
+        grad.addColorStop(0, '#150050');
+        grad.addColorStop(1, '#3F0071');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+
+    // Dibujar avatar
+    const avatarSize = 200;
+    const avatarX = canvas.width / 2 - avatarSize / 2;
+    const avatarY = 50;
+
+    // Border del avatar
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(canvas.width / 2, avatarY + avatarSize / 2, avatarSize / 2 + 10, 0, Math.PI * 2, true);
+    ctx.fillStyle = '#BB86FC';
+    ctx.fill();
+    ctx.restore();
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(canvas.width / 2, avatarY + avatarSize / 2, avatarSize / 2, 0, Math.PI * 2, true);
+    ctx.closePath();
+    ctx.clip();
+
+    try {
+        const avatar = await loadImage(member.user.displayAvatarURL({ extension: 'png', size: 256 }));
+        ctx.drawImage(avatar, avatarX, avatarY, avatarSize, avatarSize);
+    } catch (e) {
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(avatarX, avatarY, avatarSize, avatarSize);
+    }
+    ctx.restore();
+
+    // Texto de BIENVENIDA
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 50px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(`¡Bienvenido/a a Prophet Gaming!`, canvas.width / 2, 320);
+
+    // Texto de Username
+    ctx.fillStyle = '#BB86FC';
+    ctx.font = 'bold 45px sans-serif';
+    ctx.fillText(`${member.user.username}`, canvas.width / 2, 380);
+
+    // Texto de Miembro #
+    ctx.fillStyle = '#aaaaaa';
+    ctx.font = '28px sans-serif';
+    ctx.fillText(`Sos el miembro #${member.guild.memberCount}`, canvas.width / 2, 420);
+
+    return canvas.toBuffer();
+}
+
+module.exports = { generarTarjetaNivel, generarBienvenida };

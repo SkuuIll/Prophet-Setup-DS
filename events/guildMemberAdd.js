@@ -44,28 +44,40 @@ module.exports = {
         const welcomeChannel = member.guild.channels.cache.get(config.CHANNELS.BIENVENIDOS);
         if (!welcomeChannel) return;
 
-        const banner = new AttachmentBuilder(config.ASSETS.BANNER, { name: 'banner.png' });
-        const logo = new AttachmentBuilder(config.ASSETS.LOGO, { name: 'logo.png' });
+        try {
+            const { generarBienvenida } = require('../utils/canvas');
+            const welcomeBuffer = await generarBienvenida(member);
+            const attachment = new AttachmentBuilder(welcomeBuffer, { name: 'bienvenida.png' });
 
-        const embed = new EmbedBuilder()
-            .setColor(config.COLORES.PRINCIPAL || 0xBB86FC)
-            .setAuthor({ name: `✨ ¡Nuevo miembro!`, iconURL: 'attachment://logo.png' })
-            .setTitle(`¡Bienvenido/a, ${member.user.username}!`)
-            .setDescription(
-                `Hola ${member}, nos alegra muchísimo tenerte acá. 👋\n` +
-                `Sos el miembro **#${member.guild.memberCount}** de la familia Prophet. 🎉\n\n` +
-                `**📜 Primeros pasos:**\n` +
-                `> 📌 Leé las **reglas** en <#${config.CHANNELS.REGLAS}>\n` +
-                `> 💬 Presentate en el chat y contanos qué jugás\n` +
-                `> 🎮 Unite a las partidas y divertite con la comunidad\n` +
-                `> 🎵 Probá los comandos de música con \`/play\`\n\n` +
-                `*¡Esperamos que la pases genial! Si necesitás ayuda, abrí un ticket.* 🎫`
-            )
-            .setThumbnail(member.user.displayAvatarURL({ size: 256, dynamic: true }))
-            .setImage('attachment://banner.png')
-            .setFooter({ text: `Prophet Gaming  ·  ¡Bienvenido a la familia!`, iconURL: 'attachment://logo.png' })
-            .setTimestamp();
+            const embed = new EmbedBuilder()
+                .setColor(config.COLORES.PRINCIPAL || 0xBB86FC)
+                .setTitle(`¡Bienvenido/a a la familia, ${member.user.username}!`)
+                .setDescription(
+                    `Hola ${member}, nos alegra muchísimo tenerte acá. 👋\n\n` +
+                    `**📜 Primeros pasos:**\n` +
+                    `> 📌 Leé las **reglas** en <#${config.CHANNELS.REGLAS}>\n` +
+                    `> 💬 Presentate en el chat y contanos qué jugás\n` +
+                    `> 🎮 Unite a las partidas y divertite con la comunidad\n` +
+                    `> 🎵 Probá los comandos de música con \`/play\`\n\n` +
+                    `*¡Esperamos que la pases genial! Si necesitás ayuda, abrí un ticket.* 🎫`
+                )
+                .setImage('attachment://bienvenida.png')
+                .setFooter({ text: `Prophet Gaming` })
+                .setTimestamp();
 
-        welcomeChannel.send({ embeds: [embed], files: [banner, logo] });
+            welcomeChannel.send({ content: `${member}`, embeds: [embed], files: [attachment] });
+
+        } catch (error) {
+            console.error('Error enviando tarjeta de bienvenida:', error);
+            // Fallback si canvas falla o no está instalado correctamente
+            const embed = new EmbedBuilder()
+                .setColor(config.COLORES.PRINCIPAL || 0xBB86FC)
+                .setTitle(`¡Bienvenido/a, ${member.user.username}!`)
+                .setDescription(`Hola ${member}, nos alegra muchísimo tenerte acá. 👋`)
+                .setFooter({ text: `Prophet Gaming` })
+                .setTimestamp();
+
+            welcomeChannel.send({ content: `${member}`, embeds: [embed] });
+        }
     }
 };

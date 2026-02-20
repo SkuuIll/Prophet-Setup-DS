@@ -101,5 +101,62 @@ module.exports = {
                 }
             }
         }
+
+        // ═══ SELECT MENUS (Menús desplegables) ═══
+        if (interaction.isStringSelectMenu()) {
+            if (interaction.customId === 'auto_roles_juegos') {
+                const member = interaction.member;
+                const guild = interaction.guild;
+                const values = interaction.values; // Array de values (ej: 'role_valorant')
+
+                // Mapeo de value a ID de rol. Asegurate de reemplazar estos IDs con los de tu servidor
+                // o usar config.ROLES si están definidos ahí. Si no, buscar por nombre.
+                // Como es genérico, buscaremos los roles por los nombres que definimos o algo similar
+                const roleMap = {
+                    'role_valorant': guild.roles.cache.find(r => r.name.toLowerCase().includes('valorant'))?.id,
+                    'role_lol': guild.roles.cache.find(r => r.name.toLowerCase().includes('league') || r.name.toLowerCase().includes('lol'))?.id,
+                    'role_minecraft': guild.roles.cache.find(r => r.name.toLowerCase().includes('minecraft'))?.id,
+                    'role_cs2': guild.roles.cache.find(r => r.name.toLowerCase().includes('cs') || r.name.toLowerCase().includes('counter'))?.id,
+                    'role_gta': guild.roles.cache.find(r => r.name.toLowerCase().includes('gta') || r.name.toLowerCase().includes('roleplay'))?.id,
+                };
+
+                let assigned = [];
+                let removed = [];
+
+                // Todos los IDs que maneja este menú
+                const allMenuRoleIds = Object.values(roleMap).filter(id => id);
+
+                try {
+                    // Remover roles de este menú que el usuario NO seleccionó
+                    for (const roleId of allMenuRoleIds) {
+                        const isSelected = Object.keys(roleMap).some(key => roleMap[key] === roleId && values.includes(key));
+                        if (!isSelected && member.roles.cache.has(roleId)) {
+                            await member.roles.remove(roleId);
+                            removed.push(guild.roles.cache.get(roleId).name);
+                        }
+                    }
+
+                    // Añadir roles que el usuario SI seleccionó
+                    for (const value of values) {
+                        const roleId = roleMap[value];
+                        if (roleId && !member.roles.cache.has(roleId)) {
+                            await member.roles.add(roleId);
+                            assigned.push(guild.roles.cache.get(roleId).name);
+                        }
+                    }
+
+                    let msg = '✅ **Roles actualizados correctamente.**\n';
+                    if (assigned.length > 0) msg += `> ➕ **Añadidos:** ${assigned.join(', ')}\n`;
+                    if (removed.length > 0) msg += `> ➖ **Removidos:** ${removed.join(', ')}\n`;
+                    if (assigned.length === 0 && removed.length === 0) msg = '✅ **Tus roles ya estaban al día.**';
+
+                    await interaction.reply({ content: msg, ephemeral: true });
+
+                } catch (e) {
+                    console.error('Error aplicando Select Menu Roles:', e);
+                    await interaction.reply({ content: '❌ **Error de permisos.** No pude modificar tus roles.', ephemeral: true });
+                }
+            }
+        }
     }
 };

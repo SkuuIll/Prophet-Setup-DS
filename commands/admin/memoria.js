@@ -30,6 +30,23 @@ module.exports = {
                 case 'COMMAND':
                     details = `👤 **${log.details.user}** ejecutó \`/${log.details.command}\` en <#${interaction.guild.channels.cache.find(c => c.name === log.details.channel)?.id || '??'}>`;
                     break;
+                case 'BAN':
+                case 'TEMPBAN':
+                    details = `🔨 **${log.details.userTag || log.details.userId}** baneado por **${log.details.mod || 'Staff'}**\n> Motivo: ${log.details.reason}`;
+                    break;
+                case 'MUTE':
+                    details = `🔇 **${log.details.userTag || log.details.userId}** silenciado por **${log.details.mod}**\n> Duración: ${log.details.duration} - Motivo: ${log.details.reason}`;
+                    break;
+                case 'KICK':
+                    details = `👢 **${log.details.userTag || log.details.userId}** expulsado por **${log.details.mod}**\n> Motivo: ${log.details.reason}`;
+                    break;
+                case 'CLEAR':
+                case 'PURGE':
+                    details = `🧹 **${log.details.count}** mensajes borrados en #${log.details.channel} por **${log.details.mod}**`;
+                    break;
+                case 'SLOWMODE':
+                    details = `🐢 Slowmode de **${log.details.seconds}s** activado en #${log.details.channel} por **${log.details.mod}**`;
+                    break;
                 case 'MUSIC_START':
                     details = `🎵 Sonando: **${log.details.song}**\n👤 Pedida por: \`${log.details.requestedBy}\``;
                     break;
