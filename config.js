@@ -145,7 +145,8 @@ module.exports = {
 
     // Recursos Visuales
     ASSETS: {
-        LOGO: './assets/logo.png',
-        BANNER: './assets/banner.png',
+        LOGO: './assets/logo_v2.png',
+        BANNER: './assets/banner_v2.png',
+        MUSIC_BANNER: 'https://raw.githubusercontent.com/SkuuIll/Prophet-Setup-DS/main/assets/music_banner_v2.png',
     }
 };

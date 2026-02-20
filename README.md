@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="assets/logo.png" width="140" height="140" alt="Prophet Bot" style="border-radius: 50%;">
+<img src="assets/logo_v2.png" width="140" height="140" alt="Prophet Bot" style="border-radius: 50%;">
 
 # Prophet Bot v2.5
 
@@ -14,7 +14,7 @@ Música · Moderación · Economía · Niveles · Mini-juegos — todo en un sol
 
 <br>
 
-<img src="assets/banner.png" width="600" alt="Prophet Gaming Banner">
+<img src="assets/banner_v2.png" width="600" alt="Prophet Gaming Banner">
 
 </div>
 
