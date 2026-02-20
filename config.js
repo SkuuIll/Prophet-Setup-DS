@@ -40,15 +40,16 @@ module.exports = {
 
     // Colores para embeds
     COLORES: {
-        PRINCIPAL: 0xF5C542,   // Dorado Prophet
-        EXITO: 0x2ECC71,       // Verde
-        SUCCESS: 0x2ECC71,     // Verde (alias para economy commands)
-        ERROR: 0xE74C3C,       // Rojo
-        WARN: 0xF39C12,        // Naranja
-        INFO: 0x3498DB,        // Azul
-        MUSICA: 0x9B59B6,      // Violeta
-        NIVEL: 0x2ECC71,       // Verde
-        MODERACION: 0xE74C3C,  // Rojo
+        PRINCIPAL: 0xBB86FC,   // Violeta Prophet (usado en la mayoría de embeds)
+        EXITO: 0x69F0AE,       // Verde Menta
+        SUCCESS: 0x69F0AE,     // Verde Menta (alias)
+        ERROR: 0xEF5350,       // Rojo suave
+        WARN: 0xFFB74D,        // Naranja suave
+        INFO: 0x42A5F5,        // Azul
+        MUSICA: 0xBB86FC,      // Violeta (igual que principal)
+        NIVEL: 0x69F0AE,       // Verde Menta
+        MODERACION: 0xEF5350,  // Rojo suave
+        DISCONNECT: 0x37474F,  // Gris oscuro (desconexión)
     },
 
     // Sistema de niveles

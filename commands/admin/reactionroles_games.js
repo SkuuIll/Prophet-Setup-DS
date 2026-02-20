@@ -91,9 +91,7 @@ module.exports = {
                     .setCustomId(`rr_auto_${roleObj.id}`) // ID especial para detectar en interactionCreate
                     .setLabel(roleData.name.replace('PUBG: ', '').replace('CS: ', ''))
                     .setEmoji(roleData.emoji)
-                    .setStyle(ButtonStyle.Secondry); // Typo intencional corregido a Secondary abajo, pero discord.js usa Secondary o 2
-
-                btn.setStyle(ButtonStyle.Secondary);
+                    .setStyle(ButtonStyle.Secondary);
 
                 currentRow.addComponents(btn);
 
