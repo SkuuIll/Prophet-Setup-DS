@@ -24,18 +24,22 @@ module.exports = {
         COMANDOS_BOT: '🤖・bot-comandos',
         STREAMS: '🖥️・streams',
         LOGS: '⚙️・logs',
+        STAFF: '🛡️・chat-staff',
+        REPORTES: '📋・reportes',
+        ARCHIVOS: '📁・archivos',
     },
 
     // Roles del servidor
+    // Roles del servidor (Nombres EXACTOS con emojis)
     ROLES: {
-        PROPHET: null,    // 👑 Prophet
-        STAFF: null,      // 🛡️ Staff
-        MODERADOR: null,  // ⚔️ Moderador
-        VIP: null,        // 💎 VIP
-        VETERANO: null,   // 🌟 Veterano
-        MIEMBRO: null,    // 👤 Miembro
-        NUEVO: 'Nuevo',   // 🆕 Nuevo (Rol que se da al entrar)
-        BOTS: null,       // 🤖 Bots
+        PROPHET: '👑 Prophet',
+        STAFF: '🛡️ Staff',
+        MODERADOR: '⚔️ Moderador',
+        VIP: '💎 VIP',
+        VETERANO: '🌟 Veterano',
+        MIEMBRO: '👤 Miembro',
+        NUEVO: '🆕 Nuevo',
+        BOTS: '🤖 Bots',
     },
 
     // Colores para embeds
