@@ -238,7 +238,7 @@ async function inicializarMusica() {
             SKIP: 0xFFD54F,   // Amarillo dorado
         };
 
-        const MUSIC_BANNER = 'https://raw.githubusercontent.com/SkuuIll/Prophet-Setup-DS/main/assets/music_banner_v2.png';
+        const MUSIC_BANNER = 'https://raw.githubusercontent.com/SkuuIll/Prophet-Setup-DS/main/assets/music_banner.png';
 
         // ─── Utilidades visuales ───
         function barraVolumen(vol) {
