@@ -257,8 +257,7 @@ module.exports = {
                             '> `/setup-counting` — Configurar juego de contar\n' +
                             '> `/setup-confesiones` — Configurar canal de confesiones\n\n' +
                             '**🏷️ Auto-Roles:**\n' +
-                            '> `/reactionroles` — Crear panel de roles personalizado\n' +
-                            '> `/reactionroles_games` — Panel de roles para juegos (PUBG, CS, etc.)\n\n' +
+                            '> `/reactionroles` — Crear panel de roles personalizado\n\n' +
                             '**📋 Sistema:**\n' +
                             '> `/memoria` — Logs internos detallados de Moderación y Sistema\n\n' +
                             '**🤖 Sistemas automáticos:**\n' +

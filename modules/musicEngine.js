@@ -35,8 +35,9 @@ module.exports = async function inicializarMusica(client) {
             const { YoutubeiExtractor } = require('discord-player-youtubei');
             await client.player.extractors.register(YoutubeiExtractor, {
                 streamOptions: {
-                    useClient: 'WEB',
+                    useClient: 'IOS',
                 },
+                overrideBridgeMode: 'yt',
             });
             console.log('✅ YoutubeiExtractor cargado (búsqueda + metadata)');
         } catch (ytErr) {

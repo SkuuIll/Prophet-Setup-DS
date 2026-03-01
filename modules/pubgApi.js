@@ -31,17 +31,30 @@ function setCache(key, data) {
     }
 }
 
-// ── Rate Limiter simple ──
-let lastRequest = 0;
-const MIN_INTERVAL = 6500; // ~9 requests/min (bajo el límite de 10)
+// ── Rate Limiter simple (Token Bucket) ──
+let tokens = 10;
+let lastRefill = Date.now();
+const MAX_TOKENS = 10;
+const REFILL_RATE_MS = 60000 / 10; // 1 token cada 6 segundos (10/min)
 
 async function rateLimitedFetch(url) {
     const now = Date.now();
-    const wait = MIN_INTERVAL - (now - lastRequest);
-    if (wait > 0) {
-        await new Promise(r => setTimeout(r, wait));
+    const elapsed = now - lastRefill;
+
+    // Refill de tokens
+    const tokensToAdd = Math.floor(elapsed / REFILL_RATE_MS);
+    if (tokensToAdd > 0) {
+        tokens = Math.min(MAX_TOKENS, tokens + tokensToAdd);
+        lastRefill = now - (elapsed % REFILL_RATE_MS); // mantener el resto
     }
-    lastRequest = Date.now();
+
+    if (tokens < 1) {
+        const waitTime = REFILL_RATE_MS - (Date.now() - lastRefill);
+        await new Promise(r => setTimeout(r, waitTime));
+        return rateLimitedFetch(url); // intentar de nuevo tras esperar
+    }
+
+    tokens--;
 
     const response = await fetch(url, {
         headers: {

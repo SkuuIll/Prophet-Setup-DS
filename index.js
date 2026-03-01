@@ -128,7 +128,7 @@ async function resolverIDs(guild) {
 
 
 // ═══ INICIO ═══
-client.once('ready', async () => {
+client.once('clientReady', async () => {
     console.log('');
     console.log('═══════════════════════════════════════');
     console.log(`  🤖 Prophet Bot v2.5`);

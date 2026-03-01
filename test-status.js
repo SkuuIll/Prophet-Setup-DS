@@ -2,7 +2,7 @@ const { Client, GatewayIntentBits } = require('discord.js');
 const config = require('./config');
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
-client.once('ready', async () => {
+client.once('clientReady', async () => {
     try {
         console.log("Ready");
         // We need a test voice channel. The voice_generator_id is a voice channel.

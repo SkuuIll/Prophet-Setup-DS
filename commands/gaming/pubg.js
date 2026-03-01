@@ -123,15 +123,32 @@ module.exports = {
                         await i.deferUpdate();
                         session.currentView = 'season';
 
-                        if (!session.seasonStats) {
+                        if (!session.allSeasons) {
                             try {
                                 const seasons = await pubgApi.getSeasons(platform);
-                                const current = seasons.find(s => s.isCurrentSeason);
+                                session.allSeasons = seasons.filter(s => !s.id.includes('beta')); // Ocultar betas viejas
+                                const current = session.allSeasons.find(s => s.isCurrentSeason) || session.allSeasons[session.allSeasons.length - 1];
                                 if (current) {
                                     session.seasonId = current.id;
                                     session.seasonStats = await pubgApi.getSeasonStats(player.id, current.id, platform);
                                 }
                             } catch { session.seasonStats = {}; }
+                        }
+
+                        await i.editReply({
+                            embeds: [buildSeasonEmbed(session)],
+                            components: buildComponents(session),
+                        });
+                    }
+
+                    // ── Cambiar Temporada Seleccionada ──
+                    else if (i.customId === 'pubg_season_select') {
+                        await i.deferUpdate();
+                        session.seasonId = i.values[0];
+                        try {
+                            session.seasonStats = await pubgApi.getSeasonStats(player.id, session.seasonId, platform);
+                        } catch {
+                            session.seasonStats = {};
                         }
 
                         await i.editReply({
@@ -308,6 +325,32 @@ function buildComponents(session) {
             return [new ActionRowBuilder().addComponents(modeSelect), row];
         }
     }
+
+    // Select de temporadas solo en vista season
+    if (v === 'season' && session.allSeasons && session.allSeasons.length > 0) {
+        // Filtrar 'pre' y betas. Invertir para que lo más nuevo quede arriba (como 'pc-2018-40')
+        // Discord permite máximo 25 opciones por select menu. Mostramos las 25 más recientes.
+        const recentSeasons = [...session.allSeasons]
+            .filter(s => !s.id.includes('pre') && !s.id.includes('beta'))
+            .reverse()
+            .slice(0, 25);
+
+        const seasonSelect = new StringSelectMenuBuilder()
+            .setCustomId('pubg_season_select')
+            .setPlaceholder('📅 Seleccionar otra temporada...')
+            .addOptions(recentSeasons.map(s => {
+                const isCurrent = s.isCurrentSeason;
+                const number = s.id.split('-').pop(); // Da '40', '39', etc
+                return {
+                    label: `Temporada ${number} ${isCurrent ? '(Actual)' : ''}`,
+                    value: s.id,
+                    default: s.id === session.seasonId,
+                };
+            }));
+
+        return [new ActionRowBuilder().addComponents(seasonSelect), row];
+    }
+
     return [row];
 }
 
@@ -422,7 +465,7 @@ function buildSeasonEmbed(session) {
         .setThumbnail(PUBG_LOGO)
         .setDescription(
             `╔══════════════════════════════╗\n` +
-            `║  📅 Temporada: \`${seasonId?.split('.').pop() || '??'}\`\n` +
+            `║  📅 Temporada: \`${seasonId?.split('-').pop() || '??'}\`\n` +
             `╚══════════════════════════════╝\n\n` +
             `> **Modo:** ${modeLabel}  ·  **${s.roundsPlayed}** partidas\n` +
             `> Modos disponibles: ${modesAvail}\n\n` +
@@ -538,7 +581,7 @@ function buildMatchListEmbed(session) {
 }
 
 function buildMatchDetailEmbed(session, matchData) {
-    const { player } = session;
+    const { player, platform } = session;
     const ps = matchData.playerStats;
 
     if (!ps) {
@@ -563,6 +606,9 @@ function buildMatchDetailEmbed(session, matchData) {
     // K/D de la partida
     const matchKD = ps.kills > 0 ? ps.kills.toFixed(0) : '0';
 
+    // Link de Replay 2D
+    const replayLink = `https://pubg.sh/${encodeURIComponent(player.name)}/${platform}/${matchData.matchId}`;
+
     return new EmbedBuilder()
         .setColor(ps.teamRank === 1 ? 0xFFD700 : ps.teamRank <= 10 ? 0x69F0AE : 0xEF5350)
         .setAuthor({ name: `${player.name}  ·  Detalle de Partida`, iconURL: PUBG_LOGO })
@@ -575,7 +621,8 @@ function buildMatchDetailEmbed(session, matchData) {
             `> **${placeText}**\n` +
             `> ${deathLabels[ps.deathType] || ps.deathType}\n\n` +
             `> **Kills:** \`${progressBar(ps.kills, 10)}\` **${ps.kills}**\n` +
-            `> **Daño:** \`${progressBar(ps.damageDealt, 1000, 10)}\` **${ps.damageDealt}**`
+            `> **Daño:** \`${progressBar(ps.damageDealt, 1000, 10)}\` **${ps.damageDealt}**\n\n` +
+            `> 🗺️ **[Ver Replay 2D de la partida](${replayLink})**`
         )
         .addFields(
             {
