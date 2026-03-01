@@ -24,7 +24,7 @@ Música · Moderación · Economía · Niveles · Mini-juegos — todo en un sol
 
 - [Descripción](#-descripción)
 - [Características](#-características)
-- [Comandos](#-comandos-49-total)
+- [Comandos](#-comandos-50-total)
 - [Stack Técnico](#-stack-técnico)
 - [Instalación](#-instalación)
 - [Configuración VPS](#-configuración-vps-producción)
@@ -125,10 +125,11 @@ Un ecosistema financiero completo que mantiene a los usuarios activos:
 - 🚨 **Anti-Raid** — Alerta automática al detectar entradas sospechosas
 - 📝 **Logs automáticos** — Mensajes eliminados, editados, entradas/salidas de miembros
 
-### 🎮 Entretenimiento
+### 🎮 Entretenimiento & Gaming
 
 | Comando | Descripción |
 |---|---|
+| `/pubg` | 🔫 **Stats de PUBG completas** (Lifetime, Temporada, Partidas, Comparación de Modos, Menús Ingame, Replays 2D) |
 | `/tictactoe` | Tres en raya con botones interactivos (PvP) |
 | `/rps` | Piedra, Papel o Tijera contra el bot |
 | `/8ball` | Bola mágica con respuestas color-coded |
@@ -170,12 +171,13 @@ El bot cuenta con un sistema interactivo de creación de salas privadas (`🔊 S
 
 ---
 
-## 📋 Comandos (49 total)
+## 📋 Comandos (50 total)
 
 ```
 📁 admin/       6 comandos    ⚙️  Configuración y setup del servidor
 📁 economy/     9 comandos    💰 Sistema financiero completo
-📁 fun/         6 comandos    🎮 Juegos y entretenimiento
+📁 fun/         6 comandos    🎉 Juegos y entretenimiento
+📁 gaming/      1 comando     🎮 Estadísticas de juegos (PUBG)
 📁 levels/      2 comandos    📈 Niveles y leaderboard
 📁 mod/         9 comandos    🛡️  Moderación y seguridad
 📁 music/       6 comandos    🎵 Reproductor de música
@@ -399,6 +401,11 @@ Los embeds del bot siguen una paleta consistente para comunicar estados visuales
 ---
 
 ## 📝 Changelog
+
+### v2.6 — *Marzo 2026*
+- 🔫 **Nuevo Módulo de Gaming**: Comando `/pubg` interactivo con menús para ver estadísticas Lifetime, Temporadas, Partidas y Historial con soporte completo para Partidas Ranked y 2D Replays.
+- 🎵 **Mejoras en Prophet Music**: Reparado el reproductor para soportar Playlists completas nativas usando IDs estrictos (sin auto-rezagos de Mixes YT).
+- 🔇 **UI de control limpia**: Los controles de volumen del reproductor ahora se actualizan silenciosamente mediante `deferUpdate`.
 
 ### v2.5 — *Febrero 2026*
 - ✨ Rediseño completo de todos los mensajes del bot con embeds premium
