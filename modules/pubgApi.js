@@ -222,10 +222,21 @@ async function getSeasonStats(playerId, seasonId, platform = 'steam') {
     if (cached) return cached;
 
     const url = `${BASE_URL}/shards/${platform}/players/${playerId}/seasons/${seasonId}`;
-    const data = await rateLimitedFetch(url);
+    const urlRanked = `${BASE_URL}/shards/${platform}/players/${playerId}/seasons/${seasonId}/ranked`;
+
+    let data, dataRanked;
+    try {
+        [data, dataRanked] = await Promise.all([
+            rateLimitedFetch(url),
+            rateLimitedFetch(urlRanked).catch(() => null)
+        ]);
+    } catch (e) {
+        throw e;
+    }
 
     // Usa el mismo parser que lifetime
     const gameModeStats = data.data?.attributes?.gameModeStats || {};
+    const rankedGameModeStats = dataRanked?.data?.attributes?.rankedGameModeStats || {};
     const result = {};
 
     for (const [mode, stats] of Object.entries(gameModeStats)) {
@@ -258,6 +269,36 @@ async function getSeasonStats(playerId, seasonId, platform = 'steam') {
             vehicleDestroys: stats.vehicleDestroys || 0,
             weaponsAcquired: stats.weaponsAcquired || 0,
             daysActive: stats.days || 0,
+        };
+    }
+
+    for (const [mode, stats] of Object.entries(rankedGameModeStats)) {
+        const rp = stats.roundsPlayed || 0;
+        const k = stats.kills || 0;
+        const w = stats.wins || 0;
+        if (rp === 0) continue;
+        result[`${mode}-ranked`] = {
+            wins: w, losses: stats.deaths || 0, top10s: Math.round(rp * (stats.top10Ratio || 0)),
+            roundsPlayed: rp, kills: k, assists: stats.assists || 0,
+            kdRatio: rp > 0 ? (k / Math.max(1, rp - w)).toFixed(2) : '0.00',
+            damageDealt: Math.round(stats.damageDealt || 0),
+            avgDamage: rp > 0 ? Math.round((stats.damageDealt || 0) / rp) : 0,
+            longestKill: Math.round(stats.longestKill || 0),
+            headshotKills: stats.headshotKills || 0,
+            headshotRate: stats.headshotKillRatio ? (stats.headshotKillRatio * 100).toFixed(1) : '0.0',
+            maxKillStreaks: stats.killStreak || 0,
+            timeSurvived: 0,
+            boosts: stats.boosts || 0, heals: stats.heals || 0,
+            revives: stats.revives || 0, teamKills: stats.teamKills || 0,
+            suicides: 0,
+            winRate: stats.winRatio ? (stats.winRatio * 100).toFixed(1) : '0.0',
+            avgKills: rp > 0 ? (k / rp).toFixed(1) : '0.0',
+            avgAssists: rp > 0 ? ((stats.assists || 0) / rp).toFixed(1) : '0.0',
+            avgSurvivalTime: Math.round((stats.avgSurvivalTime || 0) / 60),
+            top10Rate: stats.top10Ratio ? (stats.top10Ratio * 100).toFixed(1) : '0.0',
+            walkDistance: '0.0', rideDistance: '0.0', swimDistance: '0.0',
+            vehicleDestroys: 0, weaponsAcquired: stats.weaponsAcquired || 0,
+            daysActive: 0,
         };
     }
 

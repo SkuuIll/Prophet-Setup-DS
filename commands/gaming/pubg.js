@@ -7,11 +7,17 @@ const MODE_LABELS = {
     'solo': '🎯 Solo TPP', 'solo-fpp': '🎯 Solo FPP',
     'duo': '👥 Duo TPP', 'duo-fpp': '👥 Duo FPP',
     'squad': '🛡️ Squad TPP', 'squad-fpp': '🛡️ Squad FPP',
+    'solo-ranked': '🏅 Solo Ranked TPP', 'solo-fpp-ranked': '🏅 Solo Ranked FPP',
+    'duo-ranked': '🏅 Duo Ranked TPP', 'duo-fpp-ranked': '🏅 Duo Ranked FPP',
+    'squad-ranked': '🏅 Squad Ranked TPP', 'squad-fpp-ranked': '🏅 Squad Ranked FPP',
 };
 const MODE_SHORT = {
     'solo': 'Solo', 'solo-fpp': 'Solo FPP',
     'duo': 'Duo', 'duo-fpp': 'Duo FPP',
     'squad': 'Squad', 'squad-fpp': 'Squad FPP',
+    'solo-ranked': 'Solo (R)', 'solo-fpp-ranked': 'Solo FPP (R)',
+    'duo-ranked': 'Duo (R)', 'duo-fpp-ranked': 'Duo FPP (R)',
+    'squad-ranked': 'Squad (R)', 'squad-fpp-ranked': 'Squad FPP (R)',
 };
 const PLATFORM_LABELS = {
     'steam': '🖥️ Steam', 'psn': '🎮 PlayStation', 'xbox': '🟢 Xbox',
@@ -48,12 +54,14 @@ module.exports = {
                 .setDescription('Modo de juego a consultar')
                 .setRequired(false)
                 .addChoices(
+                    { name: '🏅 Squad Ranked FPP', value: 'squad-fpp-ranked' },
+                    { name: '🏅 Squad Ranked TPP', value: 'squad-ranked' },
                     { name: '🛡️ Squad FPP', value: 'squad-fpp' },
                     { name: '🛡️ Squad TPP', value: 'squad' },
                     { name: '👥 Duo FPP', value: 'duo-fpp' },
                     { name: '👥 Duo TPP', value: 'duo' },
                     { name: '🎯 Solo FPP', value: 'solo-fpp' },
-                    { name: '🎯 Solo TPP', value: 'solo' },
+                    { name: '🎯 Solo TPP', value: 'solo' }
                 )),
 
     async execute(interaction) {
@@ -250,12 +258,21 @@ module.exports = {
                     // ── Cambiar Modo ──
                     else if (i.customId === 'pubg_mode_select') {
                         const newMode = i.values[0];
-                        if (session.stats[newMode]?.roundsPlayed > 0) session.activeMode = newMode;
-                        session.currentView = 'stats';
-                        await i.update({
-                            embeds: [buildStatsEmbed(session)],
-                            components: buildComponents(session),
-                        });
+                        session.activeMode = newMode;
+
+                        // Refrescar la vista actual (Season o Stats)
+                        if (session.currentView === 'season') {
+                            await i.update({
+                                embeds: [buildSeasonEmbed(session)],
+                                components: buildComponents(session),
+                            });
+                        } else {
+                            session.currentView = 'stats';
+                            await i.update({
+                                embeds: [buildStatsEmbed(session)],
+                                components: buildComponents(session),
+                            });
+                        }
                     }
                 } catch (err) {
                     console.error('Error en PUBG interacción:', err.message);
@@ -307,22 +324,29 @@ function buildComponents(session) {
             .setStyle(v === 'matches' || v === 'match_detail' ? ButtonStyle.Primary : ButtonStyle.Secondary),
     );
 
-    // Select de modos solo en vista stats
-    if (v === 'stats') {
-        const availableModes = Object.entries(session.stats)
+    const components = [row];
+
+    // Select de modos en vista stats o season
+    let activeModeData = null;
+    if (v === 'stats') activeModeData = session.stats;
+    if (v === 'season') activeModeData = session.seasonStats;
+
+    if (activeModeData) {
+        const availableModes = Object.entries(activeModeData)
             .filter(([, s]) => s.roundsPlayed > 0)
             .sort((a, b) => b[1].roundsPlayed - a[1].roundsPlayed)
-            .slice(0, 6);
+            .slice(0, 10);
 
         if (availableModes.length > 1) {
+            const usedMode = activeModeData[session.activeMode] ? session.activeMode : availableModes[0][0];
             const modeSelect = new StringSelectMenuBuilder()
                 .setCustomId('pubg_mode_select')
-                .setPlaceholder(`Modo: ${MODE_LABELS[session.activeMode] || session.activeMode}`)
+                .setPlaceholder(`Modo: ${MODE_LABELS[usedMode] || usedMode}`)
                 .addOptions(availableModes.map(([m, s]) => ({
                     label: `${MODE_LABELS[m] || m}  ·  ${s.roundsPlayed} partidas`,
-                    value: m, default: m === session.activeMode,
+                    value: m, default: m === usedMode,
                 })));
-            return [new ActionRowBuilder().addComponents(modeSelect), row];
+            components.unshift(new ActionRowBuilder().addComponents(modeSelect));
         }
     }
 
@@ -348,10 +372,10 @@ function buildComponents(session) {
                 };
             }));
 
-        return [new ActionRowBuilder().addComponents(seasonSelect), row];
+        components.splice(-1, 0, new ActionRowBuilder().addComponents(seasonSelect));
     }
 
-    return [row];
+    return components;
 }
 
 // ═══════════════════════════════════════════════════
@@ -360,13 +384,14 @@ function buildComponents(session) {
 
 function buildStatsEmbed(session) {
     const { player, platform, activeMode } = session;
-    const s = session.stats[activeMode];
-    const modeLabel = MODE_LABELS[activeMode] || activeMode;
+    const s = session.stats[activeMode] || Object.values(session.stats)[0];
+    const usedMode = session.stats[activeMode] ? activeMode : Object.keys(session.stats)[0];
+    const modeLabel = MODE_LABELS[usedMode] || usedMode;
     const platLabel = PLATFORM_LABELS[platform] || platform;
 
-    const kd = parseFloat(s.kdRatio);
-    const wr = parseFloat(s.winRate);
-    const hs = parseFloat(s.headshotRate);
+    const kd = parseFloat(s.kdRatio || 0);
+    const wr = parseFloat(s.winRate || 0);
+    const hs = parseFloat(s.headshotRate || 0);
 
     return new EmbedBuilder()
         .setColor(0xF2A900)
