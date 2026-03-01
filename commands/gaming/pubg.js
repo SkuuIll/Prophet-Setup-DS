@@ -188,7 +188,7 @@ module.exports = {
 
                         if (!session.matchPreviews) {
                             const previews = [];
-                            for (const matchId of player.recentMatches.slice(0, 5)) {
+                            for (const matchId of player.recentMatches.slice(0, 10)) {
                                 try {
                                     previews.push(await pubgApi.getMatch(matchId, platform, player.id));
                                 } catch { /* skip */ }
