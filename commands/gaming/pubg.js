@@ -32,6 +32,14 @@ function progressBar(value, max, size = 10) {
     return '█'.repeat(Math.min(filled, size)) + '░'.repeat(Math.max(empty, 0));
 }
 
+// ═══ Util para formatear tiempo ═══
+function formatMinutes(totalMins) {
+    if (totalMins < 60) return `${Math.round(totalMins)} min`;
+    const hours = Math.floor(totalMins / 60);
+    const mins = Math.round(totalMins % 60);
+    return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
+}
+
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('pubg')
@@ -447,7 +455,7 @@ function buildStatsEmbed(session) {
                 name: '```🏃  M O V I M I E N T O```',
                 value: [
                     `╠ 🚶 **A pie:** \`${s.walkDistance} km\`  ·  🚗 **Vehículo:** \`${s.rideDistance} km\`  ·  🏊 **Nadar:** \`${s.swimDistance} km\``,
-                    `╚ ⏱️ **Tiempo total:** \`${s.timeSurvived} min\`  ·  💊 \`${s.heals}\` heals  ·  ⚡ \`${s.boosts}\` boosts`,
+                    `╚ ⏱️ **Tiempo total:** \`${formatMinutes(s.timeSurvived)}\`  ·  💊 \`${s.heals}\` heals  ·  ⚡ \`${s.boosts}\` boosts`,
                 ].join('\n'),
                 inline: false,
             },
