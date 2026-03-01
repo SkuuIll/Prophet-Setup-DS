@@ -2,7 +2,7 @@
 
 <img src="assets/logo.png" width="140" height="140" alt="Prophet Bot" style="border-radius: 50%;">
 
-# Prophet Bot v2.5
+# Prophet Bot v2.6
 
 **El asistente definitivo para Prophet Gaming.**\
 Música · Moderación · Economía · Niveles · Mini-juegos — todo en un solo bot.

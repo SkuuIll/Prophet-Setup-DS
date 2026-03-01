@@ -81,8 +81,7 @@ module.exports = {
                 }
             });
 
-            await interaction.editReply({ content: `✅ **${track.title}** añadido a la cola.` });
-            setTimeout(() => interaction.deleteReply().catch(() => { }), 3000);
+            await interaction.deleteReply().catch(() => { });
             return;
 
         } catch (firstError) {
@@ -107,8 +106,7 @@ module.exports = {
                         }
                     });
 
-                    await interaction.editReply({ content: `✅ **${track.title}** añadido a la cola.` });
-                    setTimeout(() => interaction.deleteReply().catch(() => { }), 3000);
+                    await interaction.deleteReply().catch(() => { });
                     return;
                 } catch (secondError) {
                     console.error('Play fallback error:', secondError.message);
