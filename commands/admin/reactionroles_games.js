@@ -43,7 +43,10 @@ module.exports = {
         const createdRoles = {};
         let logMsg = "⚙️ **Procesando Roles...**\n";
 
-        // 1. Crear roles si no existen
+        // 1. Refrescar cache de roles para detectar existentes correctamente
+        await interaction.guild.roles.fetch();
+
+        // 2. Crear roles si no existen
         for (const [category, roles] of Object.entries(rolesConfig)) {
             for (const r of roles) {
                 let role = interaction.guild.roles.cache.find(x => x.name === r.name);
