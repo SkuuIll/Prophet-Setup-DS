@@ -18,9 +18,15 @@ function limpiarQuery(query) {
             return videoId ? `https://www.youtube.com/watch?v=${videoId}` : query;
         }
 
-        // Si es un /watch con video ID, mantener solo el ?v=
+        // Si es un /watch con video ID, limpiar parámetros extra
         if (url.pathname === '/watch' && url.searchParams.has('v')) {
-            return `https://www.youtube.com/watch?v=${url.searchParams.get('v')}`;
+            let cleanUrl = `https://www.youtube.com/watch?v=${url.searchParams.get('v')}`;
+            // Mantener listas que sean reales (PL = playlist, OL = album). Bloquear 'RD' (Mixes infinitos)
+            const listId = url.searchParams.get('list');
+            if (listId && !listId.startsWith('RD')) {
+                cleanUrl += `&list=${listId}`;
+            }
+            return cleanUrl;
         }
 
         // Si es una playlist pura (/playlist?list=PLxxx), dejar tal cual
