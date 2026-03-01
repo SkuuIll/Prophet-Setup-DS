@@ -10,14 +10,16 @@ const MODE_LABELS = {
     'solo-ranked': '🏅 Solo Ranked TPP', 'solo-fpp-ranked': '🏅 Solo Ranked FPP',
     'duo-ranked': '🏅 Duo Ranked TPP', 'duo-fpp-ranked': '🏅 Duo Ranked FPP',
     'squad-ranked': '🏅 Squad Ranked TPP', 'squad-fpp-ranked': '🏅 Squad Ranked FPP',
+    'tdm': '🔫 Team Deathmatch', 'ibr': '🚀 Intense Battle Royale',
 };
 const MODE_SHORT = {
-    'solo': 'Solo', 'solo-fpp': 'Solo FPP',
-    'duo': 'Duo', 'duo-fpp': 'Duo FPP',
-    'squad': 'Squad', 'squad-fpp': 'Squad FPP',
-    'solo-ranked': 'Solo (R)', 'solo-fpp-ranked': 'Solo FPP (R)',
-    'duo-ranked': 'Duo (R)', 'duo-fpp-ranked': 'Duo FPP (R)',
-    'squad-ranked': 'Squad (R)', 'squad-fpp-ranked': 'Squad FPP (R)',
+    'solo': '🎯 Solo', 'solo-fpp': '🎯 Solo FPP',
+    'duo': '👥 Duo', 'duo-fpp': '👥 Duo FPP',
+    'squad': '🛡️ Squad', 'squad-fpp': '🛡️ Squad FPP',
+    'solo-ranked': '🏅 Solo (R)', 'solo-fpp-ranked': '🏅 Solo FPP (R)',
+    'duo-ranked': '🏅 Duo (R)', 'duo-fpp-ranked': '🏅 Duo FPP (R)',
+    'squad-ranked': '🏅 Squad (R)', 'squad-fpp-ranked': '🏅 Squad FPP (R)',
+    'tdm': '🔫 TDM', 'ibr': '🚀 Casual (IBR)',
 };
 const PLATFORM_LABELS = {
     'steam': '🖥️ Steam', 'psn': '🎮 PlayStation', 'xbox': '🟢 Xbox',
@@ -596,7 +598,7 @@ function buildMatchListEmbed(session) {
         const date = m.createdAt ? new Date(m.createdAt) : null;
         const dateStr = date ? `<t:${Math.floor(date.getTime() / 1000)}:R>` : '??';
         const placeEmoji = ps?.teamRank === 1 ? '🏆' : ps?.teamRank <= 3 ? '🥉' : ps?.teamRank <= 10 ? '🔟' : '💀';
-        const modeStr = MODE_SHORT[m.gameMode] || m.gameMode;
+        const modeStr = MODE_SHORT[m.gameMode] ? `**[${MODE_SHORT[m.gameMode]}]**` : `**[${m.gameMode.toUpperCase()}]**`;
 
         return `${placeEmoji} **#${ps?.teamRank || '?'}** · \`${m.mapName}\` · ${modeStr} · **${ps?.kills || 0}** kills · **${ps?.damageDealt || 0}** daño · ${m.duration}min · ${dateStr}`;
     });
