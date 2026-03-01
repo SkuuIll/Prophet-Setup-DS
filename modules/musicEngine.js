@@ -444,10 +444,7 @@ module.exports = async function inicializarMusica(client) {
                             const newVol = Math.max(0, currentQueue.node.volume - 10);
                             currentQueue.node.setVolume(newVol);
                             await actualizarNowPlaying(currentQueue);
-                            await i.reply({
-                                content: `> ${barraVolumen(newVol)}`,
-                                ephemeral: true
-                            });
+                            await i.deferUpdate();
                             break;
                         }
 
@@ -455,10 +452,7 @@ module.exports = async function inicializarMusica(client) {
                             const newVol = Math.min(100, currentQueue.node.volume + 10);
                             currentQueue.node.setVolume(newVol);
                             await actualizarNowPlaying(currentQueue);
-                            await i.reply({
-                                content: `> ${barraVolumen(newVol)}`,
-                                ephemeral: true
-                            });
+                            await i.deferUpdate();
                             break;
                         }
 
