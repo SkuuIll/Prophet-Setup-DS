@@ -356,7 +356,6 @@ function buildComponents(session) {
         // Discord permite máximo 25 opciones por select menu. Mostramos las 25 más recientes.
         const recentSeasons = [...session.allSeasons]
             .filter(s => !s.id.includes('pre') && !s.id.includes('beta'))
-            .reverse()
             .slice(0, 25);
 
         const seasonSelect = new StringSelectMenuBuilder()
@@ -589,8 +588,9 @@ function buildMatchListEmbed(session) {
         const date = m.createdAt ? new Date(m.createdAt) : null;
         const dateStr = date ? `<t:${Math.floor(date.getTime() / 1000)}:R>` : '??';
         const placeEmoji = ps?.teamRank === 1 ? '🏆' : ps?.teamRank <= 3 ? '🥉' : ps?.teamRank <= 10 ? '🔟' : '💀';
+        const modeStr = MODE_SHORT[m.gameMode] || m.gameMode;
 
-        return `${placeEmoji} **#${ps?.teamRank || '?'}** · \`${m.mapName}\` · **${ps?.kills || 0}** kills · **${ps?.damageDealt || 0}** daño · ${m.duration}min · ${dateStr}`;
+        return `${placeEmoji} **#${ps?.teamRank || '?'}** · \`${m.mapName}\` · ${modeStr} · **${ps?.kills || 0}** kills · **${ps?.damageDealt || 0}** daño · ${m.duration}min · ${dateStr}`;
     });
 
     return new EmbedBuilder()
@@ -639,7 +639,7 @@ function buildMatchDetailEmbed(session, matchData) {
         .setAuthor({ name: `${player.name}  ·  Detalle de Partida`, iconURL: PUBG_LOGO })
         .setDescription(
             `╔══════════════════════════════╗\n` +
-            `║  🗺️ **${matchData.mapName}**  ·  ${matchData.gameMode}\n` +
+            `║  🗺️ **${matchData.mapName}**  ·  ${MODE_LABELS[matchData.gameMode] || matchData.gameMode}\n` +
             `╚══════════════════════════════╝\n\n` +
             `> 📅 ${dateStr}\n` +
             `> ⏱️ **${matchData.duration} min**  ·  👥 **${matchData.totalPlayers}** jugadores\n\n` +
