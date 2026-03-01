@@ -143,6 +143,21 @@ module.exports = {
     // Permisos — Roles que pueden usar comandos de moderación
     STAFF_ROLES: ['👑 Prophet', '🛡️ Staff', '⚔️ Moderador'],
 
+    // APIs externas (Gaming Stats)
+    APIS: {
+        PUBG: {
+            KEY: process.env.PUBG_API_KEY,
+            BASE_URL: 'https://api.pubg.com',
+            RATE_LIMIT: 10,         // Requests por minuto
+            CACHE_TTL: 300000,      // 5 minutos
+        },
+        TRACKER: {
+            KEY: process.env.TRACKER_API_KEY,
+            BASE_URL: 'https://api.tracker.gg/api/v2',
+            CACHE_TTL: 300000,      // 5 minutos
+        }
+    },
+
     // Recursos Visuales
     ASSETS: {
         LOGO: './assets/logo.png',

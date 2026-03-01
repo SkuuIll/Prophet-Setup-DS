@@ -17,7 +17,7 @@ module.exports = {
                 `¡Hola **${interaction.user.username}**! 👋\n` +
                 `Soy el asistente oficial de **Prophet Gaming**.\n\n` +
                 `> 🎵 **Música** · 💰 **Economía** · 🎮 **Juegos** · 📈 **Niveles**\n` +
-                `> 🛡️ **Moderación** · 🔧 **Utilidades** · ⚙️ **Admin**\n\n` +
+                `> 🎯 **Gaming Stats** · 🛡️ **Moderación** · 🔧 **Utilidades** · ⚙️ **Admin**\n\n` +
                 `**📚 ¿Cómo funciona?**\n` +
                 `Seleccioná una categoría del menú de abajo para ver los comandos detallados.\n\n` +
                 `> 📶 **Ping:** \`${interaction.client.ws.ping}ms\` · **Comandos:** \`58\` · **Servidor:** \`${interaction.guild.memberCount} miembros\``
@@ -34,6 +34,7 @@ module.exports = {
                 { label: '💰 Economía y Tienda', description: '10 comandos — Dinero, trabajos, apuestas', value: 'economy', emoji: '💰' },
                 { label: '🎵 Música DJ', description: '7 comandos — Reproducción y filtros de audio', value: 'music', emoji: '🎵' },
                 { label: '🎮 Juegos y Diversión', description: '8 comandos — Minijuegos, LFG y entretenimiento', value: 'fun', emoji: '🎮' },
+                { label: '🎯 Gaming Stats', description: '2 comandos — Stats de PUBG y CS2', value: 'gaming', emoji: '🎯' },
                 { label: '📈 Niveles y XP', description: '2 comandos — Ranking y progresión', value: 'levels', emoji: '📈' },
                 { label: '🔧 Utilidades', description: '12 comandos — Herramientas útiles, cumpleaños', value: 'utility', emoji: '🔧' },
                 { label: '🛡️ Moderación', description: '9 comandos — Herramientas de Staff', value: 'moderation', emoji: '🛡️' },
@@ -134,6 +135,30 @@ module.exports = {
                             '*💡 Tip: En /buscar-grupo el bot te notifica a vos y a tu equipo automáticamente cuando la sala se llena.*'
                         )
                         .setFooter({ text: '8 comandos  ·  Prophet Fun' })
+                        .setTimestamp();
+                    break;
+
+                case 'gaming':
+                    embed = new EmbedBuilder()
+                        .setColor(0xF2A900)
+                        .setAuthor({ name: '🎯  Gaming Stats — PUBG & CS2' })
+                        .setDescription(
+                            'Consultá las estadísticas de tus juegos favoritos directamente desde Discord.\n\n' +
+                            '**🔫 PUBG (API Oficial):**\n' +
+                            '> `/pubg <nombre> [plataforma] [modo]` — Stats lifetime\n' +
+                            '> 📊 K/D, Wins, Headshots, Daño, Distancias y más\n' +
+                            '> 🖥️ Steam · 🎮 PlayStation · 🟢 Xbox\n' +
+                            '> 🎯 Solo/Duo/Squad · FPP/TPP\n\n' +
+                            '**💥 Counter-Strike 2 (tracker.gg):**\n' +
+                            '> `/cs2 <steamid>` — Stats generales de CS2\n' +
+                            '> 📊 K/D, Win Rate, Headshot %, Daño/Ronda\n' +
+                            '> 🗺️ Stats por mapa · ⭐ MVPs · 🏆 Ranking\n\n' +
+                            '**💡 Tips:**\n' +
+                            '> • El nombre de PUBG es case-sensitive (mayúsculas importan)\n' +
+                            '> • Para CS2 usá tu Steam64 ID o URL del perfil de Steam\n' +
+                            '> • Los datos se cachean 5 min para no saturar las APIs'
+                        )
+                        .setFooter({ text: '2 comandos  ·  Prophet Gaming Stats' })
                         .setTimestamp();
                     break;
 
