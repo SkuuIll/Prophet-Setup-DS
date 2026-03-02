@@ -32,6 +32,27 @@ client.cooldowns = new Collection();
 client.snipes = new Collection();
 client.afk = new Collection();
 
+// ═══ SISTEMA ANTI-RAID ═══
+const { AntiRaidManager } = require('discord-antiraid');
+client.antiraid = new AntiRaidManager(client, {
+    rateLimit: 5,        // Uniones permitidas en el tiempo
+    time: 10000,         // Tiempo en milisegundos (10 segundos)
+    ban: true,           // Banear si hay raid
+    kick: false,
+    unrank: false,
+    exemptMembers: [],
+    exemptRoles: [],
+    exemptEvent: [],
+    reason: "Prophet: Auto-Ban por Raid"
+});
+
+client.antiraid.on("punish", (member, reason, sanction) => {
+    const logCh = member.guild.channels.cache.get(config.CHANNELS.LOGS);
+    if (logCh) {
+        logCh.send(`🚨 **Sistema Anti-Raid Activado**\n> Usuario: \`${member.user.tag}\` (${member.id})\n> Acción: \`${sanction}\`\n> Razón: \`${reason}\``);
+    }
+});
+
 // ═══ CARGAR COMANDOS ═══
 function cargarComandos() {
     const carpetas = fs.readdirSync(path.join(__dirname, 'commands'));
@@ -146,6 +167,7 @@ client.once('clientReady', async () => {
     await resolverIDs(guild);
     await registrarComandos();
     await require('./modules/musicEngine')(client);
+    await require('./modules/shoukakuEngine')(client);
 
     // Iniciar chequeo de sorteos
     const { verificarSorteos } = require('./modules/giveaways');
