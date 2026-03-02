@@ -18,7 +18,7 @@ module.exports = {
         }
 
         const query = interaction.options.getString('cancion');
-        const node = client.shoukaku.getNode();
+        const node = client.shoukaku.getIdealNode();
 
         if (!node) {
             return interaction.editReply('❌ No hay nodos de Lavalink disponibles en este momento. Revisa la consola.');
@@ -33,16 +33,16 @@ module.exports = {
             const track = result.data[0];
 
             // Creamos un dispatcher si no hay uno
-            let player = client.shoukaku.getPlayer(interaction.guild.id);
+            let player = client.shoukaku.players.get(interaction.guild.id);
             if (!player) {
                 if (!interaction.member.voice.channel) {
                     return interaction.editReply('❌ Tienes que estar en un canal de voz.');
                 }
 
-                player = await node.joinChannel({
+                player = await client.shoukaku.joinVoiceChannel({
                     guildId: interaction.guild.id,
                     channelId: interaction.member.voice.channel.id,
-                    shardId: interaction.guild.shardId
+                    shardId: interaction.guild.shardId || 0
                 });
             }
 
