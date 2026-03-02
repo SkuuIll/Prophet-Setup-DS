@@ -4,7 +4,7 @@ server:
 lavalink:
   plugins:
     # YouTube Source plugin
-    - dependency: "dev.lavalink.youtube:youtube-plugin:1.11.4"
+    - dependency: "dev.lavalink.youtube:youtube-plugin:1.18.0"
       repository: "https://maven.lavalink.dev/releases"
     # Spotify Source plugin
     - dependency: "com.github.topi314.lavasrc:lavasrc-plugin:4.4.1"
@@ -33,9 +33,8 @@ plugins:
     allowDirectPlaylistIds: true
     clients:
       - MUSIC
-      - ANDROID_VR
       - WEB
-      - WEBEMBEDDED
+      - TVHTML5EMBEDDED
   lavasrc:
     providers:
       - "ytsearch:\"%ISRC%\"" 

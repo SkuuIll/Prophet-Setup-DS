@@ -167,7 +167,7 @@ client.once('clientReady', async () => {
     await resolverIDs(guild);
     await registrarComandos();
     await require('./modules/musicEngine')(client);
-    await require('./modules/shoukakuEngine')(client);
+    // Shoukaku ya se inicializó antes del login (ver abajo)
 
     // Iniciar chequeo de sorteos
     const { verificarSorteos } = require('./modules/giveaways');
@@ -289,6 +289,13 @@ if (!config.GUILD_ID) {
     console.error('❌ FATAL: No se configuró el GUILD_ID en config.js');
     process.exit(1);
 }
+
+// ═══ INICIALIZAR SHOUKAKU ANTES DEL LOGIN ═══
+// CRITICO: Shoukaku necesita interceptar paquetes raw del gateway
+// desde el momento en que el bot hace login. Si se crea después,
+// el conector pierde el handshake y nunca conecta al nodo Lavalink.
+const { crearShoukaku } = require('./modules/shoukakuEngine');
+crearShoukaku(client);
 
 // Login
 client.login(config.TOKEN).catch(err => {

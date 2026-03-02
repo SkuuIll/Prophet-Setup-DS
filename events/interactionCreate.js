@@ -36,7 +36,7 @@ module.exports = {
                     .setFooter({ text: 'Prophet Bot  ·  Error handler' })
                     .setTimestamp();
 
-                const respuesta = { embeds: [errorEmbed], ephemeral: true };
+                const respuesta = { embeds: [errorEmbed], flags: 64 };
 
                 if (interaction.replied || interaction.deferred) {
                     await interaction.followUp(respuesta).catch(() => { });

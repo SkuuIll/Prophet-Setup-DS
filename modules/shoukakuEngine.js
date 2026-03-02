@@ -1,34 +1,50 @@
 const { Shoukaku, Connectors } = require('shoukaku');
 
-module.exports = async function inicializarShoukaku(client) {
-    const Nodes = [{
-        name: 'Prophet Node',
-        url: 'localhost:2333',     // Por defecto, asumiendo lavalink local
-        auth: 'youshallnotpass',   // Contraseña base de lavalink
-        secure: false
-    }];
+const Nodes = [{
+    name: 'Prophet Node',
+    url: 'localhost:2333',
+    auth: 'youshallnotpass',
+    secure: false
+}];
 
-    // Opciones de configuración
-    const options = {
-        resume: true,
-        resumeTimeout: 30,
-        resumeByLibrary: true,
-        reconnectTries: 5,
-        reconnectInterval: 5000,
-        restTimeout: 15000,
-        moveOnDisconnect: true
-    };
-
-    try {
-        client.shoukaku = new Shoukaku(new Connectors.DiscordJS(client), Nodes, options);
-
-        client.shoukaku.on('error', (_, error) => console.error(`[Shoukaku] Error del Nodo: ${error}`));
-        client.shoukaku.on('ready', (name) => console.log(`🎵 [Shoukaku] Nodo Lavalink '${name}' listo y conectado!`));
-        client.shoukaku.on('close', (name, code, reason) => console.log(`[Shoukaku] Nodo ${name} cerrado - Código: ${code}, Razón: ${reason}`));
-        client.shoukaku.on('disconnect', (name, count) => console.log(`[Shoukaku] Nodo ${name} desconectado. Intentos: ${count}`));
-
-        console.log('✅ Shoukaku wrapper inicializado para soporte futuro de Lavalink');
-    } catch (err) {
-        console.warn('⚠️ No se pudo inicializar Shoukaku. ¿Lavalink activo? Error: ', err.message);
-    }
+const ShoukakuOptions = {
+    resume: true,
+    resumeTimeout: 30,
+    resumeByLibrary: true,
+    reconnectTries: 10,
+    reconnectInterval: 5000,
+    restTimeout: 15000,
+    moveOnDisconnect: true
 };
+
+function crearShoukaku(client) {
+    try {
+        const shoukaku = new Shoukaku(new Connectors.DiscordJS(client), Nodes, ShoukakuOptions);
+
+        shoukaku.on('error', (name, error) => {
+            console.error(`[Shoukaku] Error del Nodo '${name}':`, error);
+        });
+
+        shoukaku.on('ready', (name) => {
+            console.log(`🎵 [Shoukaku] Nodo Lavalink '${name}' listo y conectado!`);
+        });
+
+        shoukaku.on('close', (name, code, reason) => {
+            console.warn(`[Shoukaku] Nodo '${name}' cerrado - Código: ${code}, Razón: ${reason || 'desconocida'}`);
+        });
+
+        shoukaku.on('disconnect', (name, count) => {
+            console.warn(`[Shoukaku] Nodo '${name}' desconectado. Intentos: ${count}`);
+        });
+
+        client.shoukaku = shoukaku;
+        console.log('✅ Shoukaku creado y enlazado al cliente (esperando login para conectar al nodo)');
+        return shoukaku;
+    } catch (err) {
+        console.warn('⚠️ No se pudo crear Shoukaku. Error:', err.message);
+        client.shoukaku = null;
+        return null;
+    }
+}
+
+module.exports = { crearShoukaku };
