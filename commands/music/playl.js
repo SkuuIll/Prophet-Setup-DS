@@ -1,4 +1,4 @@
-const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType } = require('discord.js');
 
 // ─── GESTOR DE COLAS PARA SHOUKAKU ───
 // Como Lavalink no tiene sistema de colas nativo, lo creamos acá
