@@ -106,6 +106,36 @@ function verificarSpam(message) {
         }
     }
 
+    // 7. SMART: Spam de emojis (más de 15 emojis en un mensaje)
+    const emojiCount = (content.match(/\p{Extended_Pictographic}/gu) || []).length;
+    if (emojiCount > 15) {
+        return { esSpam: true, razon: `Emoji flood: ${emojiCount} emojis en un mensaje` };
+    }
+
+    // 8. SMART: Texto Zalgo (caracteres Unicode combinator excesivos)
+    const zalgoChars = (content.match(/[\u0300-\u036f\u0489\u1dc0-\u1dff\u20d0-\u20ff\ufe20-\ufe2f]/g) || []).length;
+    if (zalgoChars > 20) {
+        return { esSpam: true, razon: `Texto Zalgo/corrupto detectado (${zalgoChars} chars especiales)` };
+    }
+
+    // 9. SMART: Caracteres repetidos (aaaaaaa, !!!!!, etc.)
+    const repeatedMatch = content.match(/(.)\1{9,}/);
+    if (repeatedMatch) {
+        return { esSpam: true, razon: `Caracteres repetidos excesivos: "${repeatedMatch[0].slice(0, 8)}…"` };
+    }
+
+    // 10. SMART: Patrones de phishing comunes en URLs
+    const phishingPatterns = [
+        /free.?nitro/i, /discord.?gift/i, /steam.?gift/i,
+        /free.?robux/i, /claim.?prize/i, /you.?won/i,
+        /verify.?account.*discord/i, /nitro.*giveaway/i,
+    ];
+    for (const pattern of phishingPatterns) {
+        if (pattern.test(content)) {
+            return { esSpam: true, razon: `Posible phishing detectado: patrón sospechoso` };
+        }
+    }
+
     return { esSpam: false };
 }
 

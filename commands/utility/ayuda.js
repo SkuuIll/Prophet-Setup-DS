@@ -9,41 +9,45 @@ module.exports = {
         .setDescription('📖 Muestra la guía completa de comandos y sistemas del bot'),
 
     async execute(interaction) {
+        await interaction.deferReply();
+
+        const ping = Math.round(interaction.client.ws.ping);
+        const pingEmoji = ping < 150 ? '🟢' : ping < 350 ? '🟡' : '🔴';
+
         const mainEmbed = new EmbedBuilder()
             .setColor(config.COLORES.PRINCIPAL)
-            .setAuthor({ name: '📖  Centro de Comandos', iconURL: interaction.client.user.displayAvatarURL() })
+            .setAuthor({ name: '📖  Centro de Comandos — Prophet Bot', iconURL: interaction.client.user.displayAvatarURL() })
             .setTitle('Prophet Bot v2.5')
             .setDescription(
-                `¡Hola **${interaction.user.username}**! 👋\n` +
-                `Soy el asistente oficial de **Prophet Gaming**.\n\n` +
-                `> 🎵 **Música** · 💰 **Economía** · 🎮 **Juegos** · 📈 **Niveles**\n` +
-                `> 🎯 **Gaming Stats** · 🛡️ **Moderación** · 🔧 **Utilidades** · ⚙️ **Admin**\n\n` +
-                `**📚 ¿Cómo funciona?**\n` +
-                `Seleccioná una categoría del menú de abajo para ver los comandos detallados.\n\n` +
-                `> 📶 **Ping:** \`${interaction.client.ws.ping}ms\` · **Comandos:** \`58\` · **Servidor:** \`${interaction.guild.memberCount} miembros\``
+                `¡Hola **${interaction.user.username}**! 👋 Soy el bot oficial de **Prophet Gaming**.\n\n` +
+                `**📂 Categorías disponibles:**\n` +
+                `> 🎵 Música  ·  💰 Economía  ·  🎮 Juegos  ·  📈 Niveles\n` +
+                `> 🎯 Gaming Stats  ·  🛡️ Moderación  ·  🔧 Utilidades  ·  ⚙️ Admin\n\n` +
+                `Usá el **menú de abajo** para explorar cada categoría y sus comandos.\n\n` +
+                `> ${pingEmoji} **Ping:** \`${ping}ms\`  ·  📋 **Comandos:** \`58\`  ·  👥 **Servidor:** \`${interaction.guild.memberCount} miembros\``
             )
             .setThumbnail(interaction.client.user.displayAvatarURL({ size: 256 }))
-            .setFooter({ text: 'Prophet Bot v2.5  ·  Seleccioná una categoría abajo', iconURL: interaction.guild.iconURL() })
+            .setFooter({ text: 'Prophet Bot v2.5  ·  Seleccioná una categoría para empezar', iconURL: interaction.guild.iconURL() })
             .setTimestamp();
 
         const menu = new StringSelectMenuBuilder()
             .setCustomId('help_menu')
-            .setPlaceholder('📂 Seleccioná una categoría...')
+            .setPlaceholder('📂 Explorá las categorías...')
             .addOptions([
                 { label: '🏠 Inicio', description: 'Volver a la página principal', value: 'home', emoji: '🏠' },
-                { label: '💰 Economía y Tienda', description: '10 comandos — Dinero, trabajos, apuestas', value: 'economy', emoji: '💰' },
-                { label: '🎵 Música DJ', description: '7 comandos — Reproducción y filtros de audio', value: 'music', emoji: '🎵' },
-                { label: '🎮 Juegos y Diversión', description: '8 comandos — Minijuegos, LFG y entretenimiento', value: 'fun', emoji: '🎮' },
-                { label: '🎯 Gaming Stats', description: '2 comandos — Stats de PUBG y CS2', value: 'gaming', emoji: '🎯' },
-                { label: '📈 Niveles y XP', description: '2 comandos — Ranking y progresión', value: 'levels', emoji: '📈' },
-                { label: '🔧 Utilidades', description: '12 comandos — Herramientas útiles, cumpleaños', value: 'utility', emoji: '🔧' },
-                { label: '🛡️ Moderación', description: '9 comandos — Herramientas de Staff', value: 'moderation', emoji: '🛡️' },
-                { label: '⚙️ Administración', description: '7 comandos — Setup, logs y sistemas', value: 'admin', emoji: '⚙️' },
+                { label: '💰 Economía y Tienda', description: '10 comandos — Dinero, trabajos, apuestas y tienda', value: 'economy', emoji: '💰' },
+                { label: '🎵 Música DJ', description: '7 comandos — Reproducción premium con botones', value: 'music', emoji: '🎵' },
+                { label: '🎮 Juegos y Diversión', description: '8 comandos — Blackjack, LFG y más', value: 'fun', emoji: '🎮' },
+                { label: '🎯 Gaming Stats', description: '2 comandos — Stats de PUBG y CS2 en tiempo real', value: 'gaming', emoji: '🎯' },
+                { label: '📈 Niveles y XP', description: '2 comandos — Rankings y 9 roles automáticos', value: 'levels', emoji: '📈' },
+                { label: '🔧 Utilidades', description: '12 comandos — Herramientas, cumpleaños, encuestas', value: 'utility', emoji: '🔧' },
+                { label: '🛡️ Moderación', description: '9 comandos — Herramientas exclusivas para Staff', value: 'moderation', emoji: '🛡️' },
+                { label: '⚙️ Administración', description: '7 comandos — Setup, logs y sistemas avanzados', value: 'admin', emoji: '⚙️' },
             ]);
 
         const row = new ActionRowBuilder().addComponents(menu);
 
-        const response = await interaction.reply({
+        const response = await interaction.editReply({
             embeds: [mainEmbed],
             components: [row],
             fetchReply: true
@@ -276,9 +280,12 @@ module.exports = {
         });
 
         collector.on('end', () => {
-            const disabledRow = new ActionRowBuilder().addComponents(
-                menu.setDisabled(true).setPlaceholder('⏰ Menú expirado — Usá /ayuda de nuevo')
-            );
+            const expiredMenu = new StringSelectMenuBuilder()
+                .setCustomId('help_menu_expired')
+                .setPlaceholder('⏰ Menú expirado — Usá /ayuda nuevamente')
+                .setDisabled(true)
+                .addOptions([{ label: 'Expirado', value: 'expired' }]);
+            const disabledRow = new ActionRowBuilder().addComponents(expiredMenu);
             interaction.editReply({ components: [disabledRow] }).catch(() => { });
         });
     }

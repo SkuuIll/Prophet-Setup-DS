@@ -1,13 +1,66 @@
-// ═══ EVENTO: guildMemberUpdate (Log de cambios de Roles/Nicknames) ═══
+// ═══ EVENTO: guildMemberUpdate (Log de cambios de Roles/Nicknames + Boost Rewards) ═══
 
 const { EmbedBuilder } = require('discord.js');
 const config = require('../config');
+const { stmts } = require('../database');
 
 module.exports = {
     name: 'guildMemberUpdate',
     once: false,
     async execute(oldMember, newMember) {
         if (oldMember.user.bot) return;
+
+        // ─── BOOST REWARDS ──────────────────────────────────────────
+        const acabaDeBoostear = !oldMember.premiumSinceTimestamp && newMember.premiumSinceTimestamp;
+
+        if (acabaDeBoostear) {
+            const boostCoins = config.ECONOMIA?.BOOST_REWARD || 5000;
+            const currency = config.ECONOMIA?.CURRENCY || '💰';
+
+            // Dar monedas al booster
+            if (boostCoins > 0) {
+                stmts.addMoney(newMember.id, boostCoins, 'balance');
+            }
+
+            // DM al booster
+            try {
+                await newMember.user.send({
+                    embeds: [new EmbedBuilder()
+                        .setColor(0xFF73FA)
+                        .setAuthor({ name: '💎  ¡Gracias por boostear!', iconURL: newMember.guild.iconURL() })
+                        .setDescription(
+                            `> ¡Muchas gracias por apoyar **${newMember.guild.name}**, **${newMember.user.username}**! 🎉\n\n` +
+                            `> 💰 Recibiste **${currency} ${boostCoins.toLocaleString()}** como recompensa de boost.\n` +
+                            `> El servidor aprecia tu apoyo. ¡Sos un crack! 💪`
+                        )
+                        .setThumbnail(newMember.guild.iconURL({ size: 256 }))
+                        .setFooter({ text: `Prophet Gaming  ·  Boost activo desde hoy` })
+                        .setTimestamp()
+                    ]
+                });
+            } catch (_) { /* DMs cerrados */ }
+
+            // Anuncio en canal general/bienvenida
+            const announceId = config.CANALES?.BIENVENIDA || config.CHANNELS?.GENERAL || null;
+            if (announceId) {
+                const ch = newMember.guild.channels.cache.get(announceId);
+                if (ch) {
+                    await ch.send({
+                        embeds: [new EmbedBuilder()
+                            .setColor(0xFF73FA)
+                            .setAuthor({ name: '💎  ¡Nuevo Booster!', iconURL: newMember.user.displayAvatarURL() })
+                            .setDescription(
+                                `> ✨ ${newMember} **boosteó el servidor** y ganó **${currency} ${boostCoins.toLocaleString()}**!\n` +
+                                `> 🌟 ¡Gracias por apoyar a Prophet Gaming! 💜`
+                            )
+                            .setFooter({ text: `Prophet Gaming  ·  ¡Sumá boosts para desbloquear más features!` })
+                            .setTimestamp()
+                        ]
+                    }).catch(() => { });
+                }
+            }
+        }
+        // ────────────────────────────────────────────────────────────
 
         const logChannelId = config.CHANNELS.LOGS;
         const logChannel = newMember.guild.channels.cache.get(logChannelId);

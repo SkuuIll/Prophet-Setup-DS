@@ -234,9 +234,18 @@ function setupCollector(sq) {
                     await i.client.shoukaku.leaveVoiceChannel(i.guild.id).catch(() => { });
                     serverQueues.delete(i.guild.id);
                     try {
-                        await sq.msg.edit({ embeds: [new EmbedBuilder().setColor(0x546E7A).setDescription('> ⏹️ Reproducción detenida.')], components: [] });
+                        await sq.msg.edit({
+                            embeds: [new EmbedBuilder()
+                                .setColor(0x546E7A)
+                                .setAuthor({ name: '⏹️  Reproducción Detenida · Prophet Music' })
+                                .setDescription('> La cola fue vaciada y el bot abandonó el canal de voz.\n> Usá `/playl` para empezar de nuevo cuando quieras 🎶')
+                                .setFooter({ text: 'Prophet Music  ·  ¡Hasta la próxima!' })
+                                .setTimestamp()
+                            ],
+                            components: []
+                        });
                     } catch (_) { }
-                    await i.reply({ content: '> ⏹️ **Detenido** — hasta la próxima 👋', ephemeral: true });
+                    await i.reply({ content: '> ⏹️ **Música detenida** — ¡Hasta la próxima, DJ! 👋', ephemeral: true });
                     break;
                 }
                 case 'll_prev': {
@@ -320,13 +329,26 @@ module.exports = {
         // ── Guard: Lavalink disponible ──
         const node = client.shoukaku?.getIdealNode();
         if (!node) {
-            return interaction.editReply('❌ **Lavalink** no está disponible. Intentá de nuevo en unos segundos.');
+            return interaction.editReply({
+                embeds: [new EmbedBuilder()
+                    .setColor(0xEF5350)
+                    .setAuthor({ name: '⚠️  Lavalink no disponible' })
+                    .setDescription('> El servidor de música no está disponible en este momento.\n> Intentá de nuevo en unos segundos o contactá al Staff.')
+                ]
+            });
         }
 
         // ── Guard: canal de voz ──
         const voiceChannel = interaction.member.voice.channel;
         if (!voiceChannel) {
-            return interaction.editReply('❌ Tenés que estar en un canal de voz para usar este comando.');
+            return interaction.editReply({
+                embeds: [new EmbedBuilder()
+                    .setColor(0xFFB74D)
+                    .setAuthor({ name: '🔊  Canal de Voz Requerido' })
+                    .setDescription('> ❌ Tenés que **unirte a un canal de voz** primero para usar este comando.')
+                    .setFooter({ text: 'Prophet Music  ·  Conectate a voz y volvé a intentarlo' })
+                ]
+            });
         }
 
         const query = interaction.options.getString('cancion');
@@ -338,8 +360,15 @@ module.exports = {
             const result = await node.rest.resolve(searchQuery);
 
             if (!result || result.loadType === 'empty' || result.loadType === 'error') {
-                const msg = result?.data?.message || 'Sin resultados';
-                return interaction.editReply(`❌ No se encontró nada: ${msg}`);
+                const msg = result?.data?.message || 'Sin resultados para tu búsqueda';
+                return interaction.editReply({
+                    embeds: [new EmbedBuilder()
+                        .setColor(0xEF5350)
+                        .setAuthor({ name: '🔍  Sin Resultados' })
+                        .setDescription(`> ❌ No encontré nada para **\`${query}\`**\n> *${msg}*\n\n> 💡 Intentá con otro nombre, URL o plataforma.`)
+                        .setFooter({ text: 'Prophet Music  ·  Soporta YouTube, Spotify, SoundCloud' })
+                    ]
+                });
             }
 
             // ── Extraer tracks ──
@@ -443,14 +472,14 @@ module.exports = {
 
                 const addEmbed = new EmbedBuilder()
                     .setColor(MUSIC_COLORS.QUEUE_ADD)
-                    .setAuthor({ name: '✦  Agregado a la cola', iconURL: interaction.user.displayAvatarURL() })
+                    .setAuthor({ name: '✦  Agregado a la Cola · Prophet Music', iconURL: interaction.user.displayAvatarURL() })
                     .setDescription(addedDesc)
                     .setThumbnail(first.info.artworkUrl || null)
-                    .setFooter({ text: `${sq.queue.length} tema${sq.queue.length !== 1 ? 's' : ''} en cola  ·  Prophet Music` })
+                    .setFooter({ text: `📋 ${sq.queue.length} tema${sq.queue.length !== 1 ? 's' : ''} esperando  ·  Prophet Music` })
                     .setTimestamp();
 
                 await interaction.editReply({ embeds: [addEmbed] });
-                setTimeout(() => interaction.deleteReply().catch(() => { }), 12000);
+                setTimeout(() => interaction.deleteReply().catch(() => { }), 10000);
 
                 // Actualizar UI principal con la nueva cola
                 await actualizarUI(sq);
