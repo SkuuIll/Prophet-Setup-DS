@@ -12,19 +12,21 @@ module.exports = async function inicializarMusica(client) {
             skipFFmpeg: false,
             ytdlOptions: {
                 quality: 'highestaudio',
-                highWaterMark: 1 << 21, // Bajamos a 2MB (Flujo constante, evita picos de GC)
+                highWaterMark: 1 << 23, // 8MB buffer — aguanta mejor el jitter de red
                 dlChunkSize: 0,
-                ipv6Block: true,
                 filter: 'audioonly',
             },
-            // Opciones críticas para evitar desconexiones de FFmpeg
+            // FFmpeg: sin -re para que pre-bufferee al máximo velocidad
             ffmpegOptions: {
                 args: [
-                    '-re', // Leer input en tiempo real (evita leer muy rápido y colapsar buffer)
                     '-reconnect', '1',
                     '-reconnect_streamed', '1',
                     '-reconnect_delay_max', '5',
+                    '-reconnect_at_eof', '1',
+                    '-vn',          // Descartar video (menos CPU)
+                    '-sn',          // Descartar subtítulos
                     '-analyzeduration', '0',
+                    '-loglevel', 'quiet',
                 ]
             }
         });
@@ -35,7 +37,8 @@ module.exports = async function inicializarMusica(client) {
             const { YoutubeiExtractor } = require('discord-player-youtubei');
             await client.player.extractors.register(YoutubeiExtractor, {
                 streamOptions: {
-                    useClient: 'IOS',
+                    useClient: 'IOS',        // Cliente iOS: no requiere descifrado de firma JS
+                    highWaterMark: 1 << 23, // 8MB buffer en el stream de youtubei también
                 },
                 overrideBridgeMode: 'yt',
             });
