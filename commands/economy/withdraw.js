@@ -1,38 +1,81 @@
-// ═══ COMANDO: /withdraw ═══
+// ═══ COMANDO: /withdraw mejorado ═══
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const { stmts } = require('../../database');
 const config = require('../../config');
+
+function balanceBar(balance, bank) {
+    const total = balance + bank;
+    if (total === 0) return '`Sin fondos`';
+    const blocks = 10;
+    const cashBlocks = Math.round((balance / total) * blocks);
+    const bankBlocks = blocks - cashBlocks;
+    return `${'🟢'.repeat(cashBlocks)}${'🔵'.repeat(bankBlocks)}\n` +
+        `> 🟢 Efectivo \`${Math.round((balance / total) * 100)}%\`  ·  🔵 Banco \`${Math.round((bank / total) * 100)}%\``;
+}
 
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('withdraw')
         .setDescription('💵 Retirar dinero del banco')
-        .addIntegerOption(o => o.setName('cantidad').setDescription('Cantidad a retirar').setMinValue(1).setRequired(true)),
+        .addStringOption(o =>
+            o.setName('cantidad')
+                .setDescription('Cantidad a retirar o "todo" para retirar todo')
+                .setRequired(true)),
 
     async execute(interaction) {
-        const amount = interaction.options.getInteger('cantidad');
+        const input = interaction.options.getString('cantidad').trim().toLowerCase();
         const userId = interaction.user.id;
-        const result = stmts.transferBank(userId, amount, 'with');
+        const eco = stmts.getEconomy(userId);
+        const cur = config.ECONOMIA?.CURRENCY || '💰';
 
-        if (!result) {
-            const embed = new EmbedBuilder()
-                .setColor(config.COLORES.ERROR || 0xEF5350)
-                .setDescription(`> ❌ **Fondos insuficientes** — No tenés **${config.ECONOMIA.CURRENCY} ${amount.toLocaleString()}** en el banco.`)
-                .setFooter({ text: 'Prophet Economy' });
-            return interaction.reply({ embeds: [embed], ephemeral: true });
+        const amount = (input === 'todo' || input === 'all')
+            ? eco.bank
+            : parseInt(input.replace(/[,. ]/g, ''));
+
+        if (isNaN(amount) || amount < 1) {
+            return interaction.reply({
+                embeds: [new EmbedBuilder()
+                    .setColor(config.COLORES.ERROR || 0xEF5350)
+                    .setDescription('> ❌ **Cantidad inválida.** Ingresá un número positivo o `todo`.')
+                ], ephemeral: true
+            });
         }
 
-        const embed = new EmbedBuilder()
-            .setColor(config.COLORES.SUCCESS || 0x69F0AE)
-            .setAuthor({ name: '💵  Retiro realizado' })
-            .setDescription(
-                `> ✅ Retiraste **${config.ECONOMIA.CURRENCY} ${amount.toLocaleString()}** del banco.\n\n` +
-                `> 💵 Efectivo: **${config.ECONOMIA.CURRENCY} ${result.balance.toLocaleString()}**\n` +
-                `> 🏦 Banco: **${config.ECONOMIA.CURRENCY} ${result.bank.toLocaleString()}**`
-            )
-            .setFooter({ text: 'Prophet Economy' })
-            .setTimestamp();
+        if (eco.bank === 0) {
+            return interaction.reply({
+                embeds: [new EmbedBuilder()
+                    .setColor(config.COLORES.WARN || 0xFFB74D)
+                    .setDescription('> ⚠️ No tenés dinero en el banco para retirar.')
+                ], ephemeral: true
+            });
+        }
 
-        await interaction.reply({ embeds: [embed] });
+        const result = stmts.transferBank(userId, amount, 'with');
+        if (!result) {
+            return interaction.reply({
+                embeds: [new EmbedBuilder()
+                    .setColor(config.COLORES.ERROR || 0xEF5350)
+                    .setDescription(`> ❌ **Fondos insuficientes.** Tenés ${cur} \`${eco.bank.toLocaleString()}\` en el banco.`)
+                ], ephemeral: true
+            });
+        }
+
+        await interaction.reply({
+            embeds: [new EmbedBuilder()
+                .setColor(config.COLORES.INFO || 0x42A5F5)
+                .setAuthor({ name: '💵  Retiro bancario', iconURL: interaction.user.displayAvatarURL() })
+                .setDescription(
+                    `> ✅ Retiraste **${cur} ${amount.toLocaleString()}** del banco.\n\n` +
+                    `**Nueva distribución:**\n${balanceBar(result.balance, result.bank)}`
+                )
+                .addFields(
+                    { name: '💵 Efectivo', value: `${cur} \`${result.balance.toLocaleString()}\``, inline: true },
+                    { name: '🏦 Banco', value: `${cur} \`${result.bank.toLocaleString()}\``, inline: true },
+                    { name: '💎 Total', value: `${cur} \`${(result.balance + result.bank).toLocaleString()}\``, inline: true },
+                )
+                .setFooter({ text: 'Prophet Economy  ·  /deposit para guardar' })
+                .setTimestamp()
+            ]
+        });
     }
 };
