@@ -1,23 +1,17 @@
-const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType } = require('discord.js');
+const {
+    SlashCommandBuilder,
+    EmbedBuilder,
+    ActionRowBuilder,
+    ButtonBuilder,
+    ButtonStyle,
+    ComponentType,
+} = require('discord.js');
 
-// ─── GESTOR DE COLAS PARA SHOUKAKU ───
-// Como Lavalink no tiene sistema de colas nativo, lo creamos acá
+// ─────────────────────────────────────────────────────────────
+//  GESTOR DE COLAS SHOUKAKU — Prophet Music Lavalink Engine
+//  Una cola por guild, independiente de discord-player
+// ─────────────────────────────────────────────────────────────
 const serverQueues = new Map();
-
-/*
-Estructura de la cola (serverQueue):
-{
-    player: ShoukakuPlayer,
-    channel: TextChannel,
-    queue: [track, ...],
-    current: track,
-    history: [track, ...],
-    repeatMode: 0, // 0 = Off, 1 = Track, 2 = Queue
-    msg: Message (El último Now Playing),
-    collector: ButtonCollector,
-    volume: 50
-}
-*/
 
 const MUSIC_COLORS = {
     PLAYING: 0xBB86FC,
@@ -28,137 +22,136 @@ const MUSIC_COLORS = {
 
 const MUSIC_BANNER = 'https://raw.githubusercontent.com/SkuuIll/Prophet-Setup-DS/main/assets/music_banner.png?v=update1';
 
-// ─── Funciones visuales ───
+// ─── Utilidades visuales ──────────────────────────────────────
 function formatDuration(ms) {
     if (!ms || ms === 0) return 'En vivo';
-    const totalSeconds = Math.floor(ms / 1000);
-    const minutes = Math.floor(totalSeconds / 60);
-    const seconds = totalSeconds % 60;
-    return `${minutes}:${String(seconds).padStart(2, '0')}`;
+    const s = Math.floor(ms / 1000);
+    const m = Math.floor(s / 60);
+    return `${m}:${String(s % 60).padStart(2, '0')}`;
 }
 
 function barraVolumen(vol) {
     const bloques = 10;
     const lleno = Math.round((vol / 100) * bloques);
-    const vacio = bloques - lleno;
-    const barra = '▰'.repeat(lleno) + '▱'.repeat(vacio);
-    let icono = '🔇';
-    if (vol > 0 && vol <= 30) icono = '🔈';
-    else if (vol > 30 && vol <= 70) icono = '🔉';
-    else if (vol > 70) icono = '🔊';
+    const barra = '▰'.repeat(lleno) + '▱'.repeat(bloques - lleno);
+    const icono = vol === 0 ? '🔇' : vol <= 30 ? '🔈' : vol <= 70 ? '🔉' : '🔊';
     return `${icono} ${barra} \`${vol}%\``;
 }
 
-function formatearTitulo(titulo, max = 42) {
-    if (titulo.length <= max) return titulo;
-    return titulo.substring(0, max - 1) + '…';
+function trim(s, max = 38) {
+    return s.length <= max ? s : s.substring(0, max - 1) + '…';
 }
 
+// ─── Crear embed "Now Playing" ────────────────────────────────
 function crearEmbed(sq) {
     const track = sq.current;
     if (!track) return new EmbedBuilder().setDescription('No hay nada reproduciéndose');
 
-    const isPaused = sq.player.paused;
+    const isPaused = sq.isPaused;   // Usamos estado propio (Shoukaku no expone .paused de forma fiable)
     const loopIcons = ['▷ Desactivado', '🔂 Tema actual', '🔁 Cola completa'];
-    const loopStatus = loopIcons[sq.repeatMode];
 
     let desc = `🎙️ **${track.info.author || 'Artista desconocido'}**\n`;
     desc += `⏱️ Duración: \`${formatDuration(track.info.length)}\`\n\n`;
     desc += `${barraVolumen(sq.volume)}\n`;
-    desc += `${loopStatus}  ·  ${isPaused ? '⏸️ En pausa' : '▶️ Reproduciendo'}\n`;
+    desc += `${loopIcons[sq.repeatMode]}  ·  ${isPaused ? '⏸️ En pausa' : '▶️ Reproduciendo'}\n`;
 
     desc += '\n```\n─────── 🎶 Siguiente ───────\n```\n';
     if (sq.queue.length > 0) {
         sq.queue.slice(0, 5).forEach((t, i) => {
-            const num = `${i + 1}`.padStart(2, '0');
-            const titulo = formatearTitulo(t.info.title, 36);
-            desc += `\`${num}\` [${titulo}](${t.info.uri})  ·  \`${formatDuration(t.info.length)}\`\n`;
+            desc += `\`${String(i + 1).padStart(2, '0')}\` [${trim(t.info.title)}](${t.info.uri})  ·  \`${formatDuration(t.info.length)}\`\n`;
         });
-        if (sq.queue.length > 5) {
-            desc += `\n> *…y \`${sq.queue.length - 5}\` temas más esperando*\n`;
-        }
+        if (sq.queue.length > 5) desc += `\n> *…y \`${sq.queue.length - 5}\` temas más esperando*\n`;
     } else {
-        desc += '> *No hay temas en espera — Usá \`/playl\` para agregar*\n';
+        desc += '> *Cola vacía — Usá `/playl` para agregar más temas*\n';
     }
 
     if (sq.history.length > 0) {
         desc += '\n```\n──────── ⏮️ Anterior ────────\n```\n';
         sq.history.slice(-3).reverse().forEach((t, i) => {
-            const titulo = formatearTitulo(t.info.title, 36);
-            desc += `\`${i + 1}.\` ${titulo}  ·  \`${formatDuration(t.info.length)}\`\n`;
+            desc += `\`${i + 1}.\` ${trim(t.info.title)}  ·  \`${formatDuration(t.info.length)}\`\n`;
         });
     }
 
     const embed = new EmbedBuilder()
         .setColor(isPaused ? MUSIC_COLORS.PAUSED : MUSIC_COLORS.PLAYING)
         .setAuthor({
-            name: isPaused ? '⏸️  Música en pausa' : '♫  Reproduciendo ahora Lavalink',
-            iconURL: track.requestedBy?.displayAvatarURL?.({ size: 32 })
+            name: isPaused ? '⏸️  Música en pausa' : '♫  Reproduciendo ahora · Lavalink',
+            iconURL: track.requestedBy?.displayAvatarURL?.({ size: 32 }),
         })
         .setTitle(track.info.title)
         .setURL(track.info.uri)
         .setDescription(desc)
         .addFields(
-            { name: '👤 Pedida por', value: track.requestedBy ? `<@${track.requestedBy.id}>` : '`?`', inline: true },
-            { name: '📋 En cola', value: `\`${sq.queue.length}\` temas`, inline: true },
-            { name: '📊 Reproducidas', value: `\`${sq.history.length}\` temas`, inline: true }
+            { name: '👤 Pedida por', value: track.requestedBy ? `<@${track.requestedBy.id}>` : '`Sistema`', inline: true },
+            { name: '📋 En cola', value: `\`${sq.queue.length}\` tema${sq.queue.length !== 1 ? 's' : ''}`, inline: true },
+            { name: '📊 Reproducidas', value: `\`${sq.history.length}\` tema${sq.history.length !== 1 ? 's' : ''}`, inline: true },
         )
         .setImage(MUSIC_BANNER)
         .setFooter({ text: 'Prophet Music · Lavalink Engine · /playl para agregar' })
         .setTimestamp();
 
-    if (track.info.artworkUrl) {
-        embed.setThumbnail(track.info.artworkUrl);
-    }
-
+    if (track.info.artworkUrl) embed.setThumbnail(track.info.artworkUrl);
     return embed;
 }
 
+// ─── Crear botones de control ─────────────────────────────────
 function crearBotones(sq) {
-    const isPaused = sq.player.paused;
-    const historyLen = sq.history.length;
-    const loopMode = sq.repeatMode;
+    const isPaused = sq.isPaused;
+    const loopLabels = ['Loop: Off', 'Loop: Tema', 'Loop: Cola'];
 
     const row1 = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId('ll_prev').setLabel('Anterior').setEmoji('⏮️').setStyle(ButtonStyle.Secondary).setDisabled(historyLen === 0),
+        new ButtonBuilder().setCustomId('ll_prev').setLabel('Anterior').setEmoji('⏮️').setStyle(ButtonStyle.Secondary).setDisabled(sq.history.length === 0),
         new ButtonBuilder().setCustomId('ll_pause').setLabel(isPaused ? 'Reanudar' : 'Pausar').setEmoji(isPaused ? '▶️' : '⏸️').setStyle(isPaused ? ButtonStyle.Success : ButtonStyle.Primary),
-        new ButtonBuilder().setCustomId('ll_skip').setLabel('Saltar').setEmoji('⏭️').setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId('ll_skip').setLabel('Saltar').setEmoji('⏭️').setStyle(ButtonStyle.Secondary).setDisabled(sq.queue.length === 0),
         new ButtonBuilder().setCustomId('ll_stop').setLabel('Detener').setEmoji('⏹️').setStyle(ButtonStyle.Danger),
-        new ButtonBuilder().setCustomId('ll_replay').setLabel('Reiniciar').setEmoji('🔄').setStyle(ButtonStyle.Secondary)
+        new ButtonBuilder().setCustomId('ll_replay').setLabel('Reiniciar').setEmoji('🔄').setStyle(ButtonStyle.Secondary),
     );
 
-    const loopLabels = ['Loop: Off', 'Loop: Tema', 'Loop: Cola'];
     const row2 = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId('ll_loop').setLabel(loopLabels[loopMode]).setEmoji('🔁').setStyle(loopMode > 0 ? ButtonStyle.Primary : ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId('ll_shuffle').setLabel('Mezclar').setEmoji('🔀').setStyle(ButtonStyle.Secondary).setDisabled(sq.queue.length === 0),
+        new ButtonBuilder().setCustomId('ll_loop').setLabel(loopLabels[sq.repeatMode]).setEmoji('🔁').setStyle(sq.repeatMode > 0 ? ButtonStyle.Primary : ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId('ll_shuffle').setLabel('Mezclar').setEmoji('🔀').setStyle(ButtonStyle.Secondary).setDisabled(sq.queue.length < 2),
         new ButtonBuilder().setCustomId('ll_voldown').setLabel('Vol −').setEmoji('🔉').setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId('ll_volup').setLabel('Vol +').setEmoji('🔊').setStyle(ButtonStyle.Secondary)
+        new ButtonBuilder().setCustomId('ll_volup').setLabel('Vol +').setEmoji('🔊').setStyle(ButtonStyle.Secondary),
     );
 
     return [row1, row2];
 }
 
-// ─── Funciones del Core ───
+// ─── Actualizar mensaje Now Playing ──────────────────────────
+async function actualizarUI(sq) {
+    if (!sq.msg) return;
+    try {
+        await sq.msg.edit({ embeds: [crearEmbed(sq)], components: crearBotones(sq) });
+    } catch (_) { }
+}
+
+// ─── Reproducir siguiente de la cola ─────────────────────────
 async function playNext(guildId, client) {
     const sq = serverQueues.get(guildId);
     if (!sq) return;
 
+    // Mover current al historial
     if (sq.current) {
         sq.history.push(sq.current);
         if (sq.history.length > 50) sq.history.shift();
     }
 
+    // Gestión de vacío de cola
     if (sq.queue.length === 0) {
         if (sq.repeatMode === 2 && sq.history.length > 0) {
-            // Loop de cola: poner todo el historial en cola y resetear
+            // Loop de cola completa
             sq.queue = [...sq.history];
             sq.history = [];
         } else {
-            // Se terminó la música
-            setTimeout(() => {
+            // Fin de reproducción
+            sq.current = null;
+            if (sq.msg) {
+                await sq.msg.edit({ components: [] }).catch(() => { });
+            }
+            setTimeout(async () => {
                 const checkSq = serverQueues.get(guildId);
-                if (checkSq && checkSq.queue.length === 0 && !checkSq.player.track) {
-                    client.shoukaku.leaveVoiceChannel(guildId).catch(() => { });
+                if (checkSq && !checkSq.current) {
+                    await client.shoukaku.leaveVoiceChannel(guildId).catch(() => { });
                     serverQueues.delete(guildId);
                 }
             }, 30000);
@@ -166,19 +159,25 @@ async function playNext(guildId, client) {
         }
     }
 
-    // Tomar el siguiente tema
     sq.current = sq.queue.shift();
-    await sq.player.playTrack({ track: { encoded: sq.current.encoded } });
-    await sq.player.setGlobalVolume(sq.volume);
+    sq.isPaused = false;
 
-    // Enviar/Actualizar Mensaje
-    enviarMensaje(sq);
+    try {
+        await sq.player.playTrack({ track: { encoded: sq.current.encoded } });
+        await sq.player.setVolume(sq.volume);   // Shoukaku v4: setVolume(0-100)
+    } catch (err) {
+        console.error('[playl] Error al reproducir:', err.message);
+        // Intentar el siguiente
+        return playNext(guildId, client);
+    }
+
+    await enviarOActualizarUI(sq);
 }
 
-async function enviarMensaje(sq) {
-    if (sq.collector) {
-        sq.collector.stop('renew');
-    }
+// ─── Enviar o editar el mensaje de UI ────────────────────────
+async function enviarOActualizarUI(sq) {
+    if (sq.collector) sq.collector.stop('renew');
+
     const embed = crearEmbed(sq);
     const rows = crearBotones(sq);
 
@@ -187,95 +186,130 @@ async function enviarMensaje(sq) {
             await sq.msg.edit({ embeds: [embed], components: rows });
             setupCollector(sq);
             return;
-        } catch { } // Si falla (borrado), crear nuevo
+        } catch (_) {
+            sq.msg = null; // fue borrado
+        }
     }
 
     sq.msg = await sq.channel.send({ embeds: [embed], components: rows });
     setupCollector(sq);
 }
 
+// ─── Configurar collector de botones ─────────────────────────
 function setupCollector(sq) {
     if (!sq.msg) return;
+
     sq.collector = sq.msg.createMessageComponentCollector({
         componentType: ComponentType.Button,
-        time: 24 * 60 * 60 * 1000
+        time: 24 * 60 * 60 * 1000,
     });
 
     sq.collector.on('collect', async i => {
         try {
-            if (i.member.voice.channelId !== sq.player.connection.channelId) {
-                return i.reply({ content: '> ❌ Tenés que estar en el mismo canal de voz.', ephemeral: true });
+            // Verificar que el usuario está en el canal de voz del bot
+            const botVoiceChannelId = i.guild.members.me?.voice?.channelId;
+            if (i.member.voice.channelId !== botVoiceChannelId) {
+                return i.reply({ content: '> ❌ Tenés que estar en el mismo canal de voz que el bot.', ephemeral: true });
             }
 
             switch (i.customId) {
-                case 'll_pause':
-                    await sq.player.setPaused(!sq.player.paused);
+                case 'll_pause': {
+                    sq.isPaused = !sq.isPaused;
+                    await sq.player.setPaused(sq.isPaused);
                     await i.deferUpdate();
+                    await actualizarUI(sq);
                     break;
-                case 'll_skip':
-                    await sq.player.stopTrack(); // Emite evento 'end'
-                    await i.reply({ content: '> ⏭️ Saltada', ephemeral: true });
-                    break;
-                case 'll_stop':
-                    sq.queue = [];
+                }
+                case 'll_skip': {
+                    // Marcar que el skip es intencional para que el evento 'end' llame playNext
+                    sq.skipping = true;
                     await sq.player.stopTrack();
-                    i.client.shoukaku.leaveVoiceChannel(i.guild.id).catch(() => { });
+                    await i.reply({ content: `> ⏭️ **Saltada:** \`${sq.current?.info?.title || '?'}\``, ephemeral: true });
+                    break;
+                }
+                case 'll_stop': {
+                    sq.queue = [];
+                    sq.current = null;
+                    await sq.player.stopTrack();
+                    await i.client.shoukaku.leaveVoiceChannel(i.guild.id).catch(() => { });
                     serverQueues.delete(i.guild.id);
-                    await i.reply({ content: '> ⏹️ Detenida', ephemeral: true });
+                    try {
+                        await sq.msg.edit({ embeds: [new EmbedBuilder().setColor(0x546E7A).setDescription('> ⏹️ Reproducción detenida.')], components: [] });
+                    } catch (_) { }
+                    await i.reply({ content: '> ⏹️ **Detenido** — hasta la próxima 👋', ephemeral: true });
                     break;
-                case 'll_prev':
-                    if (sq.history.length > 0) {
-                        const prev = sq.history.pop();
-                        // El current pasa de nuevo a la cola (arriba) si querés, o no.
-                        sq.queue.unshift(sq.current);
-                        sq.queue.unshift(prev); // Lo forzamos como próximo
-                        await sq.player.stopTrack();
-                        await i.reply({ content: `> ⏮️ Volviendo a: ${prev.info.title}`, ephemeral: true });
-                    } else {
-                        await i.reply({ content: '> ❌ No hay historial.', ephemeral: true });
+                }
+                case 'll_prev': {
+                    if (sq.history.length === 0) {
+                        return i.reply({ content: '> ❌ No hay historial.', ephemeral: true });
                     }
+                    const prev = sq.history.pop();
+                    if (sq.current) sq.queue.unshift(sq.current); // devolver actual a cola
+                    sq.queue.unshift(prev);                        // poner anterior primero
+                    sq.skipping = true;
+                    await sq.player.stopTrack();
+                    await i.reply({ content: `> ⏮️ **Volviendo a:** \`${prev.info.title}\``, ephemeral: true });
                     break;
-                case 'll_replay':
+                }
+                case 'll_replay': {
                     await sq.player.seekTo(0);
-                    await i.reply({ content: '> 🔄 Reiniciando', ephemeral: true });
+                    await i.reply({ content: `> 🔄 **Reiniciando:** \`${sq.current?.info?.title || '?'}\``, ephemeral: true });
                     break;
-                case 'll_loop':
+                }
+                case 'll_loop': {
                     sq.repeatMode = (sq.repeatMode + 1) % 3;
+                    const loopNames = ['desactivado', '🔂 tema actual', '🔁 cola completa'];
                     await i.deferUpdate();
+                    await actualizarUI(sq);
                     break;
-                case 'll_shuffle':
+                }
+                case 'll_shuffle': {
                     sq.queue.sort(() => Math.random() - 0.5);
-                    await i.reply({ content: '> 🔀 Cola mezclada', ephemeral: true });
+                    await i.reply({ content: '> 🔀 **Cola mezclada aleatoriamente.**', ephemeral: true });
+                    await actualizarUI(sq);
                     break;
-                case 'll_voldown':
+                }
+                case 'll_voldown': {
                     sq.volume = Math.max(0, sq.volume - 10);
-                    await sq.player.setGlobalVolume(sq.volume);
+                    await sq.player.setVolume(sq.volume);
                     await i.deferUpdate();
+                    await actualizarUI(sq);
                     break;
-                case 'll_volup':
+                }
+                case 'll_volup': {
                     sq.volume = Math.min(100, sq.volume + 10);
-                    await sq.player.setGlobalVolume(sq.volume);
+                    await sq.player.setVolume(sq.volume);
                     await i.deferUpdate();
+                    await actualizarUI(sq);
                     break;
-            }
-
-            // Actualizar vista
-            if (['ll_pause', 'll_loop', 'll_voldown', 'll_volup'].includes(i.customId)) {
-                if (sq.msg) {
-                    await sq.msg.edit({ embeds: [crearEmbed(sq)], components: crearBotones(sq) }).catch(() => { });
                 }
             }
-        } catch (err) { }
+        } catch (err) {
+            console.error('[playl] Error en botón:', err.message);
+            if (!i.replied && !i.deferred) {
+                i.reply({ content: '> ⚠️ Ocurrió un error.', ephemeral: true }).catch(() => { });
+            }
+        }
+    });
+
+    sq.collector.on('end', (_, reason) => {
+        if (reason === 'renew') return; // Proximo cargó un nuevo collector
+        if (sq.msg) {
+            sq.msg.edit({ components: [] }).catch(() => { });
+        }
     });
 }
 
+// ─────────────────────────────────────────────────────────────
+//  COMANDO /playl
+// ─────────────────────────────────────────────────────────────
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('playl')
-        .setDescription('Reproduce música usando Lavalink (Versión Definitiva con UI)')
+        .setDescription('🎶 Reproduce música con Lavalink (UI completa con botones y cola)')
         .addStringOption(option =>
             option.setName('cancion')
-                .setDescription('URL o nombre de la canción')
+                .setDescription('URL de YouTube/Spotify o nombre de la canción')
                 .setRequired(true)),
 
     async execute(interaction) {
@@ -283,86 +317,106 @@ module.exports = {
         const client = interaction.client;
         const guildId = interaction.guild.id;
 
-        if (!client.shoukaku || client.shoukaku.nodes.size === 0) {
-            return interaction.editReply('❌ **Lavalink** está desconectado.');
+        // ── Guard: Lavalink disponible ──
+        const node = client.shoukaku?.getIdealNode();
+        if (!node) {
+            return interaction.editReply('❌ **Lavalink** no está disponible. Intentá de nuevo en unos segundos.');
         }
 
+        // ── Guard: canal de voz ──
         const voiceChannel = interaction.member.voice.channel;
         if (!voiceChannel) {
-            return interaction.editReply('❌ Tenés que estar en un canal de voz.');
-        }
-
-        const node = client.shoukaku.getIdealNode();
-        if (!node) {
-            return interaction.editReply('❌ Nodos no disponibles.');
+            return interaction.editReply('❌ Tenés que estar en un canal de voz para usar este comando.');
         }
 
         const query = interaction.options.getString('cancion');
 
         try {
+            // ── Resolver query ──
             const isURL = /^https?:\/\//.test(query);
             const searchQuery = isURL ? query : `ytsearch:${query}`;
             const result = await node.rest.resolve(searchQuery);
 
             if (!result || result.loadType === 'empty' || result.loadType === 'error') {
-                return interaction.editReply(`❌ No se encontró: ${result?.data?.message || 'Nada'}`);
+                const msg = result?.data?.message || 'Sin resultados';
+                return interaction.editReply(`❌ No se encontró nada: ${msg}`);
             }
 
-            // ── Extraer Tracks ──
-            let extractT = [];
-            let extraInfo = '';
+            // ── Extraer tracks ──
+            let tracks = [];
+            let playlistName = null;
 
-            if (result.loadType === 'playlist') {
-                extractT = result.data.tracks || result.data;
-                extraInfo = `\n📋 **Playlist añadida:** ${result.data.info?.name} (${extractT.length} canciones)`;
-            } else if (result.loadType === 'track') {
-                extractT = [result.data];
-            } else if (result.loadType === 'search') {
-                extractT = [result.data[0]];
-            } else {
-                extractT = Array.isArray(result.data) ? [result.data[0]] : [result.data];
+            switch (result.loadType) {
+                case 'playlist':
+                    tracks = result.data.tracks || result.data;
+                    playlistName = result.data.info?.name || 'Playlist';
+                    break;
+                case 'track':
+                    tracks = [result.data];
+                    break;
+                case 'search':
+                    tracks = result.data.length > 0 ? [result.data[0]] : [];
+                    break;
+                default:
+                    tracks = Array.isArray(result.data) ? result.data.slice(0, 1) : [result.data];
             }
 
-            if (!extractT.length || !extractT[0].encoded) {
-                return interaction.editReply('❌ Error extrayendo pista de audio.');
+            if (!tracks.length || !tracks[0]?.encoded) {
+                return interaction.editReply('❌ No se pudo obtener la pista de audio.');
             }
 
-            // Etiquetar solicitante a cada track
-            extractT.forEach(t => t.requestedBy = interaction.user);
+            // Etiquetar solicitante
+            tracks.forEach(t => t.requestedBy = interaction.user);
 
-            // ── Instanciar Cola y Reproductor ──
+            // ── Obtener o crear Queue/Player ──
             let sq = serverQueues.get(guildId);
+
             if (!sq) {
                 const player = await client.shoukaku.joinVoiceChannel({
-                    guildId: guildId,
+                    guildId,
                     channelId: voiceChannel.id,
-                    shardId: interaction.guild.shardId || 0
+                    shardId: interaction.guild.shardId || 0,
                 });
 
                 sq = {
-                    player: player,
+                    player,
                     channel: interaction.channel,
                     queue: [],
                     current: null,
                     history: [],
                     repeatMode: 0,
+                    isPaused: false,
+                    skipping: false,
                     msg: null,
                     collector: null,
-                    volume: 50
+                    volume: 50,
                 };
+
                 serverQueues.set(guildId, sq);
 
-                // Evento al terminar una canción
-                player.on('end', (data) => {
-                    // reason = 'replaced', 'finished', 'loadFailed', 'stopped'
+                // ── Eventos del player ──
+                player.on('end', async (data) => {
+                    // 'replaced' = nuevo playTrack fue llamado antes de que terminara el anterior
                     if (data.reason === 'replaced') return;
 
-                    if (sq.repeatMode === 1 && sq.current) {
-                        sq.player.playTrack({ track: { encoded: sq.current.encoded } });
+                    const currentSq = serverQueues.get(guildId);
+                    if (!currentSq) return;
+
+                    // Loop de un tema
+                    if (currentSq.repeatMode === 1 && currentSq.current && !currentSq.skipping) {
+                        currentSq.skipping = false;
+                        await currentSq.player.playTrack({ track: { encoded: currentSq.current.encoded } });
                         return;
                     }
 
-                    playNext(guildId, client);
+                    currentSq.skipping = false;
+                    await playNext(guildId, client);
+                });
+
+                player.on('exception', async (data) => {
+                    console.error('[playl] Track exception:', data);
+                    const currentSq = serverQueues.get(guildId);
+                    if (currentSq) await playNext(guildId, client);
                 });
 
                 player.on('closed', () => {
@@ -370,35 +424,47 @@ module.exports = {
                 });
             }
 
-            // ── Añadir y Reproducir ──
-            sq.queue.push(...extractT);
+            // ── Añadir tracks a la cola ──
+            sq.queue.push(...tracks);
 
-            const isFirstPlay = !sq.current;
+            const alreadyPlaying = !!sq.current;
 
-            if (isFirstPlay) {
-                // Si estaba vacío, empezar a reproducir (playNext saca de la cola y reproduce)
+            if (!alreadyPlaying) {
+                // Empezar reproducción
                 await playNext(guildId, client);
+                // El mensaje lo envía playNext → enviarOActualizarUI
                 await interaction.deleteReply().catch(() => { });
             } else {
-                // Si ya está sonando, avisar que se añadió
-                const t = extractT[0];
+                // Ya hay algo sonando: notificar que se añadió
+                const first = tracks[0];
+                const addedDesc = playlistName
+                    ? `📋 **Playlist:** ${playlistName} (${tracks.length} canciones)\n> Primera: **[${first.info.title}](${first.info.uri})**`
+                    : `**[${first.info.title}](${first.info.uri})**\n> 🎙 ${first.info.author}  ·  ⏱ \`${formatDuration(first.info.length)}\`\n> Posición: \`#${sq.queue.length}\``;
+
                 const addEmbed = new EmbedBuilder()
                     .setColor(MUSIC_COLORS.QUEUE_ADD)
-                    .setAuthor({ name: '✦ Agregado a la cola', iconURL: interaction.user.displayAvatarURL() })
-                    .setDescription(`**[${t.info.title}](${t.info.uri})**\n> 🎙 ${t.info.author}  ·  ⏱ \`${formatDuration(t.info.length)}\` ${extraInfo}`)
-                    .setThumbnail(t.info.artworkUrl || null);
+                    .setAuthor({ name: '✦  Agregado a la cola', iconURL: interaction.user.displayAvatarURL() })
+                    .setDescription(addedDesc)
+                    .setThumbnail(first.info.artworkUrl || null)
+                    .setFooter({ text: `${sq.queue.length} tema${sq.queue.length !== 1 ? 's' : ''} en cola  ·  Prophet Music` })
+                    .setTimestamp();
 
                 await interaction.editReply({ embeds: [addEmbed] });
+                setTimeout(() => interaction.deleteReply().catch(() => { }), 12000);
 
-                // Actualizar el player message
-                if (sq.msg) {
-                    await sq.msg.edit({ embeds: [crearEmbed(sq)] }).catch(() => { });
-                }
+                // Actualizar UI principal con la nueva cola
+                await actualizarUI(sq);
             }
 
         } catch (err) {
-            console.error('Lavalink GUI Error:', err);
-            await interaction.editReply(`❌ Error inesperado: ${err.message}`).catch(() => { });
+            console.error('[playl] Error general:', err);
+            // Limpiar si hay un player roto
+            const brokenSq = serverQueues.get(guildId);
+            if (brokenSq && !brokenSq.current) {
+                await client.shoukaku.leaveVoiceChannel(guildId).catch(() => { });
+                serverQueues.delete(guildId);
+            }
+            await interaction.editReply(`❌ Error: ${err.message || 'Error inesperado'}`).catch(() => { });
         }
-    }
+    },
 };

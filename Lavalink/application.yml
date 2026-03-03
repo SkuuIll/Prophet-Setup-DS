@@ -19,9 +19,9 @@ lavalink:
       vimeo: true
       http: true
       local: false
-    bufferDurationMs: 400
-    youtubePlaylistLoadLimit: 6
-    playerUpdateInterval: 5
+    bufferDurationMs: 2000
+    youtubePlaylistLoadLimit: 100
+    playerUpdateInterval: 2
     youtubeSearchEnabled: true
     soundcloudSearchEnabled: true
     gc-warnings: true
