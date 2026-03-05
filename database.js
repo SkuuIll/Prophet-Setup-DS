@@ -158,6 +158,7 @@ db.exec(`
 
 // ─── COLUMN MIGRATIONS (safe, idempotent) ───
 try { db.exec(`ALTER TABLE users ADD COLUMN last_xp INTEGER DEFAULT 0`); } catch (e) { /* ya existe */ }
+try { db.exec(`ALTER TABLE users ADD COLUMN voice_minutes INTEGER DEFAULT 0`); } catch (e) { /* ya existe */ }
 
 // ─── MIGRATION ───
 // Check if we need to migrate from prophet.json (only once)
@@ -548,6 +549,19 @@ const stmts = {
     },
     removeDiscordWebhook(channelId) {
         db.prepare('DELETE FROM discord_webhooks WHERE channel_id = ?').run(channelId);
+    },
+
+    // ── Voice XP ──
+    addVoiceMinutes(userId, minutes, xp) {
+        // Asegura que el usuario exista, luego suma minutos de voz y XP
+        db.prepare('INSERT OR IGNORE INTO users (id) VALUES (?)').run(userId);
+        db.prepare('UPDATE users SET voice_minutes = voice_minutes + ?, xp = xp + ? WHERE id = ?').run(minutes, xp, userId);
+    },
+    getTopVoice(limit = 10) {
+        return db.prepare('SELECT id, voice_minutes, xp, level FROM users WHERE voice_minutes > 0 ORDER BY voice_minutes DESC LIMIT ?').all(limit);
+    },
+    getVoiceRank(userId) {
+        return db.prepare('SELECT COUNT(*) as rank FROM users WHERE voice_minutes > (SELECT voice_minutes FROM users WHERE id = ?)').get(userId);
     }
 };
 

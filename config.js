@@ -70,7 +70,8 @@ module.exports = {
     NIVELES: {
         XP_MIN: 15,          // XP mínimo por mensaje
         XP_MAX: 25,          // XP máximo por mensaje
-        COOLDOWN: 60000,     // Cooldown en ms (60 segundos)
+        COOLDOWN: 60000,             // Cooldown en ms (60 segundos)
+        VOICE_XP_POR_MINUTO: 5,      // XP por minuto en canal de voz
         ROLES_POR_NIVEL: {   // nivel: nombre del rol (Debe coincidir EXACTAMENTE con el nombre del rol en Discord)
             1: '🌱 Novato',
             5: '🔹 Aprendiz',

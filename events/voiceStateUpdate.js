@@ -1,14 +1,44 @@
-// ═══ EVENTO: voiceStateUpdate (Log de Canales de Voz) ═══
+// ═══ EVENTO: voiceStateUpdate (Log de Canales de Voz + Voice XP) ═══
 
 const { EmbedBuilder } = require('discord.js');
 const config = require('../config');
 const { stmts } = require('../database');
+const { procesarXPVoz } = require('../modules/leveling');
 
 module.exports = {
     name: 'voiceStateUpdate',
     once: false,
     async execute(oldState, newState) {
-        if (newState.member.user.bot) return;
+        const member = newState.member || oldState.member;
+        if (member.user.bot) return;
+        const userId = member.id;
+        const guild = member.guild;
+
+        // ── VOICE XP: Tracking de sesión ────────────────────────────────────────────────────
+        if (!member.client.voiceSessions) member.client.voiceSessions = new Map();
+
+        const joiningVoice = !oldState.channelId && newState.channelId;
+        const leavingVoice = oldState.channelId && !newState.channelId;
+
+        if (joiningVoice) {
+            // Registrar el momento en que entró
+            member.client.voiceSessions.set(userId, {
+                joinedAt: Date.now(),
+                guildId: guild.id,
+                channelId: newState.channelId
+            });
+        } else if (leavingVoice) {
+            // Al salir: dar XP por el tiempo acumulado
+            const session = member.client.voiceSessions.get(userId);
+            if (session) {
+                const minutosTranscurridos = Math.floor((Date.now() - session.joinedAt) / 60000);
+                if (minutosTranscurridos >= 1) {
+                    procesarXPVoz(userId, minutosTranscurridos);
+                }
+                member.client.voiceSessions.delete(userId);
+            }
+        }
+        // ─────────────────────────────────────────────────────────────────────────────
 
         const configData = stmts.getConfig('voice_generator_id');
         const generatorId = configData ? configData.value : null;

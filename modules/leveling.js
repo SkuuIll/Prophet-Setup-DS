@@ -92,4 +92,36 @@ function barraProgreso(porcentaje, largo = 20) {
     return '█'.repeat(lleno) + '░'.repeat(vacio);
 }
 
-module.exports = { procesarXP, obtenerNivel, obtenerTop, xpParaNivel, barraProgreso };
+/**
+ * Procesar XP ganado por estar en canal de voz
+ * Se llama cada minuto por cada sesión de voz activa.
+ * No tiene cooldown de mensaje — dará XP fijo por minuto.
+ */
+function procesarXPVoz(userId, minutos = 1) {
+    const xpPorMinuto = config.NIVELES.VOICE_XP_POR_MINUTO || 5;
+    const xpGanado = xpPorMinuto * minutos;
+
+    let user = stmts.getUser(userId);
+    if (!user) user = { user_id: userId, xp: 0, level: 0, messages: 0, last_xp: 0, voice_minutes: 0 };
+
+    user.xp += xpGanado;
+
+    let subioNivel = false;
+    let rolNuevo = null;
+
+    while (user.xp >= xpParaNivel(user.level + 1)) {
+        user.level++;
+        subioNivel = true;
+        if (config.NIVELES.ROLES_POR_NIVEL[user.level]) {
+            rolNuevo = config.NIVELES.ROLES_POR_NIVEL[user.level];
+        }
+    }
+
+    // Guardar XP + minutos de voz en la DB
+    stmts.addVoiceMinutes(userId, minutos, xpGanado);
+    stmts.upsertUser(user);
+
+    return { subioNivel, nuevoNivel: user.level, xpGanado, rolNuevo };
+}
+
+module.exports = { procesarXP, procesarXPVoz, obtenerNivel, obtenerTop, xpParaNivel, barraProgreso };
