@@ -109,15 +109,15 @@ module.exports = {
                 const guild = interaction.guild;
                 const values = interaction.values; // Array de values (ej: 'role_valorant')
 
-                // Mapeo de value a ID de rol. Asegurate de reemplazar estos IDs con los de tu servidor
-                // o usar config.ROLES si están definidos ahí. Si no, buscar por nombre.
-                // Como es genérico, buscaremos los roles por los nombres que definimos o algo similar
+                // Mapeo de value a ID de rol — resuelto desde config.ROLES_JUEGOS
+                // Si los IDs no están configurados, fallback a búsqueda por nombre (menos robusto)
                 const roleMap = {
-                    'role_valorant': guild.roles.cache.find(r => r.name.toLowerCase().includes('valorant'))?.id,
-                    'role_lol': guild.roles.cache.find(r => r.name.toLowerCase().includes('league') || r.name.toLowerCase().includes('lol'))?.id,
-                    'role_minecraft': guild.roles.cache.find(r => r.name.toLowerCase().includes('minecraft'))?.id,
-                    'role_cs2': guild.roles.cache.find(r => r.name.toLowerCase().includes('cs') || r.name.toLowerCase().includes('counter'))?.id,
-                    'role_gta': guild.roles.cache.find(r => r.name.toLowerCase().includes('gta') || r.name.toLowerCase().includes('roleplay'))?.id,
+                    'role_valorant': config.ROLES_JUEGOS?.VALORANT || guild.roles.cache.find(r => r.name.toLowerCase().includes('valorant'))?.id,
+                    'role_lol': config.ROLES_JUEGOS?.LOL || guild.roles.cache.find(r => r.name.toLowerCase().includes('league') || r.name.toLowerCase().includes('lol'))?.id,
+                    'role_minecraft': config.ROLES_JUEGOS?.MINECRAFT || guild.roles.cache.find(r => r.name.toLowerCase().includes('minecraft'))?.id,
+                    'role_cs2': config.ROLES_JUEGOS?.CS2 || guild.roles.cache.find(r => r.name.toLowerCase().includes('cs2') || r.name.toLowerCase().includes('counter'))?.id,
+                    'role_pubg': config.ROLES_JUEGOS?.PUBG || guild.roles.cache.find(r => r.name.toLowerCase().includes('pubg'))?.id,
+                    'role_gta': config.ROLES_JUEGOS?.GTA || guild.roles.cache.find(r => r.name.toLowerCase().includes('gta') || r.name.toLowerCase().includes('roleplay'))?.id,
                 };
 
                 let assigned = [];

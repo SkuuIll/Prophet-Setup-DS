@@ -16,10 +16,29 @@ module.exports = {
                 const embed = new EmbedBuilder()
                     .setColor(config.COLORES.ERROR || 0xEF5350)
                     .setAuthor({ name: '🚨  ALERTA — Posible raid detectado' })
-                    .setDescription(`> ${raid.razon}\n\n> Revisá las entradas recientes y considerá activar medidas de seguridad.`)
+                    .setDescription(
+                        `> ${raid.razon}\n\n` +
+                        `> 🔒 **Acción automática:** Nivel de verificación elevado a **ALTO** por 5 minutos.\n` +
+                        `> El servidor volverá al nivel normal automáticamente.`
+                    )
                     .setFooter({ text: 'Prophet  ·  Anti-Raid' })
                     .setTimestamp();
                 logChannel.send({ embeds: [embed] });
+            }
+
+            // Subir nivel de verificación a HIGH automáticamente
+            try {
+                const prevLevel = member.guild.verificationLevel;
+                await member.guild.setVerificationLevel(3, 'Anti-Raid: raid detectado automáticamente');
+                setTimeout(async () => {
+                    try {
+                        await member.guild.setVerificationLevel(prevLevel, 'Anti-Raid: restaurado tras 5 minutos');
+                        const logCh = member.guild.channels.cache.get(config.CHANNELS.LOGS);
+                        if (logCh) logCh.send('> 🔓 **Anti-Raid:** Nivel de verificación restaurado al valor anterior.');
+                    } catch (e) { console.error('[AntiRaid] Error restaurando verificación:', e.message); }
+                }, 300000);
+            } catch (e) {
+                console.error('[AntiRaid] Error ajustando nivel de verificación:', e.message);
             }
         }
 

@@ -3,7 +3,7 @@
 //  Bot privado para Prophet Gaming
 // ═══════════════════════════════════════════════════
 
-const { Client, GatewayIntentBits, Collection, REST, Routes, Partials } = require('discord.js');
+const { Client, GatewayIntentBits, Collection, REST, Routes, Partials, EmbedBuilder } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
 const config = require('./config');
@@ -169,12 +169,27 @@ client.once('clientReady', async () => {
     await require('./modules/musicEngine')(client);
     // Shoukaku ya se inicializó antes del login (ver abajo)
 
+    // ── Limpiar canales de voz temporales huérfanos al reiniciar ──
+    const { stmts: dbStmts } = require('./database');
+    try {
+        const tempChannels = dbStmts.getTempChannels(guild.id);
+        for (const tc of tempChannels) {
+            const ch = guild.channels.cache.get(tc.channel_id);
+            if (!ch || ch.members.size === 0) {
+                if (ch) ch.delete('Canal de voz temporal vacío (limpieza al boot)').catch(() => { });
+                dbStmts.removeTempChannel(tc.channel_id);
+                console.log(`🗑️  Canal temporal huérfano eliminado: ${tc.channel_id}`);
+            }
+        }
+        if (tempChannels.length > 0) console.log(`🔊 ${tempChannels.length} canales temporales verificados al boot`);
+    } catch (e) { console.error('❌ Error limpiando canales temporales al boot:', e.message); }
+
     // Iniciar chequeo de sorteos
     const { verificarSorteos } = require('./modules/giveaways');
     setInterval(() => verificarSorteos(client), 30000); // Cada 30 segundos
 
     // ── Tempban expiry checker (cada 60s) ──
-    const { stmts: dbStmts } = require('./database');
+    // (dbStmts ya fue declarado arriba)
     setInterval(async () => {
         try {
             const expired = dbStmts.getActiveTempbans();
@@ -214,7 +229,7 @@ client.once('clientReady', async () => {
 
     // 🎂 Comprobador de cumpleaños (Todos los días a las 00:00)
     const schedule = require('node-schedule');
-    schedule.scheduleJob('0 0 * * *', async () => {
+    schedule.scheduleJob('0 3 * * *', async () => { // 00:00 Argentina (UTC-3) = 03:00 UTC
         try {
             // Obtener el día y mes actual (formato DD/MM)
             const hoy = new Date();
@@ -228,7 +243,7 @@ client.once('clientReady', async () => {
                 const rolCumple = guild.roles.cache.find(r => r.name.toLowerCase().includes('cumple'));
 
                 if (chatGeneral) {
-                    let menciones = cumplanHoy.map(c => `<@${c.id}>`).join(', ');
+                    let menciones = cumplenHoy.map(c => `<@${c.id}>`).join(', ');
                     const embed = new EmbedBuilder()
                         .setColor(config.COLORES.EXITO || 0xFF1493)
                         .setTitle('🎉 ¡Día de Cumpleaños! 🎉')

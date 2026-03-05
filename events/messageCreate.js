@@ -2,6 +2,7 @@
 
 const { EmbedBuilder } = require('discord.js');
 const config = require('../config');
+const { stmts } = require('../database');
 const { verificarSpam } = require('../modules/antispam');
 const { procesarXP } = require('../modules/leveling');
 
@@ -12,7 +13,6 @@ module.exports = {
         if (message.author.bot || !message.guild) return;
 
         // ═══ COUNTING GAME ═══
-        const { stmts } = require('../database');
         const countingChannelId = stmts.getConfig('COUNTING_CHANNEL')?.value;
 
         if (countingChannelId && message.channel.id === countingChannelId) {

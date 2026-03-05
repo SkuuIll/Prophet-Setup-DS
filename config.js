@@ -9,7 +9,7 @@ module.exports = {
     TOKEN: process.env.DISCORD_TOKEN,
 
     // ID del servidor
-    GUILD_ID: '412085943936221206',
+    GUILD_ID: process.env.GUILD_ID || '412085943936221206',
 
     // Canales especiales (se resuelven por nombre al iniciar index.js)
     CHANNELS: {
@@ -40,6 +40,16 @@ module.exports = {
         MIEMBRO: '👤 Miembro',
         NUEVO: '🆕 Nuevo',
         BOTS: '🤖 Bots',
+    },
+
+    // Roles de juegos para el select menu (podés poner los IDs directos acá para que no dependan del nombre)
+    ROLES_JUEGOS: {
+        VALORANT: null,   // Ej: '123456789012345678' — si es null, busca por nombre
+        LOL: null,
+        MINECRAFT: null,
+        CS2: null,
+        PUBG: null,
+        GTA: null,
     },
 
     // Colores para embeds

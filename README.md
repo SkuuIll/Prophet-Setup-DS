@@ -2,7 +2,7 @@
 
 <img src="assets/logo.png" width="140" height="140" alt="Prophet Bot" style="border-radius: 50%;">
 
-# Prophet Bot v2.8
+# Prophet Bot v2.9
 
 **El asistente definitivo para Prophet Gaming.**\
 Música · Moderación · Economía · Niveles · Mini-juegos · Utilidades — todo en un solo bot.
@@ -138,7 +138,7 @@ Un ecosistema financiero completo con animaciones y feedback visual:
 |---|---|
 | 🛡️ **Anti-Spam** | Flood, invites, links no whitelistados, menciones masivas, mayúsculas |
 | 🧠 **Auto-Mod Inteligente** | Emoji flood (+15), texto Zalgo, chars repetidos, frases de phishing |
-| 🚨 **Anti-Raid** | Alerta automática al detectar cuentas nuevas en masa |
+| 🚨 **Anti-Raid** | Alerta automática + **lockdown automático** (verificationLevel HIGH por 5min) |
 | 📝 **Logs automáticos** | Mensajes eliminados/editados, entradas/salidas de miembros |
 
 ---
@@ -370,12 +370,13 @@ Prophet Bot usa **SQLite** (vía `better-sqlite3`) con modo WAL para máximo ren
 
 | Tabla | Descripción |
 |---|---|
-| `users` | XP, nivel, mensajes, balance, banco, cumpleaños |
+| `users` | XP, nivel, mensajes, balance, banco, cooldowns (`last_xp`, `last_work`, `last_daily`), cumpleaños |
 | `user_inventory` | Items por usuario |
 | `warns` | Historial de advertencias |
-| `giveaways` / `giveaway_entries` | Sorteos activos |
+| `giveaways` / `giveaway_entries` | Sorteos activos con soporte multi-ganador |
 | `tickets` | Tickets de soporte abiertos |
 | `tempbans` | Bans temporales pendientes de expirar |
+| `temp_channels` | Canales de voz temporales activos (limpieza automática al reiniciar) |
 | `reaction_roles` | Paneles de auto-roles |
 | `starboards` | Mensajes destacados |
 | `config` | Configuraciones dinámicas del servidor |
@@ -397,6 +398,23 @@ Prophet Bot usa **SQLite** (vía `better-sqlite3`) con modo WAL para máximo ren
 ---
 
 ## 📝 Changelog
+
+### v2.9 — *Marzo 2026*
+
+**🐛 Bug Fixes:**
+- ✅ **Sistema de cumpleaños** — Corregido typo `cumplanHoy` → `cumplenHoy` que causaba `ReferenceError` silencioso cada medianoche; corregido timezone a UTC-3 (Argentina)
+- ✅ **Cooldown de XP** — `last_xp` ahora se persiste correctamente en la DB (columna faltante); el cooldown anti-abuse funciona como corresponde
+- ✅ **Sorteos** — Corregida race condition donde un sorteo podía quedar marcado terminado sin anunciar ganador si había error de red
+- ✅ **Canales de voz temporales** — Ya no quedan canales huérfanos tras reiniciar el bot; se limpian automáticamente al boot y se persisten en la tabla `temp_channels`
+- ✅ **Select menu de roles** — Ya no depende de búsqueda por nombre de rol; usa IDs de `config.ROLES_JUEGOS` con fallback inteligente
+
+**✨ Mejoras:**
+- 🔒 **Anti-Raid activo** — Al detectar un raid, sube automáticamente el `verificationLevel` del servidor a HIGH por 5 minutos y lo restaura solo
+- 🏆 **Sorteos multi-ganador** — `/sorteo` tiene parámetro `ganadores` (1–10) para sorteos con múltiples premios
+- ⚡ **Optimizaciones internas** — Limpieza de logs con 1 query (antes 2), antispam Map limpiado cada 60s (antes 5min)
+- 🔑 **`GUILD_ID` en `.env`** — Ya no hardcodeado en `config.js`
+- 🧹 **Imports dinámicos** — Todos los `require()` movidos al top de sus archivos para mejor legibilidad
+- 🗄️ **DB**: nueva tabla `temp_channels` + migration automática de columna `last_xp` (non-destructiva)
 
 ### v2.8 — *Marzo 2026*
 

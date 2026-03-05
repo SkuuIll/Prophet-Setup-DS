@@ -2,6 +2,7 @@
 
 const { EmbedBuilder } = require('discord.js');
 const config = require('../config');
+const { stmts } = require('../database');
 
 module.exports = {
     name: 'voiceStateUpdate',
@@ -9,10 +10,6 @@ module.exports = {
     async execute(oldState, newState) {
         if (newState.member.user.bot) return;
 
-        // ---------- LOGIC DE JOINT-TO-CREATE Y ESTADOS ----------
-        const { stmts } = require('../database');
-
-        // El id del canal que "genera" las salas, tomado de la DB
         const configData = stmts.getConfig('voice_generator_id');
         const generatorId = configData ? configData.value : null;
         const configCat = stmts.getConfig('voice_category_id');
@@ -64,26 +61,25 @@ module.exports = {
         // 1. Lógica del creador de salas temporales
         if (newState.channelId && newState.channelId === generatorId) {
             try {
-                // Crear canal temporal
                 const channelName = `🔊 Sala de ${newState.member.user.username}`;
                 const newChannel = await newState.guild.channels.create({
                     name: channelName,
                     type: 2, // GUILD_VOICE
-                    parent: categoryId || newState.channel.parentId, // Mismo padre que el generador
+                    parent: categoryId || newState.channel.parentId,
                     permissionOverwrites: [
                         {
                             id: newState.member.user.id,
-                            allow: ['ManageChannels', 'ManageRoles'], // Permitirle al dueño administrar SU canal
+                            allow: ['ManageChannels', 'ManageRoles'],
                         }
                     ]
                 });
 
-                // Mover al usuario al canal recién creado
+                // Registrar en la DB
+                stmts.addTempChannel(newChannel.id, newState.guild.id, newState.member.user.id);
+
                 await newState.member.voice.setChannel(newChannel.id);
 
-                // Asignarle un estado al azar usando la API REST directamente SIN entrar al canal
                 const randomStatus = STATUSES[Math.floor(Math.random() * STATUSES.length)];
-
                 try {
                     await newState.client.rest.put(`/channels/${newChannel.id}/voice-status`, {
                         body: { status: randomStatus }
@@ -96,49 +92,44 @@ module.exports = {
                 console.error('Error creando canal temporal:', error);
             }
         }
-        // 2. Lógica para asignar estado random si ingresa a otro canal normal (que no sea el creador)
+        // 2. Asignar estado random si es el primero en entrar a un canal normal
         else if (newState.channelId) {
-            // Verificar si el canal está recién ocupándose o si queremos cambiarlo siempre
-            // Lo ideal es cambiar el estado si es la primera persona en entrar al canal
             const channel = newState.channel;
-            if (channel && channel.members.size === 1) { // Acaba de entrar el primer usuario
+            if (channel && channel.members.size === 1) {
                 const randomStatus = STATUSES[Math.floor(Math.random() * STATUSES.length)];
                 try {
                     await newState.client.rest.put(`/channels/${channel.id}/voice-status`, {
                         body: { status: randomStatus }
                     });
-                } catch (e) {
-                    // Ignorar errores si no tiene perms para canales que no son del bot etc
+                } catch (e) { /* Ignorar: sin permisos en canales externos */ }
+            }
+        }
+
+        // 3. Si salió del canal: borrar temporales vacíos usando la DB de referencia
+        if (oldState.channelId) {
+            const leftChannel = oldState.channel;
+            if (leftChannel && leftChannel.members.size === 0) {
+                // Verificar si es un canal temporal registrado en la DB
+                if (stmts.isTempChannel(leftChannel.id)) {
+                    stmts.removeTempChannel(leftChannel.id);
+                    leftChannel.delete('Canal de voz temporal vacío').catch(() => { });
+                } else if (leftChannel.parentId === categoryId && leftChannel.id !== generatorId) {
+                    // Fallback: si está en la categoría de temporales pero no está en DB (restart)
+                    leftChannel.delete('Canal de voz temporal vacío (sin registro DB)').catch(() => { });
+                } else {
+                    // Canal normal vacío: limpiar su status con delay para evitar rate limits
+                    setTimeout(async () => {
+                        try {
+                            await oldState.client.rest.put(`/channels/${leftChannel.id}/voice-status`, {
+                                body: { status: "" }
+                            });
+                        } catch (e) { }
+                    }, 1000);
                 }
             }
         }
 
-        // Si salió del canal, checkear el canal que dejó (Para borrar temporales o limpiar su estado)
-        if (oldState.channelId) {
-            const leftChannel = oldState.channel;
-            if (leftChannel
-                && leftChannel.parentId === categoryId
-                && leftChannel.id !== generatorId
-                && leftChannel.members.size === 0) {
-                // El canal pertenece a la categoría de temporales, no es el maestro, y quedó vacío. Lo borramos.
-                leftChannel.delete('Canal de voz temporal vacío').catch(() => { });
-            }
-            else if (leftChannel && leftChannel.members.size === 0) {
-                // Si es un canal normal y se vacía, podríamos limpiar el status
-                // Retrasamos un segundito la limpieza para no saturar Rate Limits de Discord
-                setTimeout(async () => {
-                    try {
-                        // Discord API acepta string vacío o null, pero a veces omite si es rate-limit
-                        await oldState.client.rest.put(`/channels/${leftChannel.id}/voice-status`, {
-                            body: { status: "" }
-                        });
-                    } catch (e) { }
-                }, 1000);
-            }
-        }
-        // ---------- FIN LOGIC JOINT-TO-CREATE Y ESTADOS ----------
-
-        // Logs originales
+        // ─── LOGS ───
         const logChannelId = config.CHANNELS.LOGS;
         const logChannel = newState.guild.channels.cache.get(logChannelId);
         if (!logChannel) return;
@@ -163,7 +154,7 @@ module.exports = {
             embed.setColor(config.COLORES.INFO || 0x42A5F5);
             embed.setDescription(`> 🔀 ${newState.member} **se movió** de canal de voz\n> De: <#${oldState.channelId}>\n> A: <#${newState.channelId}>`);
         } else {
-            return; // Muteds, deafens, streams etc, no queremos spam.
+            return; // Muteds, deafens, streams etc.
         }
 
         logChannel.send({ embeds: [embed] }).catch(() => { });

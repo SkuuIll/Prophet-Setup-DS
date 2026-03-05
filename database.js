@@ -24,6 +24,7 @@ db.exec(`
         bank INTEGER DEFAULT 0,
         last_daily INTEGER DEFAULT 0,
         last_work INTEGER DEFAULT 0,
+        last_xp INTEGER DEFAULT 0,
         birthday TEXT
     );
 
@@ -97,7 +98,17 @@ db.exec(`
         details TEXT,
         timestamp TEXT
     );
+
+    CREATE TABLE IF NOT EXISTS temp_channels (
+        channel_id TEXT PRIMARY KEY,
+        guild_id TEXT,
+        owner_id TEXT,
+        created_at INTEGER
+    );
 `);
+
+// ─── COLUMN MIGRATIONS (safe, idempotent) ───
+try { db.exec(`ALTER TABLE users ADD COLUMN last_xp INTEGER DEFAULT 0`); } catch (e) { /* ya existe */ }
 
 // ─── MIGRATION ───
 // Check if we need to migrate from prophet.json (only once)
@@ -194,9 +205,10 @@ const stmts = {
         return db.prepare('SELECT * FROM users WHERE id = ?').get(userId) || null;
     },
     upsertUser(userData) {
-        db.prepare('INSERT OR REPLACE INTO users (id, xp, level, messages, balance, bank, last_daily, last_work) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').run(
-            userData.user_id, userData.xp || 0, userData.level || 0, userData.messages || 0,
-            userData.balance || 0, userData.bank || 0, userData.last_daily || 0, userData.last_work || 0
+        db.prepare('INSERT OR REPLACE INTO users (id, xp, level, messages, balance, bank, last_daily, last_work, last_xp) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)').run(
+            userData.user_id || userData.id, userData.xp || 0, userData.level || 0, userData.messages || 0,
+            userData.balance || 0, userData.bank || 0, userData.last_daily || 0, userData.last_work || 0,
+            userData.last_xp || 0
         );
     },
     getTop(limit) {
@@ -365,11 +377,8 @@ const stmts = {
     // ── Logs ──
     addLog(type, details) {
         db.prepare('INSERT INTO logs (type, details, timestamp) VALUES (?, ?, ?)').run(type, JSON.stringify(details), new Date().toISOString());
-        // Clean up old logs to keep only the last 100
-        const result = db.prepare('SELECT COUNT(*) as count FROM logs').get();
-        if (result.count > 100) {
-            db.prepare('DELETE FROM logs WHERE id IN (SELECT id FROM logs ORDER BY timestamp ASC LIMIT ?)').run(result.count - 100);
-        }
+        // Keep only the last 100 logs — single efficient DELETE
+        db.prepare('DELETE FROM logs WHERE id NOT IN (SELECT id FROM logs ORDER BY id DESC LIMIT 100)').run();
     },
     getLogs(limit = 10) {
         return db.prepare('SELECT * FROM logs ORDER BY id DESC LIMIT ?').all(limit).map(l => ({
@@ -398,6 +407,19 @@ const stmts = {
     getTodayBirthdays(memDayMonth) {
         // SQL LIKE operator for e.g '%/05'
         return db.prepare(`SELECT id FROM users WHERE birthday LIKE ?`).all(`%${memDayMonth}`);
+    },
+    // ── Canales de voz temporales ──
+    addTempChannel(channelId, guildId, ownerId) {
+        db.prepare('INSERT OR REPLACE INTO temp_channels (channel_id, guild_id, owner_id, created_at) VALUES (?, ?, ?, ?)').run(channelId, guildId, ownerId, Date.now());
+    },
+    removeTempChannel(channelId) {
+        db.prepare('DELETE FROM temp_channels WHERE channel_id = ?').run(channelId);
+    },
+    getTempChannels(guildId) {
+        return db.prepare('SELECT * FROM temp_channels WHERE guild_id = ?').all(guildId);
+    },
+    isTempChannel(channelId) {
+        return !!db.prepare('SELECT 1 FROM temp_channels WHERE channel_id = ?').get(channelId);
     }
 };
 

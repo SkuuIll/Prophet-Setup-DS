@@ -8,11 +8,13 @@ module.exports = {
         .setDescription('Crear un sorteo')
         .addStringOption(o => o.setName('premio').setDescription('¿Qué se sortea?').setRequired(true))
         .addStringOption(o => o.setName('duracion').setDescription('Duración (ej: 1h, 30m, 1d)').setRequired(true))
+        .addIntegerOption(o => o.setName('ganadores').setDescription('Cantidad de ganadores (default: 1)').setMinValue(1).setMaxValue(10))
         .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
 
     async execute(interaction) {
         const premio = interaction.options.getString('premio');
         const duracionStr = interaction.options.getString('duracion');
+        const winners = interaction.options.getInteger('ganadores') || 1;
 
         // Parsear duración
         const match = duracionStr.match(/^(\d+)(m|h|d)$/i);
@@ -30,7 +32,7 @@ module.exports = {
         }
 
         await interaction.deferReply({ ephemeral: true });
-        await crearSorteo(interaction.channel, premio, duracionMs, interaction.user.id);
-        await interaction.editReply({ content: '✅ Sorteo creado!' });
+        await crearSorteo(interaction.channel, premio, duracionMs, interaction.user.id, winners);
+        await interaction.editReply({ content: `✅ Sorteo creado! ${winners > 1 ? `(${winners} ganadores)` : ''}` });
     }
 };
