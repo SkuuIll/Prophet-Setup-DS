@@ -1,4 +1,4 @@
-// ═══ MÓDULO: aiChat.js — Integración con Google Gemini 2.0 Flash ═══
+// ═══ MÓDULO: aiChat.js — Integración con Groq (Llama 3.3) ═══
 
 const config = require('../config');
 
@@ -17,7 +17,7 @@ Tu personalidad:
 - Conocés a fondo el servidor Prophet Gaming: tiene economía, sistema de niveles, sorteos, canales de voz, moderación y más
 - Cuando alguien pregunta sobre comandos del bot, mencionás que usen /ayuda para ver todo
 - Tenés buen humor y a veces hacés bromas de gaming (especialmente sobre tilts, rank, teammates, etc.)
-- No revelás que sos una IA de Google — simplemente sos ProphetBot
+- Sos ProphetBot, no sos una IA de Google, Meta, ni de Groq — simplemente sos ProphetBot
 
 Información del bot:
 - Comandos de economía: /daily, /work, /gamble, /balance, /shop
@@ -36,9 +36,9 @@ function agregarAlContexto(channelId, role, text) {
         conversaciones.set(channelId, []);
     }
     const ctx = conversaciones.get(channelId);
-    ctx.push({ role, parts: [{ text }] });
+    ctx.push({ role, content: text });
 
-    // Mantener solo los últimos N turnos (cada turno = user + model)
+    // Mantener solo los últimos N turnos (user+assistant = 2 mensajes por turno)
     if (ctx.length > MAX_CONTEXTO * 2) {
         ctx.splice(0, 2); // eliminar el turno más viejo
     }
@@ -47,63 +47,56 @@ function agregarAlContexto(channelId, role, text) {
 /**
  * Llama a la API de Gemini con contexto de conversación
  */
-async function preguntarAGemini(channelId, pregunta, contextoExtra = null) {
-    const apiKey = process.env.GEMINI_API_KEY;
+async function preguntarAIA(channelId, pregunta, contextoExtra = null) {
+    const apiKey = process.env.GROQ_API_KEY;
     if (!apiKey) {
-        return '❌ No tengo configurada la API key de Gemini. Pedile al admin que agregue `GEMINI_API_KEY` al `.env`.';
+        return '❌ No tengo configurada la API key de Groq. Pedile al admin que revise el `.env`.';
     }
 
-    // Construir el contexto del canal
     agregarAlContexto(channelId, 'user', pregunta);
-    const contexto = conversaciones.get(channelId);
+    const historial = conversaciones.get(channelId);
 
-    // Información de contexto del servidor (si se provee)
     let systemExtra = contextoExtra ? `\n\nContexto actual del servidor: ${contextoExtra}` : '';
 
-    const body = {
-        system_instruction: {
-            parts: [{ text: SYSTEM_PROMPT + systemExtra }]
-        },
-        contents: contexto.slice(0, -1).concat([{ role: 'user', parts: [{ text: pregunta }] }]),
-        generationConfig: {
-            maxOutputTokens: 512,
-            temperature: 0.85,
-            topP: 0.95,
-        },
-        safetySettings: [
-            { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_ONLY_HIGH' },
-            { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_ONLY_HIGH' },
-        ]
-    };
+    const messages = [
+        { role: 'system', content: SYSTEM_PROMPT + systemExtra },
+        ...historial.slice(0, -1), // todo el historial excepto la última pregunta
+        { role: 'user', content: pregunta } // la pregunta actual
+    ];
 
     try {
-        const res = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
-            {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(body)
-            }
-        );
+        const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${apiKey}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                model: 'llama-3.3-70b-versatile',
+                messages: messages,
+                max_completion_tokens: 512,
+                temperature: 0.85,
+                top_p: 0.95,
+            })
+        });
 
         const data = await res.json();
 
         if (!res.ok) {
-            console.error('[Gemini] API Error:', data.error?.message);
+            console.error('[Groq] API Error:', data.error?.message);
             return `❌ Error de la API: ${data.error?.message || 'desconocido'}`;
         }
 
-        const respuesta = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        const respuesta = data.choices?.[0]?.message?.content;
         if (!respuesta) return '🤔 No pude generar una respuesta. Intentá de nuevo.';
 
-        // Guardar la respuesta en el contexto
-        agregarAlContexto(channelId, 'model', respuesta);
+        agregarAlContexto(channelId, 'assistant', respuesta);
 
         return respuesta;
 
     } catch (e) {
-        console.error('[Gemini] Error:', e.message);
-        return '❌ Hubo un error al conectarme con la IA. Intentá de nuevo en un momento.';
+        console.error('[Groq] Error:', e.message);
+        return '❌ Hubo un error al conectarme con el motor de IA. Intentá de nuevo en un momento.';
     }
 }
 
@@ -114,4 +107,4 @@ function limpiarContexto(channelId) {
     conversaciones.delete(channelId);
 }
 
-module.exports = { preguntarAGemini, limpiarContexto };
+module.exports = { preguntarAIA, limpiarContexto };

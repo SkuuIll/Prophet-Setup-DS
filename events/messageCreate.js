@@ -5,7 +5,7 @@ const config = require('../config');
 const { stmts } = require('../database');
 const { verificarSpam } = require('../modules/antispam');
 const { procesarXP } = require('../modules/leveling');
-const { preguntarAGemini } = require('../modules/aiChat');
+const { preguntarAIA } = require('../modules/aiChat');
 const { procesarAutoRespuesta } = require('../modules/autoResponder');
 
 module.exports = {
@@ -164,11 +164,11 @@ module.exports = {
                 return message.reply(respuestasRapidas[Math.floor(Math.random() * respuestasRapidas.length)]);
             }
 
-            // Tiene texto → usar Gemini
+            // Tiene texto → usar IA
             try {
                 const typing = message.channel.sendTyping();
                 const contexto = `Servidor: ${message.guild.name}, usuario: ${message.author.username}`;
-                const respuesta = await preguntarAGemini(message.channel.id, textoSinMencion, contexto);
+                const respuesta = await preguntarAIA(message.channel.id, textoSinMencion, contexto);
                 await typing;
                 return message.reply({ content: respuesta });
             } catch (e) {

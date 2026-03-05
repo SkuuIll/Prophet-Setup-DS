@@ -1,7 +1,7 @@
 // ═══ COMANDO: /ai — Chat con ProphetBot usando Gemini ═══
 
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
-const { preguntarAGemini, limpiarContexto } = require('../../modules/aiChat');
+const { preguntarAIA, limpiarContexto } = require('../../modules/aiChat');
 const config = require('../../config');
 
 module.exports = {
@@ -35,7 +35,7 @@ module.exports = {
         const contextoServidor = `Servidor: ${interaction.guild.name}, ${interaction.guild.memberCount} miembros. Usuario que pregunta: ${interaction.user.username} (nivel ${interaction.client.guilds?.cache?.get(interaction.guild.id) ? '' : ''})`;
 
         // Indicador de "escribiendo..."
-        const respuesta = await preguntarAGemini(interaction.channel.id, pregunta, contextoServidor);
+        const respuesta = await preguntarAIA(interaction.channel.id, pregunta, contextoServidor);
 
         const embed = new EmbedBuilder()
             .setColor(config.COLORES.PRINCIPAL)
@@ -48,7 +48,7 @@ module.exports = {
                 { name: '💬 Respuesta', value: respuesta.slice(0, 1024) }
             )
             .setFooter({
-                text: `${interaction.user.username}  ·  Gemini 2.5 Flash  ·  Usá /ai limpiar para nueva conversación`,
+                text: `${interaction.user.username}  ·  Groq (Llama 3.3)  ·  Usá /ai limpiar para nueva conversación`,
                 iconURL: interaction.user.displayAvatarURL()
             })
             .setTimestamp();
