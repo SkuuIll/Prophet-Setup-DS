@@ -199,8 +199,8 @@ module.exports = {
 
             // 1. Visión (Si mandan una imagen)
             if (attachment) {
-                // 20% de chances de reaccionar espontáneamente a una imagen
-                if (Math.random() < 0.20) {
+                // 100% de chances de reaccionar espontáneamente a una imagen
+                if (Math.random() < 1.0) {
                     try {
                         const typing = message.channel.sendTyping();
                         const contexto = `El usuario ${message.author.username} mandó esta imagen al chat general. Comentá o burlate de la imagen.`;
@@ -210,8 +210,8 @@ module.exports = {
                     } catch (e) { console.error('Error Vision Auto:', e.message); }
                 }
             }
-            // 2. Intervención espontánea de texto (5% chance)
-            else if (message.content.length > 5 && Math.random() < 0.05) {
+            // 2. Intervención espontánea de texto (50% chance)
+            else if (message.content.length > 5 && Math.random() < 0.50) {
                 try {
                     const typing = message.channel.sendTyping();
                     const contexto = `El usuario ${message.author.username} dijo esto en el chat. Metete en la conversación como si fueras un usuario más. Opiná, bardeá o bromeá sobre lo que dijo. SE BREVE y directo, como si estuvieras charlando.`;
