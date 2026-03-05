@@ -5,6 +5,8 @@ const config = require('../config');
 const { stmts } = require('../database');
 const { verificarSpam } = require('../modules/antispam');
 const { procesarXP } = require('../modules/leveling');
+const { preguntarAGemini } = require('../modules/aiChat');
+const { procesarAutoRespuesta } = require('../modules/autoResponder');
 
 module.exports = {
     name: 'messageCreate',
@@ -141,6 +143,53 @@ module.exports = {
                 logChannel.send({ embeds: [logEmbed] });
             }
             return;
+        }
+
+        // ═══ @MENCIÓN → RESPUESTA CON IA (GEMINI) ═══
+        const fueMencionado = message.mentions.has(message.client.user);
+        if (fueMencionado) {
+            // Extraer el texto sin la mención
+            const textoSinMencion = message.content
+                .replace(/<@!?\d+>/g, '')
+                .trim();
+
+            if (!textoSinMencion) {
+                // Mencionaron al bot sin texto → respuesta rápida
+                const respuestasRapidas = [
+                    `¡Acá estoy, ${message.author.username}! 👋 ¿En qué te ayudo? Podés preguntarme lo que sea.`,
+                    `¡Me llamaste? 🎮 ¿Qué necesitás?`,
+                    `¡Presente! 🤖 Preguntame lo que quieras.`,
+                    `¡Hola! ¿Cómo te puedo ayudar? También tenés /ayuda para ver todos los comandos.`,
+                ];
+                return message.reply(respuestasRapidas[Math.floor(Math.random() * respuestasRapidas.length)]);
+            }
+
+            // Tiene texto → usar Gemini
+            try {
+                const typing = message.channel.sendTyping();
+                const contexto = `Servidor: ${message.guild.name}, usuario: ${message.author.username}`;
+                const respuesta = await preguntarAGemini(message.channel.id, textoSinMencion, contexto);
+                await typing;
+                return message.reply({ content: respuesta });
+            } catch (e) {
+                console.error('[AI mention]', e.message);
+                return message.reply('Lo siento, no puedo responder ahora mismo 😅');
+            }
+        }
+
+        // ═══ AUTO-RESPUESTAS INTELIGENTES ═══
+        // Solo en canales de chat (no en bots/logs/staff)
+        const esCanal = !message.channel.name?.includes('log') &&
+            !message.channel.name?.includes('bot') &&
+            !message.channel.name?.includes('staff') &&
+            !message.channel.name?.includes('reporte');
+
+        if (esCanal && message.content.length > 3) {
+            const autoResp = procesarAutoRespuesta(message.content);
+            if (autoResp) {
+                // Pequeño delay para que parezca más natural
+                setTimeout(() => message.channel.send(autoResp).catch(() => { }), 800);
+            }
         }
 
         // ═══ SISTEMA DE XP ═══
