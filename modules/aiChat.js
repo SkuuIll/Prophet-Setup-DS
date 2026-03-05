@@ -93,7 +93,56 @@ async function preguntarAIA(channelId, pregunta, contextoExtra = null) {
         return respuesta;
 
     } catch (e) {
-        console.error('[Groq] Error, intentando fallback a Gemini:', e.message);
+        console.error('[Groq] Error, intentando fallback a Mistral:', e.message);
+        return await fallbackMistral(channelId, pregunta, systemExtra);
+    }
+}
+
+/**
+ * Fallback a Mistral si Groq falla (Tier 2)
+ */
+async function fallbackMistral(channelId, pregunta, systemExtra) {
+    const apiKey = process.env.MISTRAL_API_KEY;
+    if (!apiKey) {
+        console.error('[Mistral] No hay API Key. Saltando a Gemini...');
+        return await fallbackGemini(channelId, pregunta, systemExtra);
+    }
+
+    try {
+        const historial = conversaciones.get(channelId);
+
+        const messages = [
+            { role: 'system', content: SYSTEM_PROMPT + systemExtra },
+            ...historial.slice(0, -1),
+            { role: 'user', content: pregunta }
+        ];
+
+        const res = await fetch('https://api.mistral.ai/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${apiKey}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                model: 'mistral-small-latest',
+                messages: messages,
+                max_tokens: 120,
+                temperature: 0.85
+            })
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) throw new Error(data.message || 'Error en Mistral API');
+
+        const respuesta = data.choices?.[0]?.message?.content;
+        if (!respuesta) throw new Error('Respuesta vacía de Mistral');
+
+        agregarAlContexto(channelId, 'assistant', respuesta);
+        return respuesta;
+
+    } catch (err) {
+        console.error('[Mistral] Error, intentando fallback a Gemini:', err.message);
         return await fallbackGemini(channelId, pregunta, systemExtra);
     }
 }
