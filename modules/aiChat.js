@@ -142,4 +142,50 @@ function limpiarContexto(channelId) {
     conversaciones.delete(channelId);
 }
 
-module.exports = { preguntarAIA, limpiarContexto };
+/**
+ * Función especial para leer imágenes usando Gemini 2.5 Flash
+ */
+async function preguntarConVision(channelId, pregunta, imageUrl, contextoExtra = null) {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) return '❌ No tengo configurada la API Key de Gemini para ver imágenes.';
+
+    try {
+        // Descargar la imagen
+        const imgRes = await fetch(imageUrl);
+        const arrayBuffer = await imgRes.arrayBuffer();
+        const base64Img = Buffer.from(arrayBuffer).toString('base64');
+        const mimeType = imgRes.headers.get('content-type') || 'image/jpeg';
+
+        // Contexto
+        let systemExtra = contextoExtra ? `\n\nContexto actual del servidor: ${contextoExtra}` : '';
+
+        const body = {
+            system_instruction: { parts: [{ text: SYSTEM_PROMPT + systemExtra }] },
+            contents: [{
+                role: 'user',
+                parts: [
+                    { inlineData: { mimeType, data: base64Img } },
+                    { text: pregunta }
+                ]
+            }],
+            generationConfig: { maxOutputTokens: 256, temperature: 0.85 }
+        };
+
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+
+        const data = await res.json();
+        const respuesta = data.candidates?.[0]?.content?.parts?.[0]?.text;
+
+        if (respuesta) agregarAlContexto(channelId, 'assistant', respuesta);
+        return respuesta || '🤔 Vi la imagen pero no sé qué decir.';
+    } catch (e) {
+        console.error('[Vision] Error:', e.message);
+        return '❌ Falló mi módulo visual (ojo biónico roto).';
+    }
+}
+
+module.exports = { preguntarAIA, limpiarContexto, preguntarConVision };

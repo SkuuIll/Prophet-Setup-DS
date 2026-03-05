@@ -5,7 +5,7 @@ const config = require('../config');
 const { stmts } = require('../database');
 const { verificarSpam } = require('../modules/antispam');
 const { procesarXP } = require('../modules/leveling');
-const { preguntarAIA } = require('../modules/aiChat');
+const { preguntarAIA, preguntarConVision } = require('../modules/aiChat');
 const { procesarAutoRespuesta } = require('../modules/autoResponder');
 
 module.exports = {
@@ -189,6 +189,36 @@ module.exports = {
             if (autoResp) {
                 // Pequeño delay para que parezca más natural
                 setTimeout(() => message.channel.send(autoResp).catch(() => { }), 800);
+            }
+        }
+
+        // ═══ AUTO-INTERVENCIÓN Y VISIÓN (BOT OPINA SOLO) ═══
+        if (esCanal && !message.author.bot && !message.content.startsWith('/')) {
+            const attachment = message.attachments.find(a => a.contentType?.startsWith('image/'));
+
+            // 1. Visión (Si mandan una imagen)
+            if (attachment) {
+                // 20% de chances de reaccionar espontáneamente a una imagen
+                if (Math.random() < 0.20) {
+                    try {
+                        const typing = message.channel.sendTyping();
+                        const contexto = `El usuario ${message.author.username} mandó esta imagen al chat general. Comentá o burlate de la imagen.`;
+                        const resVision = await preguntarConVision(message.channel.id, message.content || '¿Qué opinás de esta imagen?', attachment.url, contexto);
+                        await typing;
+                        return setTimeout(() => message.reply(resVision).catch(() => { }), 1000);
+                    } catch (e) { console.error('Error Vision Auto:', e.message); }
+                }
+            }
+            // 2. Intervención espontánea de texto (5% chance)
+            else if (message.content.length > 5 && Math.random() < 0.05) {
+                try {
+                    const typing = message.channel.sendTyping();
+                    const contexto = `El usuario ${message.author.username} dijo esto en el chat. Metete en la conversación como si fueras un usuario más. Opiná, bardeá o bromeá sobre lo que dijo. SE BREVE y directo, como si estuvieras charlando.`;
+                    const resAuto = await preguntarAIA(message.channel.id, message.content, contexto);
+                    await typing;
+                    // send() en lugar de reply para que parezca más natural (como un usuario mandando un mensaje general)
+                    return setTimeout(() => message.channel.send(resAuto).catch(() => { }), 1500);
+                } catch (e) { console.error('Error Auto Chat:', e.message); }
             }
         }
 
