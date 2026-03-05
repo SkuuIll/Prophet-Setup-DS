@@ -48,7 +48,7 @@ module.exports = {
                 { name: '💬 Respuesta', value: respuesta.slice(0, 1024) }
             )
             .setFooter({
-                text: `${interaction.user.username}  ·  Gemini 2.0 Flash  ·  Usá /ai limpiar para nueva conversación`,
+                text: `${interaction.user.username}  ·  Gemini 2.5 Flash  ·  Usá /ai limpiar para nueva conversación`,
                 iconURL: interaction.user.displayAvatarURL()
             })
             .setTimestamp();
