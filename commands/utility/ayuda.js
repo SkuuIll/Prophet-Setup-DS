@@ -1,4 +1,4 @@
-// ═══ COMANDO: /ayuda — Centro de Comandos Prophet Bot v2.5 ═══
+// ═══ COMANDO: /ayuda — Centro de Comandos Prophet Bot v2.9 ═══
 
 const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, ComponentType } = require('discord.js');
 const config = require('../../config');
@@ -13,21 +13,22 @@ module.exports = {
 
         const ping = Math.round(interaction.client.ws.ping);
         const pingEmoji = ping < 150 ? '🟢' : ping < 350 ? '🟡' : '🔴';
+        const totalCmds = interaction.client.commands.size;
 
         const mainEmbed = new EmbedBuilder()
             .setColor(config.COLORES.PRINCIPAL)
             .setAuthor({ name: '📖  Centro de Comandos — Prophet Bot', iconURL: interaction.client.user.displayAvatarURL() })
-            .setTitle('Prophet Bot v2.5')
+            .setTitle('Prophet Bot v2.9')
             .setDescription(
                 `¡Hola **${interaction.user.username}**! 👋 Soy el bot oficial de **Prophet Gaming**.\n\n` +
                 `**📂 Categorías disponibles:**\n` +
                 `> 🎵 Música  ·  💰 Economía  ·  🎮 Juegos  ·  📈 Niveles\n` +
                 `> 🎯 Gaming Stats  ·  🛡️ Moderación  ·  🔧 Utilidades  ·  ⚙️ Admin\n\n` +
                 `Usá el **menú de abajo** para explorar cada categoría y sus comandos.\n\n` +
-                `> ${pingEmoji} **Ping:** \`${ping}ms\`  ·  📋 **Comandos:** \`58\`  ·  👥 **Servidor:** \`${interaction.guild.memberCount} miembros\``
+                `> ${pingEmoji} **Ping:** \`${ping}ms\`  ·  📋 **Comandos:** \`${totalCmds}\`  ·  👥 **Servidor:** \`${interaction.guild.memberCount} miembros\``
             )
             .setThumbnail(interaction.client.user.displayAvatarURL({ size: 256 }))
-            .setFooter({ text: 'Prophet Bot v2.5  ·  Seleccioná una categoría para empezar', iconURL: interaction.guild.iconURL() })
+            .setFooter({ text: 'Prophet Bot v2.9  ·  Seleccioná una categoría para empezar', iconURL: interaction.guild.iconURL() })
             .setTimestamp();
 
         const menu = new StringSelectMenuBuilder()
@@ -36,13 +37,13 @@ module.exports = {
             .addOptions([
                 { label: '🏠 Inicio', description: 'Volver a la página principal', value: 'home', emoji: '🏠' },
                 { label: '💰 Economía y Tienda', description: '10 comandos — Dinero, trabajos, apuestas y tienda', value: 'economy', emoji: '💰' },
-                { label: '🎵 Música DJ', description: '7 comandos — Reproducción premium con botones', value: 'music', emoji: '🎵' },
-                { label: '🎮 Juegos y Diversión', description: '8 comandos — Blackjack, LFG y más', value: 'fun', emoji: '🎮' },
+                { label: '🎵 Música DJ', description: '10 comandos — Reproducción premium con botones y Lavalink', value: 'music', emoji: '🎵' },
+                { label: '🎮 Juegos y Diversión', description: '10 comandos — Blackjack, confesiones, LFG y más', value: 'fun', emoji: '🎮' },
                 { label: '🎯 Gaming Stats', description: '2 comandos — Stats de PUBG y CS2 en tiempo real', value: 'gaming', emoji: '🎯' },
                 { label: '📈 Niveles y XP', description: '2 comandos — Rankings y 9 roles automáticos', value: 'levels', emoji: '📈' },
-                { label: '🔧 Utilidades', description: '12 comandos — Herramientas, cumpleaños, encuestas', value: 'utility', emoji: '🔧' },
+                { label: '🔧 Utilidades', description: '24 comandos — Herramientas, recordatorios, encuestas y más', value: 'utility', emoji: '🔧' },
                 { label: '🛡️ Moderación', description: '9 comandos — Herramientas exclusivas para Staff', value: 'moderation', emoji: '🛡️' },
-                { label: '⚙️ Administración', description: '7 comandos — Setup, logs y sistemas avanzados', value: 'admin', emoji: '⚙️' },
+                { label: '⚙️ Administración', description: '6 comandos — Setup, logs y sistemas avanzados', value: 'admin', emoji: '⚙️' },
             ]);
 
         const row = new ActionRowBuilder().addComponents(menu);
@@ -80,14 +81,14 @@ module.exports = {
                             '> `/gamble <cantidad>` — Apostar: doble o nada (50/50)\n\n' +
                             '**🏦 Gestión:**\n' +
                             '> `/balance [usuario]` — Ver saldo (efectivo + banco)\n' +
-                            '> `/deposit <cantidad>` — Depositar en el banco\n' +
-                            '> `/withdraw <cantidad>` — Retirar del banco\n' +
-                            '> `/pay <usuario> <cantidad>` — Transferir a otro usuario\n' +
+                            '> `/deposit <cantidad|todo>` — Depositar en el banco\n' +
+                            '> `/withdraw <cantidad|todo>` — Retirar del banco\n' +
+                            '> `/pay <usuario> <cantidad>` — Transferir (confirmación con botones + DM)\n' +
                             '> `/ecotop` — Leaderboard de los usuarios más ricos\n\n' +
                             '**🛒 Tienda:**\n' +
                             '> `/shop` — Abrir tienda interactiva (comprar roles)\n' +
-                            '> `/inventory [usuario]` — Ver items/roles comprados\n\n' +
-                            '*💡 Tip: Guardá tu dinero en el banco para que no lo pierdas.*'
+                            '> `/inventory [usuario]` — Ver items y roles comprados\n\n' +
+                            '*💡 Tip: Guardá tu dinero en el banco para que no lo pierdas en apuestas.*'
                         )
                         .setFooter({ text: '10 comandos  ·  Prophet Economy' })
                         .setTimestamp();
@@ -99,14 +100,17 @@ module.exports = {
                         .setAuthor({ name: '🎵  Prophet Music Engine v3.0' })
                         .setDescription(
                             'Reproducí tus temas favoritos en el canal de voz con calidad premium.\n\n' +
-                            '**🎶 Comandos:**\n' +
+                            '**🎶 Comandos principales:**\n' +
                             '> `/play <canción/URL>` — Reproducir (YouTube, Spotify, SoundCloud)\n' +
+                            '> `/playl <URL>` — Reproducir vía Lavalink (máxima estabilidad)\n' +
                             '> `/pause` — Pausar o reanudar la reproducción\n' +
                             '> `/skip` — Saltar a la siguiente canción\n' +
                             '> `/stop` — Detener y desconectar del canal\n' +
-                            '> `/queue` — Ver la cola de reproducción\n' +
+                            '> `/queue` — Ver la cola de reproducción actual\n' +
                             '> `/volumen <1-100>` — Ajustar volumen (con barra visual)\n' +
-                            '> `/filter <filtro>` — Aplicar filtros de audio (bassboost, nightcore, etc.)\n\n' +
+                            '> `/loop` — Activar/desactivar loop (canción o cola)\n' +
+                            '> `/shuffle` — Mezclar el orden de la cola\n' +
+                            '> `/filter <filtro>` — Aplicar filtros de audio (bassboost, nightcore...)\n\n' +
                             '**🎛️ Panel de control interactivo:**\n' +
                             '```\n' +
                             '⏮️ Anterior  ⏯️ Pausar  ⏭️ Saltar  ⏹️ Detener  🔄 Replay\n' +
@@ -116,7 +120,7 @@ module.exports = {
                             '> YouTube · Spotify · SoundCloud · Apple Music · Vimeo\n\n' +
                             '*💡 Tip: Usá los botones debajo del reproductor para controlar la música.*'
                         )
-                        .setFooter({ text: '7 comandos + 10 botones  ·  Prophet Music' })
+                        .setFooter({ text: '10 comandos + 10 botones  ·  Prophet Music' })
                         .setTimestamp();
                     break;
 
@@ -132,13 +136,15 @@ module.exports = {
                             '> `/rps` — Piedra, Papel o Tijera contra el bot\n' +
                             '> `/8ball <pregunta>` — Bola mágica (respuestas color-coded)\n' +
                             '> `/coinflip` — Tirar una moneda: ¿Cara o Cruz?\n\n' +
-                            '**📸 Social y Búsqueda:**\n' +
+                            '**📸 Social:**\n' +
                             '> `/buscar-grupo` — Panel interactivo LFG para buscar premades\n' +
                             '> `/avatar [usuario]` — Ver avatar en alta resolución\n' +
-                            '> `/confesion` — Enviar una confesión anónima al servidor\n\n' +
-                            '*💡 Tip: En /buscar-grupo el bot te notifica a vos y a tu equipo automáticamente cuando la sala se llena.*'
+                            '> `/confesion` — Enviar una confesión anónima al servidor\n' +
+                            '> `/fakemute <usuario>` — Fingir mutear a otro usuario (broma)\n' +
+                            '> `/pixelate <usuario>` — Pixelar el avatar de alguien\n\n' +
+                            '*💡 Tip: En /buscar-grupo el bot te notifica automáticamente cuando la sala se llena.*'
                         )
-                        .setFooter({ text: '8 comandos  ·  Prophet Fun' })
+                        .setFooter({ text: '10 comandos  ·  Prophet Fun' })
                         .setTimestamp();
                     break;
 
@@ -177,7 +183,7 @@ module.exports = {
                             '> `/top` — Leaderboard de los usuarios más activos\n\n' +
                             '**⚡ ¿Cómo funciona?**\n' +
                             `> Ganás entre \`${config.NIVELES.XP_MIN}-${config.NIVELES.XP_MAX}\` XP por mensaje\n` +
-                            `> Cooldown: \`${config.NIVELES.COOLDOWN / 1000}s\` entre mensajes\n` +
+                            `> Cooldown: \`${config.NIVELES.COOLDOWN / 1000}s\` entre mensajes con XP\n` +
                             '> Al subir de nivel, recibís un rol automáticamente\n\n' +
                             '**🏅 Roles por nivel:**\n' +
                             '```\n' +
@@ -202,24 +208,37 @@ module.exports = {
                         .setAuthor({ name: '🔧  Utilidades' })
                         .setDescription(
                             'Herramientas útiles para todos los miembros del servidor.\n\n' +
-                            '**📡 Info:**\n' +
+                            '**📡 Info del servidor:**\n' +
                             '> `/ping` — Latencia, uptime, RAM e indicador de calidad\n' +
                             '> `/serverinfo` — Estadísticas completas del servidor\n' +
-                            '> `/userinfo [usuario]` — Info detallada de una cuenta\n\n' +
-                            '**💬 Hub Comunitario:**\n' +
-                            '> `/cumple <DD/MM>` — Agendar tu cumpleaños para saludo y rol\n' +
+                            '> `/userinfo [usuario]` — Info detallada de una cuenta\n' +
+                            '> `/estadísticas` — Dashboard del server con rankings en vivo\n\n' +
+                            '**💬 Social:**\n' +
+                            '> `/cumple <DD/MM>` — Agendar tu cumpleaños (saludo + rol)\n' +
+                            '> `/cumpleaños-lista` — Próximos cumpleaños del servidor\n' +
                             '> `/afk [motivo]` — Ponerte AFK (se quita al hablar)\n' +
                             '> `/snipe` — Recuperar último mensaje borrado del canal\n' +
-                            '> `/suggest <idea>` — Enviar sugerencia (con votación ✅/❌)\n' +
-                            '> `/embed` — Crear un embed personalizado\n\n' +
+                            '> `/suggest <idea>` — Sugerencia con votación ✅/❌\n' +
+                            '> `/embed` — Crear un embed personalizado\n' +
+                            '> `/reporte <usuario>` — Reportar anónimamente al Staff\n\n' +
                             '**📊 Encuestas y Eventos:**\n' +
-                            '> `/encuesta` — Crear encuesta simple con reacciones\n' +
+                            '> `/encuesta` — Encuesta rápida con reacciones\n' +
                             '> `/encuesta_pro` — Encuesta avanzada con gráficos en vivo\n' +
-                            '> `/sorteo` — Crear un giveaway con timer automático\n' +
-                            '> `/ayuda` — Este menú de ayuda\n\n' +
-                            '*💡 Tip: El bot verificará diariamente quién cumpleaños para felicitarlo.*'
+                            '> `/sorteo <premio> <duración> [ganadores]` — Giveaway con múltiples ganadores\n\n' +
+                            '**🛠️ Herramientas:**\n' +
+                            '> `/calc <expresión>` — Calculadora segura (soporta √, `**`, paréntesis)\n' +
+                            '> `/color <#hex|rgb>` — Preview visual + conversión HEX/RGB/HSL\n' +
+                            '> `/qr <texto/URL>` — Generar código QR estilizado\n' +
+                            '> `/traductor <texto> <idioma>` — 10 idiomas con auto-detect\n' +
+                            '> `/definir <palabra>` — Definición ES/EN con diccionario\n' +
+                            '> `/clip <URL>` — Embed rico para YouTube, Twitch, Medal y más\n' +
+                            '> `/hilo <nombre>` — Crear hilo público o privado\n\n' +
+                            '**⏰ Recordatorios:**\n' +
+                            '> `/recordatorio <tiempo> <mensaje>` — DM programado flexible\n' +
+                            '> `/recordatorio-lista` — Ver y cancelar recordatorios activos\n\n' +
+                            '*💡 Tip: El bot verifica cumpleaños a las 00:00 y felicita automáticamente.*'
                         )
-                        .setFooter({ text: '12 comandos  ·  Prophet Utility' })
+                        .setFooter({ text: '24 comandos  ·  Prophet Utility' })
                         .setTimestamp();
                     break;
 
@@ -231,7 +250,7 @@ module.exports = {
                             'Herramientas exclusivas para el equipo de Staff de Prophet.\n\n' +
                             '**⚖️ Sanciones:**\n' +
                             '> `/ban <usuario> [razón] [días]` — Ban permanente (DM + log)\n' +
-                            '> `/tempban <usuario> <duración> [razón]` — Ban temporal con countdown\n' +
+                            '> `/tempban <usuario> <duración> [razón]` — Ban temporal con desbaneo automático\n' +
                             '> `/kick <usuario> [razón]` — Expulsar (DM + log)\n' +
                             '> `/mute <usuario> <minutos> [razón]` — Timeout temporal\n\n' +
                             '**⚠️ Advertencias:**\n' +
@@ -243,6 +262,9 @@ module.exports = {
                             '> `/clear <cantidad> [usuario]` — Borrar mensajes\n' +
                             '> `/purge <cantidad> [filtro]` — Borrar con filtros avanzados\n' +
                             '> `/slowmode <segundos>` — Modo lento (0 = desactivar)\n\n' +
+                            '**🤖 Sistemas automáticos:**\n' +
+                            '> 🛡️ Anti-Spam — Flood, links, menciones, emoji flood, phishing\n' +
+                            '> 🚨 Anti-Raid — Lockdown automático (verificationLevel HIGH 5min)\n\n' +
                             '*💡 Todos los comandos de moderación envían DM al usuario y log al canal de logs.*'
                         )
                         .setFooter({ text: '9 comandos  ·  Prophet Moderación' })
@@ -261,17 +283,19 @@ module.exports = {
                             '> `/setup-counting` — Configurar juego de contar\n' +
                             '> `/setup-confesiones` — Configurar canal de confesiones\n\n' +
                             '**🏷️ Auto-Roles:**\n' +
-                            '> `/reactionroles` — Crear panel de roles personalizado\n\n' +
+                            '> `/reactionroles` — Crear panel de roles con botones\n' +
+                            '> `/setup-roles` — Configurar panel de roles de juegos\n\n' +
                             '**📋 Sistema:**\n' +
-                            '> `/memoria` — Logs internos detallados de Moderación y Sistema\n\n' +
+                            '> `/memoria` — Logs internos detallados de moderación y sistema\n\n' +
                             '**🤖 Sistemas automáticos:**\n' +
                             '> 🎙️ Canales Dinámicos — Salas temporales con estados gaming/tóxicos\n' +
                             '> ⭐ Starboard — Resalta mensajes populares por reacciones\n' +
-                            '> 🎂 Cumpleaños — Anuncios y roles automáticos a las 00:00\n' +
-                            '> 🛡️ Logs Mejorados — Baneo, Mod, Entradas/Salidas y Voice\n' +
-                            '> 🎫 Tickets HTML — Transcripts reales en web enviados a logs'
+                            '> 🎂 Cumpleaños — Anuncios y roles automáticos a las 00:00 ARG\n' +
+                            '> 🛡️ Logs mejorados — Ban, mod, entradas/salidas y voice\n' +
+                            '> 🎫 Tickets HTML — Transcripts reales en web enviados a logs\n' +
+                            '> 🔓 Tempban — Desbaneos automáticos al expirar el tiempo'
                         )
-                        .setFooter({ text: '7 comandos + 10 sistemas automáticos  ·  Prophet Admin' })
+                        .setFooter({ text: '7 comandos + 6 sistemas automáticos  ·  Prophet Admin' })
                         .setTimestamp();
                     break;
             }
