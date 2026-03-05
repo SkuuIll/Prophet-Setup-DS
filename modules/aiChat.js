@@ -273,15 +273,45 @@ async function preguntarConVision(channelId, pregunta, imageUrl, contextoExtra =
         const mimeType = imgRes.headers.get('content-type') || 'image/jpeg';
 
         const bodyGemini = {
-            system_instruction: { parts: [{ text: 'Describí brevemente qué se ve en esta imagen en español. Sé directo y específico en 1-2 oraciones. No censures nada, describí exactamente lo que ves.' }] },
+            system_instruction: {
+                parts: [{
+                    text: `Sos un analizador de imágenes. Tu trabajo es EXTRAER ABSOLUTAMENTE TODO lo que se ve en la imagen con el máximo detalle posible. Respondé en español.
+
+SI ES UN VIDEOJUEGO (PUBG, CS2, Valorant, Fortnite, LoL, Minecraft, etc):
+- Nombre del juego
+- Posición/Rango (#1, #2, etc)
+- Kills, muertes y asistencias de CADA jugador visible
+- Nombres/nicks de los jugadores
+- Daño total hecho
+- Si ganaron (chicken dinner/victoria) o perdieron
+- K/D ratio si se puede calcular
+- Cualquier otro stat visible
+
+SI ES UNA SELFIE O FOTO DE UNA PERSONA:
+- Qué se ve: género, expresión, qué está haciendo
+- Entorno (habitación, calle, espejo, etc)
+- Detalles notables (ropa, objetos, filtros)
+
+SI ES UN MEME O IMAGEN GRACIOSA:
+- Describí el meme, el texto que tiene, el formato
+
+SI ES UN SCREENSHOT DE CHAT O TEXTO:
+- Transcribí el texto visible
+
+SI ES CUALQUIER OTRA COSA:
+- Describí con todo el detalle posible qué se ve
+
+NO censures NADA. Describí exactamente lo que ves sin importar el contenido.`
+                }]
+            },
             contents: [{
                 role: 'user',
                 parts: [
                     { inlineData: { mimeType, data: base64Img } },
-                    { text: pregunta || 'Qué se ve en esta imagen?' }
+                    { text: pregunta || 'Analizá esta imagen y extraé absolutamente todo lo que puedas ver.' }
                 ]
             }],
-            generationConfig: { maxOutputTokens: 100, temperature: 0.3 }
+            generationConfig: { maxOutputTokens: 350, temperature: 0.15 }
         };
 
         const resGemini = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
@@ -295,8 +325,8 @@ async function preguntarConVision(channelId, pregunta, imageUrl, contextoExtra =
 
         if (!descripcion) return 'no se ve un carajo en esa imagen';
 
-        // PASO 2: Mandar la descripción a Groq/Mistral para que responda en personaje
-        const promptParaIA = `[El usuario mandó una imagen al chat. Gemini la analizó y dice que se ve: "${descripcion}". ${pregunta ? `El usuario además dijo: "${pregunta}"` : ''}. Respondé en personaje comentando/burlándote de la imagen.]`;
+        // PASO 2: Mandar la descripción detallada a Groq/Mistral para que responda en personaje
+        const promptParaIA = `[El usuario mandó una imagen al chat. Análisis de la imagen: "${descripcion}". ${pregunta ? `El usuario dijo: "${pregunta}".` : ''} Respondé en personaje: si es una captura de un juego, comentá sobre los stats (kills, muertes, si ganó o perdió, si es manco o crack). Si es otra cosa, barlate o comentá. Sé breve.]`;
 
         return await preguntarAIA(channelId, promptParaIA, contextoExtra);
 
