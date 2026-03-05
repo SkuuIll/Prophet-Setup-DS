@@ -1,7 +1,20 @@
 // ═══ EVENTO: channelCreate (Log de creación de canales) ═══
 
-const { EmbedBuilder } = require('discord.js');
+const { EmbedBuilder, AuditLogEvent, ChannelType } = require('discord.js');
 const config = require('../config');
+
+// Tipos de canal legibles en español
+const CHANNEL_TYPES = {
+    [ChannelType.GuildText]: '💬 Texto',
+    [ChannelType.GuildVoice]: '🔊 Voz',
+    [ChannelType.GuildCategory]: '📁 Categoría',
+    [ChannelType.GuildAnnouncement]: '📢 Anuncios',
+    [ChannelType.AnnouncementThread]: '🧵 Hilo de Anuncios',
+    [ChannelType.PublicThread]: '🧵 Hilo Público',
+    [ChannelType.PrivateThread]: '🔒 Hilo Privado',
+    [ChannelType.GuildStageVoice]: '🎤 Escenario',
+    [ChannelType.GuildForum]: '💬 Foro',
+};
 
 module.exports = {
     name: 'channelCreate',
@@ -9,33 +22,34 @@ module.exports = {
     async execute(channel) {
         if (!channel.guild) return;
 
-        const logChannelId = config.CHANNELS.LOGS;
-        const logChannel = channel.guild.channels.cache.get(logChannelId);
+        const logChannel = channel.guild.channels.cache.get(config.CHANNELS.LOGS);
         if (!logChannel) return;
 
-        // Intentar averiguar quién lo creó mirando el Audit Log
-        let executor = 'Desconocido';
+        let executor = null;
         try {
-            const fetchedLogs = await channel.guild.fetchAuditLogs({
-                limit: 1,
-                type: 10, // ChannelCreate
-            });
-            const creationLog = fetchedLogs.entries.first();
-            if (creationLog && Date.now() - creationLog.createdTimestamp < 5000) {
-                executor = `<@${creationLog.executor.id}> (\`${creationLog.executor.id}\`)`;
+            const logs = await channel.guild.fetchAuditLogs({ limit: 1, type: AuditLogEvent.ChannelCreate });
+            const entry = logs.entries.first();
+            if (entry && Date.now() - entry.createdTimestamp < 5000) {
+                executor = entry.executor;
             }
         } catch (e) { }
 
+        const tipoCanal = CHANNEL_TYPES[channel.type] ?? `Tipo ${channel.type}`;
+        const categoria = channel.parent ? `\`${channel.parent.name}\`` : '*Sin categoría*';
+
         const embed = new EmbedBuilder()
             .setColor(config.COLORES.SUCCESS || 0x69F0AE)
-            .setAuthor({ name: '📁 Canal Creado' })
+            .setAuthor({
+                name: '📁  Canal Creado',
+                iconURL: executor?.displayAvatarURL() || channel.guild.iconURL()
+            })
             .setDescription(
-                `> **Nombre:** ${channel.name} (\`${channel.id}\`)\n` +
-                `> **Mención:** <#${channel.id}>\n` +
-                `> **Tipo:** \`${channel.type}\`\n` +
-                `> **Creado por:** ${executor}`
+                `> **Nombre:** ${channel.toString()} (\`${channel.id}\`)\n` +
+                `> **Tipo:** ${tipoCanal}\n` +
+                `> **Categoría:** ${categoria}\n` +
+                (executor ? `> **Creado por:** <@${executor.id}>\n` : '')
             )
-            .setFooter({ text: 'Prophet · Log de Servidor' })
+            .setFooter({ text: 'Prophet  ·  Log de Servidor' })
             .setTimestamp();
 
         logChannel.send({ embeds: [embed] }).catch(() => { });

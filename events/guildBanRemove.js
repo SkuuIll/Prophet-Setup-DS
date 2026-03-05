@@ -1,34 +1,37 @@
 // ═══ EVENTO: guildBanRemove (Log de Desbaneos) ═══
 
-const { EmbedBuilder } = require('discord.js');
+const { EmbedBuilder, AuditLogEvent } = require('discord.js');
 const config = require('../config');
 
 module.exports = {
     name: 'guildBanRemove',
     once: false,
     async execute(ban) {
-        const logChannelId = config.CHANNELS.LOGS;
-        const logChannel = ban.guild.channels.cache.get(logChannelId);
+        const logChannel = ban.guild.channels.cache.get(config.CHANNELS.LOGS);
         if (!logChannel) return;
 
-        let executor = 'Desconocido';
+        let executor = null;
         try {
-            const fetchedLogs = await ban.guild.fetchAuditLogs({ limit: 1, type: 23 }); // MemberBanRemove
-            const unbanLog = fetchedLogs.entries.first();
-            if (unbanLog && unbanLog.target.id === ban.user.id && Date.now() - unbanLog.createdTimestamp < 5000) {
-                executor = `<@${unbanLog.executor.id}> (\`${unbanLog.executor.id}\`)`;
+            const logs = await ban.guild.fetchAuditLogs({ limit: 1, type: AuditLogEvent.MemberBanRemove });
+            const entry = logs.entries.first();
+            if (entry && entry.target.id === ban.user.id && Date.now() - entry.createdTimestamp < 5000) {
+                executor = entry.executor;
             }
         } catch (e) { }
 
         const embed = new EmbedBuilder()
             .setColor(config.COLORES.SUCCESS || 0x69F0AE)
-            .setAuthor({ name: '🔓 Usuario Desbaneado' })
+            .setAuthor({
+                name: '🔓  Usuario Desbaneado',
+                iconURL: executor?.displayAvatarURL() || ban.guild.iconURL()
+            })
             .setDescription(
-                `> **Usuario:** ${ban.user.tag} (\`${ban.user.id}\`)\n` +
-                `> **Desbaneado por:** ${executor}`
+                `> **Usuario:** ${ban.user.username} (\`${ban.user.id}\`)\n` +
+                `> **Cuenta creada:** <t:${Math.floor(ban.user.createdTimestamp / 1000)}:R>\n` +
+                (executor ? `> **Desbaneado por:** <@${executor.id}>\n` : `> **Desbaneado por:** Automático (tempban expirado)\n`)
             )
-            .setThumbnail(ban.user.displayAvatarURL({ size: 64 }))
-            .setFooter({ text: 'Prophet · Log de Moderación' })
+            .setThumbnail(ban.user.displayAvatarURL({ size: 128 }))
+            .setFooter({ text: 'Prophet  ·  Log de Moderación' })
             .setTimestamp();
 
         logChannel.send({ embeds: [embed] }).catch(() => { });

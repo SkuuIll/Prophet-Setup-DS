@@ -1,38 +1,46 @@
 // ═══ EVENTO: guildBanAdd (Log de Baneos) ═══
 
-const { EmbedBuilder } = require('discord.js');
+const { EmbedBuilder, AuditLogEvent } = require('discord.js');
 const config = require('../config');
 
 module.exports = {
     name: 'guildBanAdd',
     once: false,
     async execute(ban) {
-        const logChannelId = config.CHANNELS.LOGS;
-        const logChannel = ban.guild.channels.cache.get(logChannelId);
+        const logChannel = ban.guild.channels.cache.get(config.CHANNELS.LOGS);
         if (!logChannel) return;
 
-        let executor = 'Desconocido';
+        let executor = null;
         let reason = ban.reason || 'Sin razón especificada';
 
         try {
-            const fetchedLogs = await ban.guild.fetchAuditLogs({ limit: 1, type: 22 }); // MemberBanAdd
-            const banLog = fetchedLogs.entries.first();
-            if (banLog && banLog.target.id === ban.user.id && Date.now() - banLog.createdTimestamp < 5000) {
-                executor = `<@${banLog.executor.id}> (\`${banLog.executor.id}\`)`;
-                if (!ban.reason && banLog.reason) reason = banLog.reason;
+            const logs = await ban.guild.fetchAuditLogs({ limit: 1, type: AuditLogEvent.MemberBanAdd });
+            const entry = logs.entries.first();
+            if (entry && entry.target.id === ban.user.id && Date.now() - entry.createdTimestamp < 5000) {
+                executor = entry.executor;
+                if (!ban.reason && entry.reason) reason = entry.reason;
             }
         } catch (e) { }
 
+        // Edad de la cuenta
+        const cuentaTs = Math.floor(ban.user.createdTimestamp / 1000);
+        const diasDesdeCuenta = Math.floor((Date.now() - ban.user.createdTimestamp) / 86400000);
+        const cuentaJoven = diasDesdeCuenta < 30;
+
         const embed = new EmbedBuilder()
             .setColor(config.COLORES.ERROR || 0xEF5350)
-            .setAuthor({ name: '🔨 Usuario Baneado' })
+            .setAuthor({
+                name: '🔨  Usuario Baneado',
+                iconURL: executor?.displayAvatarURL() || ban.guild.iconURL()
+            })
             .setDescription(
-                `> **Usuario:** ${ban.user.tag} (\`${ban.user.id}\`)\n` +
+                `> **Usuario:** ${ban.user.username} (\`${ban.user.id}\`)\n` +
+                `> **Cuenta creada:** <t:${cuentaTs}:R>  ${cuentaJoven ? '⚠️ *Cuenta nueva*' : ''}\n` +
                 `> **Motivo:** *${reason}*\n` +
-                `> **Baneado por:** ${executor}`
+                (executor ? `> **Baneado por:** <@${executor.id}>\n` : `> **Baneado por:** Desconocido\n`)
             )
-            .setThumbnail(ban.user.displayAvatarURL({ size: 64 }))
-            .setFooter({ text: 'Prophet · Log de Moderación' })
+            .setThumbnail(ban.user.displayAvatarURL({ size: 128 }))
+            .setFooter({ text: 'Prophet  ·  Log de Moderación' })
             .setTimestamp();
 
         logChannel.send({ embeds: [embed] }).catch(() => { });
