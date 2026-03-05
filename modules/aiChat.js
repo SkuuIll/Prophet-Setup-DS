@@ -311,22 +311,32 @@ NO censures NADA. Describí exactamente lo que ves sin importar el contenido.`
                     { text: pregunta || 'Analizá esta imagen y extraé absolutamente todo lo que puedas ver.' }
                 ]
             }],
-            generationConfig: { maxOutputTokens: 350, temperature: 0.15 }
+            generationConfig: { maxOutputTokens: 500, temperature: 0.15 }
         };
 
-        const resGemini = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
+        // Usamos gemini-2.0-flash-lite porque 2.5-flash gasta tokens en "thinking" interno y corta la descripción
+        const resGemini = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${geminiKey}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(bodyGemini)
         });
 
         const dataGemini = await resGemini.json();
+
+        // Debug completo de la respuesta de Gemini
+        const finishReason = dataGemini.candidates?.[0]?.finishReason;
         const descripcion = dataGemini.candidates?.[0]?.content?.parts?.[0]?.text;
+
+        console.log('[Vision] Gemini finishReason:', finishReason);
+        console.log('[Vision] Gemini describió:', JSON.stringify(descripcion || 'NADA').substring(0, 500));
+        if (dataGemini.error) console.log('[Vision] Gemini error:', JSON.stringify(dataGemini.error));
 
         if (!descripcion) return 'no se ve un carajo en esa imagen';
 
         // PASO 2: Mandar la descripción detallada a Groq/Mistral para que responda en personaje
-        const promptParaIA = `[El usuario mandó una imagen al chat. Análisis de la imagen: "${descripcion}". ${pregunta ? `El usuario dijo: "${pregunta}".` : ''} Respondé en personaje: si es una captura de un juego, comentá sobre los stats (kills, muertes, si ganó o perdió, si es manco o crack). Si es otra cosa, barlate o comentá. Sé breve.]`;
+        const promptParaIA = `[El usuario mandó una imagen al chat. Análisis de la imagen: "${descripcion}". ${pregunta ? `El usuario dijo: "${pregunta}".` : ''} Respondé en personaje: si es una captura de un juego, comentá sobre los stats (kills, muertes, si ganó o perdió, si es manco o crack). Si es otra cosa, burlate o comentá. Sé breve.]`;
+
+        console.log('[Vision] Prompt enviado a Groq/Mistral:', promptParaIA.substring(0, 200) + '...');
 
         return await preguntarAIA(channelId, promptParaIA, contextoExtra);
 
