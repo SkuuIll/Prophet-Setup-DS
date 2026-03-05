@@ -145,8 +145,9 @@ module.exports = {
             return;
         }
 
-        // ═══ @MENCIÓN → RESPUESTA CON IA (GEMINI) ═══
-        const fueMencionado = message.mentions.has(message.client.user);
+        // ═══ @MENCIÓN O RESPUESTA DIRECTA → RESPUESTA CON IA ═══
+        const esRespuesta = message.reference && message.mentions.repliedUser?.id === message.client.user.id;
+        const fueMencionado = message.mentions.has(message.client.user) || esRespuesta;
         if (fueMencionado) {
             // Extraer el texto sin la mención
             const textoSinMencion = message.content
