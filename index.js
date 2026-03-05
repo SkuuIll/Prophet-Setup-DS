@@ -186,7 +186,19 @@ client.once('clientReady', async () => {
 
     // Iniciar chequeo de sorteos
     const { verificarSorteos } = require('./modules/giveaways');
-    setInterval(() => verificarSorteos(client), 30000); // Cada 30 segundos
+    setInterval(() => verificarSorteos(client), 30000);
+
+    // ── Notificaciones: Twitch / YouTube / GitHub / GameServers ──
+    const { verificarTwitch } = require('./modules/twitchMonitor');
+    const { verificarYoutube } = require('./modules/youtubeMonitor');
+    const { verificarGithub } = require('./modules/githubMonitor');
+    const { verificarServidores } = require('./modules/gameServerMonitor');
+
+    setInterval(() => verificarTwitch(client), 2 * 60 * 1000);     // cada 2 min
+    setInterval(() => verificarYoutube(client), 10 * 60 * 1000);   // cada 10 min
+    setInterval(() => verificarGithub(client), 15 * 60 * 1000);    // cada 15 min
+    setInterval(() => verificarServidores(client), 3 * 60 * 1000); // cada 3 min
+    console.log('📡 Monitores iniciados: Twitch (2min) · YouTube (10min) · GitHub (15min) · GameServer (3min)');
 
     // ── Tempban expiry checker (cada 60s) ──
     // (dbStmts ya fue declarado arriba)

@@ -105,6 +105,55 @@ db.exec(`
         owner_id TEXT,
         created_at INTEGER
     );
+
+    CREATE TABLE IF NOT EXISTS twitch_subs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        guild_id TEXT,
+        streamer TEXT,
+        channel_id TEXT,
+        role_ping TEXT,
+        last_live INTEGER DEFAULT 0,
+        last_stream_id TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS youtube_subs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        guild_id TEXT,
+        yt_channel_id TEXT,
+        yt_channel_name TEXT,
+        discord_channel TEXT,
+        role_ping TEXT,
+        last_video_id TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS github_subs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        guild_id TEXT,
+        repo TEXT,
+        discord_channel TEXT,
+        role_ping TEXT,
+        track_commits INTEGER DEFAULT 1,
+        track_releases INTEGER DEFAULT 1,
+        last_commit_sha TEXT,
+        last_release_tag TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS game_servers (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        guild_id TEXT,
+        ip TEXT,
+        port INTEGER,
+        game TEXT,
+        discord_channel TEXT,
+        role_ping TEXT,
+        last_status INTEGER DEFAULT 1,
+        label TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS discord_webhooks (
+        channel_id TEXT PRIMARY KEY,
+        webhook_url TEXT
+    );
 `);
 
 // ─── COLUMN MIGRATIONS (safe, idempotent) ───
@@ -420,6 +469,85 @@ const stmts = {
     },
     isTempChannel(channelId) {
         return !!db.prepare('SELECT 1 FROM temp_channels WHERE channel_id = ?').get(channelId);
+    },
+
+    // ── Twitch Subs ──
+    addTwitchSub(guildId, streamer, channelId, rolePing) {
+        db.prepare('INSERT INTO twitch_subs (guild_id, streamer, channel_id, role_ping) VALUES (?, ?, ?, ?)').run(guildId, streamer.toLowerCase(), channelId, rolePing || null);
+    },
+    removeTwitchSub(guildId, streamer) {
+        return db.prepare('DELETE FROM twitch_subs WHERE guild_id = ? AND streamer = ?').run(guildId, streamer.toLowerCase()).changes > 0;
+    },
+    getTwitchSubs(guildId) {
+        return db.prepare('SELECT * FROM twitch_subs WHERE guild_id = ?').all(guildId);
+    },
+    getAllTwitchSubs() {
+        return db.prepare('SELECT * FROM twitch_subs').all();
+    },
+    updateTwitchSub(id, lastLive, lastStreamId) {
+        db.prepare('UPDATE twitch_subs SET last_live = ?, last_stream_id = ? WHERE id = ?').run(lastLive, lastStreamId, id);
+    },
+
+    // ── YouTube Subs ──
+    addYoutubeSub(guildId, ytChannelId, ytChannelName, discordChannel, rolePing) {
+        db.prepare('INSERT INTO youtube_subs (guild_id, yt_channel_id, yt_channel_name, discord_channel, role_ping) VALUES (?, ?, ?, ?, ?)').run(guildId, ytChannelId, ytChannelName, discordChannel, rolePing || null);
+    },
+    removeYoutubeSub(guildId, ytChannelId) {
+        return db.prepare('DELETE FROM youtube_subs WHERE guild_id = ? AND yt_channel_id = ?').run(guildId, ytChannelId).changes > 0;
+    },
+    getYoutubeSubs(guildId) {
+        return db.prepare('SELECT * FROM youtube_subs WHERE guild_id = ?').all(guildId);
+    },
+    getAllYoutubeSubs() {
+        return db.prepare('SELECT * FROM youtube_subs').all();
+    },
+    updateYoutubeSub(id, lastVideoId) {
+        db.prepare('UPDATE youtube_subs SET last_video_id = ? WHERE id = ?').run(lastVideoId, id);
+    },
+
+    // ── GitHub Subs ──
+    addGithubSub(guildId, repo, discordChannel, rolePing, trackCommits, trackReleases) {
+        db.prepare('INSERT INTO github_subs (guild_id, repo, discord_channel, role_ping, track_commits, track_releases) VALUES (?, ?, ?, ?, ?, ?)').run(guildId, repo, discordChannel, rolePing || null, trackCommits ? 1 : 0, trackReleases ? 1 : 0);
+    },
+    removeGithubSub(guildId, repo) {
+        return db.prepare('DELETE FROM github_subs WHERE guild_id = ? AND repo = ?').run(guildId, repo).changes > 0;
+    },
+    getGithubSubs(guildId) {
+        return db.prepare('SELECT * FROM github_subs WHERE guild_id = ?').all(guildId);
+    },
+    getAllGithubSubs() {
+        return db.prepare('SELECT * FROM github_subs').all();
+    },
+    updateGithubSub(id, lastCommitSha, lastReleaseTag) {
+        db.prepare('UPDATE github_subs SET last_commit_sha = ?, last_release_tag = ? WHERE id = ?').run(lastCommitSha, lastReleaseTag, id);
+    },
+
+    // ── Game Servers ──
+    addGameServer(guildId, ip, port, game, discordChannel, rolePing, label) {
+        db.prepare('INSERT INTO game_servers (guild_id, ip, port, game, discord_channel, role_ping, label) VALUES (?, ?, ?, ?, ?, ?, ?)').run(guildId, ip, port, game, discordChannel, rolePing || null, label || `${ip}:${port}`);
+    },
+    removeGameServer(guildId, ip) {
+        return db.prepare('DELETE FROM game_servers WHERE guild_id = ? AND ip = ?').run(guildId, ip).changes > 0;
+    },
+    getGameServers(guildId) {
+        return db.prepare('SELECT * FROM game_servers WHERE guild_id = ?').all(guildId);
+    },
+    getAllGameServers() {
+        return db.prepare('SELECT * FROM game_servers').all();
+    },
+    updateGameServerStatus(id, status) {
+        db.prepare('UPDATE game_servers SET last_status = ? WHERE id = ?').run(status ? 1 : 0, id);
+    },
+
+    // ── Discord Webhooks (para /anuncio) ──
+    setDiscordWebhook(channelId, webhookUrl) {
+        db.prepare('INSERT OR REPLACE INTO discord_webhooks (channel_id, webhook_url) VALUES (?, ?)').run(channelId, webhookUrl);
+    },
+    getDiscordWebhook(channelId) {
+        return db.prepare('SELECT webhook_url FROM discord_webhooks WHERE channel_id = ?').get(channelId)?.webhook_url;
+    },
+    removeDiscordWebhook(channelId) {
+        db.prepare('DELETE FROM discord_webhooks WHERE channel_id = ?').run(channelId);
     }
 };
 

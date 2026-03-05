@@ -43,7 +43,8 @@ module.exports = {
                 { label: '📈 Niveles y XP', description: '2 comandos — Rankings y 9 roles automáticos', value: 'levels', emoji: '📈' },
                 { label: '🔧 Utilidades', description: '24 comandos — Herramientas, recordatorios, encuestas y más', value: 'utility', emoji: '🔧' },
                 { label: '🛡️ Moderación', description: '9 comandos — Herramientas exclusivas para Staff', value: 'moderation', emoji: '🛡️' },
-                { label: '⚙️ Administración', description: '6 comandos — Setup, logs y sistemas avanzados', value: 'admin', emoji: '⚙️' },
+                { label: '⚙️ Administración', description: '7 comandos — Setup, logs y sistemas avanzados', value: 'admin', emoji: '⚙️' },
+                { label: '📡 Integraciones', description: '5 comandos — Twitch, YouTube, GitHub y servidores de juego', value: 'integraciones', emoji: '📡' },
             ]);
 
         const row = new ActionRowBuilder().addComponents(menu);
@@ -268,6 +269,42 @@ module.exports = {
                             '*💡 Todos los comandos de moderación envían DM al usuario y log al canal de logs.*'
                         )
                         .setFooter({ text: '9 comandos  ·  Prophet Moderación' })
+                        .setTimestamp();
+                    break;
+
+                case 'integraciones':
+                    embed = new EmbedBuilder()
+                        .setColor(0x9146FF)
+                        .setAuthor({ name: '📡  Integraciones y Notificaciones' })
+                        .setDescription(
+                            'Conectá el servidor con plataformas externas y recibí notificaciones automáticas.\n\n' +
+                            '**🟣 Twitch:**\n' +
+                            '> `/configurar-twitch agregar <streamer> <canal> [rol]` — Activar alertas\n' +
+                            '> `/configurar-twitch quitar <streamer>` — Desactivar\n' +
+                            '> `/configurar-twitch lista` — Ver streamers monitoreados\n' +
+                            '> 🔔 Notifica al empezar el stream con thumbnail, viewers y juego\n\n' +
+                            '**🔴 YouTube:**\n' +
+                            '> `/configurar-youtube agregar <channel-id> <nombre> <canal>` — Activar alertas\n' +
+                            '> `/configurar-youtube quitar <channel-id>` — Desactivar\n' +
+                            '> `/configurar-youtube lista` — Ver canales suscritos\n' +
+                            '> 📺 Notifica con thumbnail y descripción al subir un video\n\n' +
+                            '**⚙️ GitHub:**\n' +
+                            '> `/configurar-github agregar <owner/repo> <canal>` — Activar alertas\n' +
+                            '> `/configurar-github quitar <repo>` — Desactivar\n' +
+                            '> `/configurar-github lista` — Ver repos suscritos\n' +
+                            '> 📦 Notifica commits y 🚀 releases por separado\n\n' +
+                            '**🎮 Servidores de Juego:**\n' +
+                            '> `/monitor-servidor agregar <ip> <puerto> <juego> <canal>` — Monitorear\n' +
+                            '> `/monitor-servidor lista` — Ver estado de todos los servidores\n' +
+                            '> `/monitor-servidor estado` — Chequeo inmediato con latencia TCP\n' +
+                            '> `/monitor-servidor quitar <ip>` — Dejar de monitorear\n' +
+                            '> ✅/🔴 Alerta solo cuando cambia el estado (no spamea)\n\n' +
+                            '**📢 Anuncios oficiales:**\n' +
+                            '> `/anuncio <mensaje> [titulo] [canal] [imagen] [color]`\n' +
+                            '> Publica con el nombre e ícono del servidor (no aparece como "ProphetBot")\n\n' +
+                            '*💡 Todos los sistemas de integraciones requieren permisos de Admin para configurarse.*'
+                        )
+                        .setFooter({ text: '5 sistemas  ·  Prophet Integraciones' })
                         .setTimestamp();
                     break;
 
