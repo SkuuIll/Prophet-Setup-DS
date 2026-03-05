@@ -99,14 +99,22 @@ async function preguntarAIA(channelId, pregunta, contextoExtra = null) {
 }
 
 /**
- * Fallback a Mistral si Groq falla (Tier 2)
+ * Fallback a Mistral si Groq falla (Tier 2) - Soporta múltiples tokens para Load Balancing
  */
 async function fallbackMistral(channelId, pregunta, systemExtra) {
-    const apiKey = process.env.MISTRAL_API_KEY;
-    if (!apiKey) {
-        console.error('[Mistral] No hay API Key. Saltando a Gemini...');
+    // Buscar todas las keys de Mistral en el entorno
+    const mistralKeys = Object.keys(process.env)
+        .filter(k => k.startsWith('MISTRAL_API_KEY'))
+        .map(k => process.env[k])
+        .filter(key => key); // asegurar que no estén vacías
+
+    if (mistralKeys.length === 0) {
+        console.error('[Mistral] No hay API Keys. Saltando a Gemini...');
         return await fallbackGemini(channelId, pregunta, systemExtra);
     }
+
+    // Elegir una key al azar para balancear la carga (Load Balancing)
+    const apiKey = mistralKeys[Math.floor(Math.random() * mistralKeys.length)];
 
     try {
         const historial = conversaciones.get(channelId);
