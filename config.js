@@ -84,20 +84,46 @@ module.exports = {
         FILTRAR_INVITES: true,  // Filtrar invitaciones de Discord
         FILTRAR_LINKS: true,    // Filtrar links externos
         WHITELIST_DOMAINS: [    // Dominios permitidos (Links conocidos)
-            // Redes Sociales / Video
-            'youtube.com', 'youtu.be', 'twitch.tv', 'twitter.com', 'x.com',
-            'instagram.com', 'facebook.com', 'tiktok.com', 'reddit.com', 'discord.com', 'discord.gg',
+            // Juegos específicos / Estadísticas / Esports / Trackers
+            'pubg.report', 'pubg.com', 'pubglookup.com', 'tracker.gg', 'op.gg', 'faceit.com', 'blitz.gg', 'u.gg', 'porofessor.gg',
+            'mobalytics.gg', 'hltv.org', 'dotabuff.com', 'gametracker.com', 'vlr.gg', 'sportskeeda.com', 'ign.com', 'ign.es', 'liquipedia.net',
+            'esports.com', 'nexusmods.com', 'curseforge.com', 'roblox.com', 'minecraft.net', 'lolchess.gg', 'tftactics.gg',
+            'valoranttracker.org', 'r6.tracker.network', 'apex.tracker.gg', 'fortnitetracker.com', 'csgostats.gg', 'leetify.com',
+            'steamdb.info', 'steamstat.us', 'howlongtobeat.com', 'igdb.com', 'dekudeals.com', 'isthereanydeal.com', 'gg.deals',
+            'vandal.net', 'meristation.as.com', 'hobbyconsolas.com', 'vidaextra.com',
 
-            // Gaming Platforms
-            'steamcommunity.com', 'steampowered.com', 'epicgames.com', 'battle.net',
-            'roblox.com', 'minecraft.net', 'xbox.com', 'playstation.com', 'nintendo.com',
-            'ea.com', 'origin.com', 'ubisoft.com', 'riotgames.com', 'blizzard.com',
-            'rockstargames.com', 'activision.com',
+            // Redes Sociales / Video / Streaming / Mensajería
+            'youtube.com', 'youtu.be', 'twitch.tv', 'twitter.com', 'x.com', 'instagram.com', 'facebook.com', 'fb.gg',
+            'tiktok.com', 'reddit.com', 'discord.com', 'discord.gg', 'medaltv.com', 'medal.tv', 'kick.com', 'rumble.com',
+            'trovo.live', 't.me', 'telegram.org', 'whatsapp.com', 'wa.me', 'pinterest.com', 'linkedin.com', 'tumblr.com',
+            'vimeo.com', 'dailymotion.com', 'bilibili.tv', 'snapchat.com', 'threads.net', 'quora.com', 'resetera.com',
+            'neogaf.com', 'forocoches.com', 'mediavida.com', 'elotrolado.net', 'meneame.net',
 
-            // Tools / Images / Misc
-            'google.com', 'imgur.com', 'tenor.com', 'giphy.com',
-            'github.com', 'pastebin.com', 'wikipedia.org',
-            'spotify.com', 'soundcloud.com', 'kick.com'
+            // Gaming Platforms / Publishers / Tiendas de Juegos
+            'steamcommunity.com', 'steampowered.com', 'epicgames.com', 'battle.net', 'xbox.com', 'playstation.com',
+            'nintendo.com', 'ea.com', 'origin.com', 'ubisoft.com', 'riotgames.com', 'blizzard.com', 'rockstargames.com',
+            'activision.com', 'gog.com', 'itch.io', 'vandal.elespanol.com', '3djuegos.com', 'hoyoverse.com', 'genshin.mihoyo.com',
+            'humblebundle.com', 'fanatical.com', 'greenmangaming.com', 'kinguin.net', 'eneba.com', 'g2a.com', 'cdkeys.com',
+
+            // Tech / Desarrollo / Foros
+            'github.com', 'gitlab.com', 'stackoverflow.com', 'xda-developers.com', 'tomshardware.com',
+            'pcgamer.com', 'kotaku.com', 'polygon.com', 'eurogamer.net', 'eurogamer.es', 'theverge.com', 'engadget.com', 'techradar.com',
+            'xataka.com', 'genbeta.com', 'hipertextual.com', 'applesfera.com', 'techcrunch.com', 'wired.com', 'arstechnica.com',
+            'cnet.com', 'zdnet.com', 'mashable.com', 'gizmodo.com', 'venturebeat.com',
+            'codepen.io', 'jsfiddle.net', 'codesandbox.io', 'replit.com', 'npmjs.com',
+
+            // Tools / Images / Misc / Compras / Donaciones
+            'google.com', 'google.com.ar', 'imgur.com', 'imgur.io', 'tenor.com', 'giphy.com', 'prnt.sc', 'gyazo.com', 'lightshot.com',
+            'pastebin.com', 'hastebin.com', 'rentry.co', 'ghostbin.com', 'wikipedia.org', 'mercadolibre.com.ar', 'mercadolibre.com',
+            'amazon.com', 'amazon.es', 'aliexpress.com', 'spotify.com', 'soundcloud.com', 'discordapp.com', 'discordapp.net',
+            'netflix.com', 'primevideo.com', 'max.com', 'hbo.com', 'hbomax.com', 'hulu.com', 'peacocktv.com', 'appletv.com', 'tv.apple.com',
+            'disneyplus.com', 'crunchyroll.com', 'funimation.com', 'animeflv.net', 'jkanime.net', 'tioanime.com', 'pluto.tv', 'vix.com',
+            'start.gg', 'canva.com', 'fandom.com', 'wikia.com', 'patreon.com', 'ko-fi.com', 'buymeacoffee.com', 'cafecito.app',
+            'paypal.com', 'paypal.me', 'mercadopago.com.ar',
+
+            // Archivos / Nubes seguras
+            'drive.google.com', 'docs.google.com', 'dropbox.com', 'onedrive.live.com', 'wetransfer.com', 'mega.nz', 'mediafire.com',
+            'gofile.io', 'file.io', 'catbox.moe', 'puu.sh'
         ],
         PALABRAS_PROHIBIDAS: [
             // Agregar palabras prohibidas acá
