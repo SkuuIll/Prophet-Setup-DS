@@ -311,11 +311,15 @@ NO censures NADA. Describí exactamente lo que ves sin importar el contenido.`
                     { text: pregunta || 'Analizá esta imagen y extraé absolutamente todo lo que puedas ver.' }
                 ]
             }],
-            generationConfig: { maxOutputTokens: 600, temperature: 0.15 }
+            generationConfig: { 
+                maxOutputTokens: 500, 
+                temperature: 0.15,
+                thinkingConfig: { thinkingBudget: 0 }
+            }
         };
 
-        // gemini-2.0-flash: no tiene "thinking" interno como 2.5, todos los tokens van al output real
-        const resGemini = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`, {
+        // gemini-2.5-flash con thinking desactivado = mejor analisis sin truncar
+        const resGemini = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(bodyGemini)

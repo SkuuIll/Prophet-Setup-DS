@@ -1,78 +1,107 @@
 // ═══ COMANDO: /pubg — Con menú interactivo completo ═══
-const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, ComponentType } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } = require('discord.js');
 const config = require('../../config');
 const pubgApi = require('../../modules/pubgApi');
 
+// ────────────────── CONSTANTES ──────────────────
 const MODE_LABELS = {
     'solo': '🎯 Solo TPP', 'solo-fpp': '🎯 Solo FPP',
-    'duo': '👥 Duo TPP', 'duo-fpp': '👥 Duo FPP',
-    'squad': '🛡️ Squad TPP', 'squad-fpp': '🛡️ Squad FPP',
-    'solo-ranked': '🏅 Solo Ranked TPP', 'solo-fpp-ranked': '🏅 Solo Ranked FPP',
-    'duo-ranked': '🏅 Duo Ranked TPP', 'duo-fpp-ranked': '🏅 Duo Ranked FPP',
-    'squad-ranked': '🏅 Squad Ranked TPP', 'squad-fpp-ranked': '🏅 Squad Ranked FPP',
-    'tdm': '🔫 Team Deathmatch', 'ibr': '🚀 Intense Battle Royale',
+    'duo': '👥 Dúo TPP', 'duo-fpp': '👥 Dúo FPP',
+    'squad': '🛡️ Escuadra TPP', 'squad-fpp': '🛡️ Escuadra FPP',
+    'solo-ranked': '🏅 Solo Clasif. TPP', 'solo-fpp-ranked': '🏅 Solo Clasif. FPP',
+    'duo-ranked': '🏅 Dúo Clasif. TPP', 'duo-fpp-ranked': '🏅 Dúo Clasif. FPP',
+    'squad-ranked': '🏅 Escuadra Clasif. TPP', 'squad-fpp-ranked': '🏅 Escuadra Clasif. FPP',
+    'tdm': '🔫 Combate por Equipos', 'ibr': '🚀 Batalla Intensa',
 };
 const MODE_SHORT = {
-    'solo': '🎯 Solo', 'solo-fpp': '🎯 Solo FPP',
-    'duo': '👥 Duo', 'duo-fpp': '👥 Duo FPP',
-    'squad': '🛡️ Squad', 'squad-fpp': '🛡️ Squad FPP',
-    'solo-ranked': '🏅 Solo (R)', 'solo-fpp-ranked': '🏅 Solo FPP (R)',
-    'duo-ranked': '🏅 Duo (R)', 'duo-fpp-ranked': '🏅 Duo FPP (R)',
-    'squad-ranked': '🏅 Squad (R)', 'squad-fpp-ranked': '🏅 Squad FPP (R)',
-    'tdm': '🔫 TDM', 'ibr': '🚀 Casual (IBR)',
+    'solo': 'Solo', 'solo-fpp': 'Solo FPP',
+    'duo': 'Dúo', 'duo-fpp': 'Dúo FPP',
+    'squad': 'Escuadra', 'squad-fpp': 'Escuadra FPP',
+    'solo-ranked': 'Solo (C)', 'solo-fpp-ranked': 'Solo FPP (C)',
+    'duo-ranked': 'Dúo (C)', 'duo-fpp-ranked': 'Dúo FPP (C)',
+    'squad-ranked': 'Esc. (C)', 'squad-fpp-ranked': 'Esc. FPP (C)',
+    'tdm': 'TDM', 'ibr': 'IBR',
 };
 const PLATFORM_LABELS = {
     'steam': '🖥️ Steam', 'psn': '🎮 PlayStation', 'xbox': '🟢 Xbox',
 };
+const PLATFORM_EMOJI = { 'steam': '🖥️', 'psn': '🎮', 'xbox': '🟢' };
+
 const PUBG_LOGO = 'https://seeklogo.com/images/P/pubg-logo-4FC7D5F8C1-seeklogo.com.png';
 const PUBG_BANNER = 'https://cdn.akamai.steamstatic.com/steam/apps/578080/header.jpg';
 
-// ═══ Barra de progreso unicode ═══
-function progressBar(value, max, size = 10) {
-    const filled = Math.round((value / Math.max(max, 1)) * size);
-    const empty = size - filled;
-    return '█'.repeat(Math.min(filled, size)) + '░'.repeat(Math.max(empty, 0));
+// ────────────────── HELPERS VISUALES ──────────────────
+
+/** Barra de progreso unicode */
+function bar(value, max, size = 10) {
+    const pct = Math.min(value / Math.max(max, 1), 1);
+    const filled = Math.round(pct * size);
+    return '█'.repeat(filled) + '░'.repeat(size - filled);
 }
 
-// ═══ Util para formatear tiempo ═══
-function formatMinutes(totalMins) {
-    if (totalMins < 60) return `${Math.round(totalMins)} min`;
-    const hours = Math.floor(totalMins / 60);
-    const mins = Math.round(totalMins % 60);
-    return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
+/** Formatear minutos → "2h 15m" */
+function fmtMin(mins) {
+    mins = Math.round(mins);
+    if (mins < 60) return `${mins}m`;
+    const h = Math.floor(mins / 60), m = mins % 60;
+    return m > 0 ? `${h}h ${m}m` : `${h}h`;
 }
 
+/**
+ * Rango visual según K/D
+ * Devuelve { emoji, label, color }
+ */
+function kdRank(kd) {
+    kd = parseFloat(kd) || 0;
+    if (kd >= 6) return { emoji: '💎', label: 'Legendario', color: 0xB9F2FF };
+    if (kd >= 4) return { emoji: '🔥', label: 'Élite', color: 0xFF6B35 };
+    if (kd >= 3) return { emoji: '🟡', label: 'Experto', color: 0xFFD700 };
+    if (kd >= 2) return { emoji: '🟢', label: 'Avanzado', color: 0x69F0AE };
+    if (kd >= 1.2) return { emoji: '🔵', label: 'Intermedio', color: 0x42A5F5 };
+    if (kd >= 0.8) return { emoji: '⚪', label: 'Promedio', color: 0xBDBDBD };
+    return { emoji: '🔴', label: 'Novato', color: 0xEF5350 };
+}
+
+/** Emoji de puesto de equipo */
+function rankEmoji(rank) {
+    if (rank === 1) return '🏆';
+    if (rank <= 3) return '🥉';
+    if (rank <= 10) return '🔟';
+    return '💀';
+}
+
+/** Tipo de muerte en español */
+const DEATH_ES = {
+    byplayer: '☠️ Eliminado por un jugador',
+    alive: '✅ Sobrevivió hasta el final',
+    byzone: '🔵 Eliminado por la zona',
+    suicide: '💥 Suicidio',
+    logout: '🚪 Desconectado',
+};
+
+// ─────────────────────────────────────────────────────
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('pubg')
         .setDescription('🔫 Ver estadísticas de un jugador de PUBG')
-        .addStringOption(opt =>
-            opt.setName('nombre')
-                .setDescription('Nombre del jugador en PUBG')
-                .setRequired(true))
-        .addStringOption(opt =>
-            opt.setName('plataforma')
-                .setDescription('Plataforma del jugador')
-                .setRequired(false)
-                .addChoices(
-                    { name: '🖥️ Steam (PC)', value: 'steam' },
-                    { name: '🎮 PlayStation', value: 'psn' },
-                    { name: '🟢 Xbox', value: 'xbox' },
-                ))
-        .addStringOption(opt =>
-            opt.setName('modo')
-                .setDescription('Modo de juego a consultar')
-                .setRequired(false)
-                .addChoices(
-                    { name: '🏅 Squad Ranked FPP', value: 'squad-fpp-ranked' },
-                    { name: '🏅 Squad Ranked TPP', value: 'squad-ranked' },
-                    { name: '🛡️ Squad FPP', value: 'squad-fpp' },
-                    { name: '🛡️ Squad TPP', value: 'squad' },
-                    { name: '👥 Duo FPP', value: 'duo-fpp' },
-                    { name: '👥 Duo TPP', value: 'duo' },
-                    { name: '🎯 Solo FPP', value: 'solo-fpp' },
-                    { name: '🎯 Solo TPP', value: 'solo' }
-                )),
+        .addStringOption(o => o.setName('nombre').setDescription('Nombre del jugador en PUBG').setRequired(true))
+        .addStringOption(o => o.setName('plataforma').setDescription('Plataforma del jugador').setRequired(false)
+            .addChoices(
+                { name: '🖥️ Steam (PC)', value: 'steam' },
+                { name: '🎮 PlayStation', value: 'psn' },
+                { name: '🟢 Xbox', value: 'xbox' },
+            ))
+        .addStringOption(o => o.setName('modo').setDescription('Modo de juego inicial').setRequired(false)
+            .addChoices(
+                { name: '🏅 Escuadra Clasif. FPP', value: 'squad-fpp-ranked' },
+                { name: '🏅 Escuadra Clasif. TPP', value: 'squad-ranked' },
+                { name: '🛡️ Escuadra FPP', value: 'squad-fpp' },
+                { name: '🛡️ Escuadra TPP', value: 'squad' },
+                { name: '👥 Dúo FPP', value: 'duo-fpp' },
+                { name: '👥 Dúo TPP', value: 'duo' },
+                { name: '🎯 Solo FPP', value: 'solo-fpp' },
+                { name: '🎯 Solo TPP', value: 'solo' },
+            )),
 
     async execute(interaction) {
         const playerName = interaction.options.getString('nombre');
@@ -84,34 +113,21 @@ module.exports = {
         try {
             const { player, stats } = await pubgApi.getPlayerStats(playerName, platform);
 
+            // Auto-selección de modo con datos
             let activeMode = mode;
-            let modeStats = stats[mode];
-
-            if (!modeStats || modeStats.roundsPlayed === 0) {
-                const availableModes = Object.entries(stats)
+            if (!stats[mode] || stats[mode].roundsPlayed === 0) {
+                const best = Object.entries(stats)
                     .filter(([, s]) => s.roundsPlayed > 0)
                     .sort((a, b) => b[1].roundsPlayed - a[1].roundsPlayed);
-
-                if (availableModes.length === 0) {
-                    return interaction.editReply({
-                        embeds: [new EmbedBuilder()
-                            .setColor(config.COLORES.WARN)
-                            .setAuthor({ name: 'PUBG Stats', iconURL: PUBG_LOGO })
-                            .setDescription(`> ⚠️ **${player.name}** no tiene partidas en ningún modo.`)
-                            .setFooter({ text: 'Prophet Bot  ·  PUBG Stats' })
-                        ]
-                    });
+                if (best.length === 0) {
+                    return interaction.editReply({ embeds: [embedNoData(player)] });
                 }
-                [activeMode, modeStats] = availableModes[0];
+                activeMode = best[0][0];
             }
 
-            // ═══ Estado de la sesión ═══
             const session = {
-                player, stats, platform, activeMode,
-                currentView: 'stats',   // stats | season | compare | matches | match_detail
-                seasonStats: null,
-                seasonId: null,
-                matchPreviews: null,
+                player, stats, platform, activeMode, currentView: 'stats',
+                seasonStats: null, seasonId: null, matchPreviews: null
             };
 
             const response = await interaction.editReply({
@@ -119,426 +135,362 @@ module.exports = {
                 components: buildComponents(session),
             });
 
-            // ═══ Collector de interacciones (5 min) ═══
             const collector = response.createMessageComponentCollector({
                 filter: i => i.user.id === interaction.user.id,
-                time: 300000,
+                time: 300_000,
             });
 
             collector.on('collect', async i => {
                 try {
-                    // ── Stats Lifetime ──
                     if (i.customId === 'pubg_stats') {
                         session.currentView = 'stats';
-                        await i.update({
-                            embeds: [buildStatsEmbed(session)],
-                            components: buildComponents(session),
-                        });
-                    }
+                        await i.update({ embeds: [buildStatsEmbed(session)], components: buildComponents(session) });
 
-                    // ── Temporada Actual ──
-                    else if (i.customId === 'pubg_season') {
+                    } else if (i.customId === 'pubg_season') {
                         await i.deferUpdate();
                         session.currentView = 'season';
-
                         if (!session.allSeasons) {
                             try {
                                 const seasons = await pubgApi.getSeasons(platform);
-                                session.allSeasons = seasons.filter(s => !s.id.includes('beta')); // Ocultar betas viejas
-                                const current = session.allSeasons.find(s => s.isCurrentSeason) || session.allSeasons[session.allSeasons.length - 1];
+                                session.allSeasons = seasons.filter(s => !s.id.includes('beta'));
+                                const current = session.allSeasons.find(s => s.isCurrentSeason)
+                                    ?? session.allSeasons.at(-1);
                                 if (current) {
                                     session.seasonId = current.id;
                                     session.seasonStats = await pubgApi.getSeasonStats(player.id, current.id, platform);
                                 }
                             } catch { session.seasonStats = {}; }
                         }
+                        await i.editReply({ embeds: [buildSeasonEmbed(session)], components: buildComponents(session) });
 
-                        await i.editReply({
-                            embeds: [buildSeasonEmbed(session)],
-                            components: buildComponents(session),
-                        });
-                    }
-
-                    // ── Cambiar Temporada Seleccionada ──
-                    else if (i.customId === 'pubg_season_select') {
+                    } else if (i.customId === 'pubg_season_select') {
                         await i.deferUpdate();
                         session.seasonId = i.values[0];
-                        try {
-                            session.seasonStats = await pubgApi.getSeasonStats(player.id, session.seasonId, platform);
-                        } catch {
-                            session.seasonStats = {};
-                        }
+                        try { session.seasonStats = await pubgApi.getSeasonStats(player.id, session.seasonId, platform); }
+                        catch { session.seasonStats = {}; }
+                        await i.editReply({ embeds: [buildSeasonEmbed(session)], components: buildComponents(session) });
 
-                        await i.editReply({
-                            embeds: [buildSeasonEmbed(session)],
-                            components: buildComponents(session),
-                        });
-                    }
-
-                    // ── Comparar Modos ──
-                    else if (i.customId === 'pubg_compare') {
+                    } else if (i.customId === 'pubg_compare') {
                         session.currentView = 'compare';
-                        await i.update({
-                            embeds: [buildCompareEmbed(session)],
-                            components: buildComponents(session),
-                        });
-                    }
+                        await i.update({ embeds: [buildCompareEmbed(session)], components: buildComponents(session) });
 
-                    // ── Últimas Partidas ──
-                    else if (i.customId === 'pubg_matches') {
+                    } else if (i.customId === 'pubg_matches') {
                         session.currentView = 'matches';
-
                         if (player.recentMatches.length === 0) {
                             await i.update({
-                                embeds: [new EmbedBuilder()
-                                    .setColor(config.COLORES.WARN)
-                                    .setAuthor({ name: `${player.name}  ·  Partidas`, iconURL: PUBG_LOGO })
-                                    .setDescription('> ⚠️ No hay partidas recientes (datos se retienen 14 días).')
-                                    .setFooter({ text: 'Prophet Bot  ·  PUBG Stats' })
-                                    .setTimestamp()
-                                ],
+                                embeds: [embedWarn(
+                                    `${player.name}  ·  Partidas Recientes`,
+                                    '> ⚠️ No hay partidas recientes disponibles (los datos se retienen 14 días).',
+                                    'PUBG Partidas',
+                                )],
                                 components: buildComponents(session),
                             });
                             return;
                         }
-
                         await i.deferUpdate();
-
                         if (!session.matchPreviews) {
                             const previews = [];
-                            for (const matchId of player.recentMatches.slice(0, 10)) {
-                                try {
-                                    previews.push(await pubgApi.getMatch(matchId, platform, player.id));
-                                } catch { /* skip */ }
+                            for (const mId of player.recentMatches.slice(0, 10)) {
+                                try { previews.push(await pubgApi.getMatch(mId, platform, player.id)); }
+                                catch { /* skip */ }
                             }
                             session.matchPreviews = previews;
                         }
-
                         if (!session.matchPreviews.length) {
                             await i.editReply({
-                                embeds: [new EmbedBuilder().setColor(config.COLORES.WARN)
-                                    .setDescription('> ⚠️ No se pudieron cargar las partidas.')
-                                    .setFooter({ text: 'Prophet Bot  ·  PUBG Stats' })
-                                ],
+                                embeds: [embedWarn('Partidas', '> ⚠️ No se pudieron cargar las partidas.', 'PUBG Partidas')],
                                 components: buildComponents(session),
                             });
                             return;
                         }
-
-                        const selectOptions = session.matchPreviews.map((m, idx) => {
+                        const selectOpts = session.matchPreviews.map((m, idx) => {
                             const ps = m.playerStats;
-                            const date = m.createdAt ? new Date(m.createdAt) : null;
-                            const dateStr = date ? `${date.getDate()}/${date.getMonth() + 1}` : '??';
-                            const placeEmoji = ps?.teamRank === 1 ? '🏆' : ps?.teamRank <= 10 ? '🔟' : '💀';
+                            const d = m.createdAt ? new Date(m.createdAt) : null;
+                            const ds = d ? `${d.getDate()}/${d.getMonth() + 1}` : '??';
                             return {
-                                label: `#${ps?.teamRank || '?'} · ${m.mapName} · ${ps?.kills || 0} kills`,
-                                description: `${dateStr} · ${m.gameMode} · ${m.duration}min · ${ps?.damageDealt || 0} daño`,
+                                label: `${rankEmoji(ps?.teamRank)} #${ps?.teamRank ?? '?'} · ${m.mapName} · ${ps?.kills ?? 0}K / ${ps?.damageDealt ?? 0}dmg`,
+                                description: `${ds} · ${MODE_SHORT[m.gameMode] ?? m.gameMode} · ${m.duration}min`,
                                 value: `match_${idx}`,
-                                emoji: placeEmoji,
+                                emoji: rankEmoji(ps?.teamRank),
                             };
                         });
-
-                        const components = buildComponents(session);
-                        components.unshift(new ActionRowBuilder().addComponents(
+                        const comps = buildComponents(session);
+                        comps.unshift(new ActionRowBuilder().addComponents(
                             new StringSelectMenuBuilder()
                                 .setCustomId('pubg_match_select')
-                                .setPlaceholder('🎮 Seleccioná una partida...')
-                                .addOptions(selectOptions)
+                                .setPlaceholder('🎮 Elegí una partida para ver detalles...')
+                                .addOptions(selectOpts),
                         ));
+                        await i.editReply({ embeds: [buildMatchListEmbed(session)], components: comps });
 
-                        await i.editReply({
-                            embeds: [buildMatchListEmbed(session)],
-                            components,
-                        });
-                    }
-
-                    // ── Seleccionar Partida ──
-                    else if (i.customId === 'pubg_match_select') {
+                    } else if (i.customId === 'pubg_match_select') {
                         const idx = parseInt(i.values[0].replace('match_', ''));
                         const match = session.matchPreviews?.[idx];
-                        if (!match) { await i.update({ content: '❌ Error.' }); return; }
-
+                        if (!match) { await i.update({ content: '❌ No se pudo cargar la partida.' }); return; }
                         session.currentView = 'match_detail';
-                        await i.update({
-                            embeds: [buildMatchDetailEmbed(session, match)],
-                            components: buildComponents(session),
-                        });
-                    }
+                        await i.update({ embeds: [buildMatchDetailEmbed(session, match)], components: buildComponents(session) });
 
-                    // ── Cambiar Modo ──
-                    else if (i.customId === 'pubg_mode_select') {
-                        const newMode = i.values[0];
-                        session.activeMode = newMode;
-
-                        // Refrescar la vista actual (Season o Stats)
-                        if (session.currentView === 'season') {
-                            await i.update({
-                                embeds: [buildSeasonEmbed(session)],
-                                components: buildComponents(session),
-                            });
-                        } else {
-                            session.currentView = 'stats';
-                            await i.update({
-                                embeds: [buildStatsEmbed(session)],
-                                components: buildComponents(session),
-                            });
-                        }
+                    } else if (i.customId === 'pubg_mode_select') {
+                        session.activeMode = i.values[0];
+                        const embed = session.currentView === 'season'
+                            ? buildSeasonEmbed(session) : (session.currentView = 'stats', buildStatsEmbed(session));
+                        await i.update({ embeds: [embed], components: buildComponents(session) });
                     }
                 } catch (err) {
-                    console.error('Error en PUBG interacción:', err.message);
+                    console.error('[PUBG] Error interacción:', err.message);
                     try {
                         const msg = `> ❌ Error: ${err.message}`;
                         if (i.deferred || i.replied) await i.editReply({ content: msg });
                         else await i.update({ content: msg });
-                    } catch { /* expired */ }
+                    } catch { /* expirado */ }
                 }
             });
 
-            collector.on('end', () => {
-                interaction.editReply({ components: [] }).catch(() => { });
-            });
+            collector.on('end', () => interaction.editReply({ components: [] }).catch(() => { }));
 
         } catch (error) {
             const msgs = {
-                'PLAYER_NOT_FOUND': `> ❌ No se encontró **${playerName}** en **${PLATFORM_LABELS[platform] || platform}**.\n> El nombre es case-sensitive.`,
-                'API_KEY_INVALID': '> ❌ Error de autenticación con PUBG API.',
-                'RATE_LIMITED': '> ⏳ Rate limit. Esperá **1 minuto**.',
+                PLAYER_NOT_FOUND: `> ❌ No se encontró a **${playerName}** en **${PLATFORM_LABELS[platform] || platform}**.\n> El nombre distingue mayúsculas de minúsculas.`,
+                API_KEY_INVALID: '> ❌ Error de autenticación con la API de PUBG. Contactá a un administrador.',
+                RATE_LIMITED: '> ⏳ Límite de solicitudes alcanzado. Esperá **1 minuto** e intentá de nuevo.',
             };
             await interaction.editReply({
                 embeds: [new EmbedBuilder()
                     .setColor(config.COLORES.ERROR)
                     .setAuthor({ name: 'PUBG Stats  ·  Error', iconURL: PUBG_LOGO })
-                    .setDescription(msgs[error.message] || `> ❌ \`${error.message}\``)
+                    .setDescription(msgs[error.message] ?? `> ❌ \`${error.message}\``)
                     .setFooter({ text: 'Prophet Bot  ·  PUBG Stats' })
                     .setTimestamp()
-                ]
+                ],
             });
         }
-    }
+    },
 };
 
 // ═══════════════════════════════════════════════════
-//  COMPONENTES (Botones)
+//  EMBEDS UTILITARIOS
+// ═══════════════════════════════════════════════════
+
+function embedNoData(player) {
+    return new EmbedBuilder()
+        .setColor(config.COLORES.WARN)
+        .setAuthor({ name: 'PUBG Stats', iconURL: PUBG_LOGO })
+        .setDescription(`> ⚠️ **${player.name}** no tiene partidas registradas en ningún modo.`)
+        .setFooter({ text: 'Prophet Bot  ·  PUBG Stats' });
+}
+
+function embedWarn(title, desc, footerSuffix) {
+    return new EmbedBuilder()
+        .setColor(config.COLORES.WARN)
+        .setAuthor({ name: title, iconURL: PUBG_LOGO })
+        .setDescription(desc)
+        .setFooter({ text: `Prophet Bot  ·  ${footerSuffix}` })
+        .setTimestamp();
+}
+
+// ═══════════════════════════════════════════════════
+//  COMPONENTES
 // ═══════════════════════════════════════════════════
 
 function buildComponents(session) {
     const v = session.currentView;
-    const row = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId('pubg_stats').setLabel('📊 Lifetime')
-            .setStyle(v === 'stats' ? ButtonStyle.Primary : ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId('pubg_season').setLabel('📅 Temporada')
-            .setStyle(v === 'season' ? ButtonStyle.Primary : ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId('pubg_compare').setLabel('🔄 Comparar')
-            .setStyle(v === 'compare' ? ButtonStyle.Primary : ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId('pubg_matches').setLabel('🎮 Partidas')
-            .setStyle(v === 'matches' || v === 'match_detail' ? ButtonStyle.Primary : ButtonStyle.Secondary),
+
+    const navRow = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId('pubg_stats')
+            .setLabel('📊 General').setStyle(v === 'stats' ? ButtonStyle.Primary : ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId('pubg_season')
+            .setLabel('📅 Temporada').setStyle(v === 'season' ? ButtonStyle.Primary : ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId('pubg_compare')
+            .setLabel('🔄 Comparar').setStyle(v === 'compare' ? ButtonStyle.Primary : ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId('pubg_matches')
+            .setLabel('🎮 Partidas').setStyle(v === 'matches' || v === 'match_detail' ? ButtonStyle.Primary : ButtonStyle.Secondary),
     );
 
-    const components = [row];
+    const components = [navRow];
 
-    // Select de modos en vista stats o season
-    let activeModeData = null;
-    if (v === 'stats') activeModeData = session.stats;
-    if (v === 'season') activeModeData = session.seasonStats;
-
-    if (activeModeData) {
-        const availableModes = Object.entries(activeModeData)
+    // Select de modos (en stats y season)
+    const modeSource = v === 'stats' ? session.stats : v === 'season' ? session.seasonStats : null;
+    if (modeSource) {
+        const avail = Object.entries(modeSource)
             .filter(([, s]) => s.roundsPlayed > 0)
             .sort((a, b) => b[1].roundsPlayed - a[1].roundsPlayed)
             .slice(0, 10);
-
-        if (availableModes.length > 1) {
-            const usedMode = activeModeData[session.activeMode] ? session.activeMode : availableModes[0][0];
-            const modeSelect = new StringSelectMenuBuilder()
+        if (avail.length > 1) {
+            const used = modeSource[session.activeMode] ? session.activeMode : avail[0][0];
+            const sel = new StringSelectMenuBuilder()
                 .setCustomId('pubg_mode_select')
-                .setPlaceholder(`Modo: ${MODE_LABELS[usedMode] || usedMode}`)
-                .addOptions(availableModes.map(([m, s]) => ({
+                .setPlaceholder(`Modo: ${MODE_LABELS[used] || used}`)
+                .addOptions(avail.map(([m, s]) => ({
                     label: `${MODE_LABELS[m] || m}  ·  ${s.roundsPlayed} partidas`,
-                    value: m, default: m === usedMode,
+                    value: m,
+                    default: m === used,
                 })));
-            components.unshift(new ActionRowBuilder().addComponents(modeSelect));
+            components.unshift(new ActionRowBuilder().addComponents(sel));
         }
     }
 
-    // Select de temporadas solo en vista season
-    if (v === 'season' && session.allSeasons && session.allSeasons.length > 0) {
-        // Filtrar 'pre' y betas. Invertir para que lo más nuevo quede arriba (como 'pc-2018-40')
-        // Discord permite máximo 25 opciones por select menu. Mostramos las 25 más recientes.
-        const recentSeasons = [...session.allSeasons]
+    // Select de temporadas
+    if (v === 'season' && session.allSeasons?.length > 0) {
+        const recent = [...session.allSeasons]
             .filter(s => !s.id.includes('pre') && !s.id.includes('beta'))
             .slice(0, 25);
-
-        const seasonSelect = new StringSelectMenuBuilder()
+        const seasonSel = new StringSelectMenuBuilder()
             .setCustomId('pubg_season_select')
-            .setPlaceholder('📅 Seleccionar otra temporada...')
-            .addOptions(recentSeasons.map(s => {
-                const isCurrent = s.isCurrentSeason;
-                const number = s.id.split('-').pop(); // Da '40', '39', etc
-                return {
-                    label: `Temporada ${number} ${isCurrent ? '(Actual)' : ''}`,
-                    value: s.id,
-                    default: s.id === session.seasonId,
-                };
-            }));
-
-        components.splice(-1, 0, new ActionRowBuilder().addComponents(seasonSelect));
+            .setPlaceholder('📅 Cambiar temporada...')
+            .addOptions(recent.map(s => ({
+                label: `Temporada ${s.id.split('-').pop()}${s.isCurrentSeason ? ' ⭐ Actual' : ''}`,
+                value: s.id,
+                default: s.id === session.seasonId,
+            })));
+        components.splice(-1, 0, new ActionRowBuilder().addComponents(seasonSel));
     }
 
     return components;
 }
 
 // ═══════════════════════════════════════════════════
-//  EMBEDS
+//  EMBED: STATS GENERALES (LIFETIME)
 // ═══════════════════════════════════════════════════
 
 function buildStatsEmbed(session) {
     const { player, platform, activeMode } = session;
-    const s = session.stats[activeMode] || Object.values(session.stats)[0];
+    const s = session.stats[activeMode] ?? Object.values(session.stats)[0];
     const usedMode = session.stats[activeMode] ? activeMode : Object.keys(session.stats)[0];
-    const modeLabel = MODE_LABELS[usedMode] || usedMode;
-    const platLabel = PLATFORM_LABELS[platform] || platform;
+    const rank = kdRank(s.kdRatio);
+    const kd = parseFloat(s.kdRatio);
+    const wr = parseFloat(s.winRate);
+    const hs = parseFloat(s.headshotRate);
+    const top10 = parseFloat(s.top10Rate);
 
-    const kd = parseFloat(s.kdRatio || 0);
-    const wr = parseFloat(s.winRate || 0);
-    const hs = parseFloat(s.headshotRate || 0);
+    // Línea de modo resaltada
+    const modeHeader =
+        `${PLATFORM_EMOJI[platform] || '🎮'} **${PLATFORM_LABELS[platform] || platform}**  ·  ${MODE_LABELS[usedMode] || usedMode}`;
+
+    // Panel de métricas principales con barras
+    const metricsPanel = [
+        `> ${rank.emoji} **K/D Ratio** — \`${bar(kd, 5)}\` **${s.kdRatio}** *(${rank.label})*`,
+        `> 🏆 **Victorias%** — \`${bar(wr, 25)}\` **${s.winRate}%**`,
+        `> 🎯 **HS%** — \`${bar(hs, 60)}\` **${s.headshotRate}%**`,
+        `> 🔟 **Top 10%** — \`${bar(top10, 60)}\` **${s.top10Rate}%**`,
+    ].join('\n');
 
     return new EmbedBuilder()
-        .setColor(0xF2A900)
-        .setAuthor({ name: player.name, iconURL: PUBG_LOGO })
+        .setColor(rank.color)
+        .setAuthor({ name: `${player.name}  ·  Estadísticas Generales`, iconURL: PUBG_LOGO })
         .setThumbnail(PUBG_LOGO)
         .setDescription(
-            `╔══════════════════════════════╗\n` +
-            `║  ${platLabel}  ·  ${modeLabel}\n` +
-            `╚══════════════════════════════╝\n\n` +
-            `> 🎮 **${s.roundsPlayed.toLocaleString()}** partidas  ·  📅 **${s.daysActive}** días\n\n` +
-            `> **K/D:** \`${progressBar(kd, 4)}\` **${s.kdRatio}**\n` +
-            `> **Win%:** \`${progressBar(wr, 20)}\` **${s.winRate}%**\n` +
-            `> **HS%:** \`${progressBar(hs, 60)}\` **${s.headshotRate}%**\n` +
-            `> **Top10:** \`${progressBar(parseFloat(s.top10Rate), 50)}\` **${s.top10Rate}%**`
+            `> ${modeHeader}\n` +
+            `> 🎮 **${s.roundsPlayed.toLocaleString()}** partidas  ·  📅 **${s.daysActive}** días activo\n\n` +
+            metricsPanel,
         )
         .addFields(
             {
-                name: '```⚔️  C O M B A T E```',
+                name: '```⚔️  COMBATE```',
                 value: [
-                    `╠ 🔪 **Kills:** \`${s.kills.toLocaleString()}\``,
-                    `╠ 🎯 **Headshots:** \`${s.headshotKills.toLocaleString()}\``,
+                    `╠ 🔪 **Eliminaciones:** \`${s.kills.toLocaleString()}\``,
+                    `╠ 💀 **Muertes:** \`${(s.roundsPlayed - s.wins).toLocaleString()}\``,
+                    `╠ 🤝 **Asistencias:** \`${s.assists.toLocaleString()}\``,
+                    `╠ 🎯 **Cabezazos:** \`${s.headshotKills.toLocaleString()}\``,
                     `╠ 💥 **Daño total:** \`${s.damageDealt.toLocaleString()}\``,
-                    `╠ 🏹 **Kill lejano:** \`${s.longestKill}m\``,
-                    `╚ 🔥 **Racha máx:** \`${s.maxKillStreaks}\``,
-                ].join('\n'),
-                inline: true,
-            },
-            {
-                name: '```📈  P R O M E D I O S```',
-                value: [
-                    `╠ 🔪 **Kills/Partida:** \`${s.avgKills}\``,
-                    `╠ 🤝 **Assists/Partida:** \`${s.avgAssists}\``,
-                    `╠ 💥 **Daño/Partida:** \`${s.avgDamage}\``,
-                    `╠ ⏱️ **Supervivencia:** \`${s.avgSurvivalTime} min\``,
-                    `╚ 💊 **Heals/Partida:** \`${s.avgHeals}\``,
-                ].join('\n'),
-                inline: true,
-            },
-            {
-                name: '\u200b',
-                value: '> ─────────── **📊 Detalles** ───────────',
-                inline: false,
-            },
-            {
-                name: '```🏆  V I C T O R I A S```',
-                value: [
-                    `╠ 🥇 **Wins:** \`${s.wins}\`  ·  🔟 **Top 10:** \`${s.top10s}\``,
-                    `╠ 🤝 **Assists:** \`${s.assists}\`  ·  🔄 **Revives:** \`${s.revives}\``,
-                    `╚ 💀 **Suicidios:** \`${s.suicides}\`  ·  🤕 **TK:** \`${s.teamKills}\``,
+                    `╚ 🏹 **Kill más lejano:** \`${s.longestKill}m\`  ·  🔥 **Racha máx.:** \`${s.maxKillStreaks}\``,
                 ].join('\n'),
                 inline: false,
             },
             {
-                name: '```🏃  M O V I M I E N T O```',
+                name: '```📈  PROMEDIOS POR PARTIDA```',
                 value: [
-                    `╠ 🚶 **A pie:** \`${s.walkDistance} km\`  ·  🚗 **Vehículo:** \`${s.rideDistance} km\`  ·  🏊 **Nadar:** \`${s.swimDistance} km\``,
-                    `╚ ⏱️ **Tiempo total:** \`${formatMinutes(s.timeSurvived)}\`  ·  💊 \`${s.heals}\` heals  ·  ⚡ \`${s.boosts}\` boosts`,
+                    `╠ 🔪 \`${s.avgKills}\` kills  ·  🤝 \`${s.avgAssists}\` asistencias  ·  💊 \`${s.avgHeals}\` curas`,
+                    `╠ 💥 \`${s.avgDamage}\` daño  ·  ⏱️ \`${s.avgSurvivalTime}m\` supervivencia`,
+                    `╚ 🏆 \`${s.wins}\` victorias  ·  🔟 \`${s.top10s}\` top 10  ·  🔄 \`${s.revives}\` revives`,
+                ].join('\n'),
+                inline: false,
+            },
+            {
+                name: '```🏃  MOVIMIENTO & EXTRA```',
+                value: [
+                    `╠ 🚶 **A pie:** \`${s.walkDistance} km\`  ·  🚗 **Vehículo:** \`${s.rideDistance} km\`  ·  🏊 **Nadando:** \`${s.swimDistance} km\``,
+                    `╠ ⏱️ **Tiempo total:** \`${fmtMin(s.timeSurvived)}\`  ·  🏅 **Mayor superv.:** \`${fmtMin(s.longestTimeSurvived)}\``,
+                    `╚ 🚗 **Vehículos dest.:** \`${s.vehicleDestroys}\`  ·  🔫 **Armas recog.:** \`${s.weaponsAcquired}\`  ·  💀 **TK:** \`${s.teamKills}\``,
                 ].join('\n'),
                 inline: false,
             },
         )
         .setImage(PUBG_BANNER)
-        .setFooter({ text: `Prophet Bot  ·  PUBG Lifetime  ·  ${modeLabel}`, iconURL: PUBG_LOGO })
+        .setFooter({ text: `Prophet Bot  ·  PUBG General  ·  ${MODE_LABELS[usedMode] || usedMode}`, iconURL: PUBG_LOGO })
         .setTimestamp();
 }
+
+// ═══════════════════════════════════════════════════
+//  EMBED: TEMPORADA
+// ═══════════════════════════════════════════════════
 
 function buildSeasonEmbed(session) {
     const { player, platform, activeMode, seasonStats, seasonId } = session;
 
     if (!seasonStats || Object.keys(seasonStats).length === 0) {
-        return new EmbedBuilder()
-            .setColor(config.COLORES.WARN)
-            .setAuthor({ name: `${player.name}  ·  Temporada Actual`, iconURL: PUBG_LOGO })
-            .setDescription('> ⚠️ No hay datos de la temporada actual para este jugador.')
-            .setFooter({ text: 'Prophet Bot  ·  PUBG Season' })
-            .setTimestamp();
+        return embedWarn(
+            `${player.name}  ·  Temporada Actual`,
+            '> ⚠️ No hay datos de temporada disponibles para este jugador.',
+            'PUBG Temporada',
+        );
     }
 
-    // Usar el modo activo o el primero disponible
-    const s = seasonStats[activeMode] || Object.values(seasonStats)[0];
+    const s = seasonStats[activeMode] ?? Object.values(seasonStats)[0];
     const usedMode = seasonStats[activeMode] ? activeMode : Object.keys(seasonStats)[0];
-    const modeLabel = MODE_LABELS[usedMode] || usedMode;
-
+    const rank = kdRank(s.kdRatio);
     const kd = parseFloat(s.kdRatio);
     const wr = parseFloat(s.winRate);
+    const hs = parseFloat(s.headshotRate ?? 0);
+    const t10 = parseFloat(s.top10Rate ?? 0);
+    const seasonNum = seasonId?.split('-').pop() ?? '??';
 
-    // Listar modos con datos en temporada
+    // Lista de modos con datos
     const modesAvail = Object.entries(seasonStats)
         .filter(([, v]) => v.roundsPlayed > 0)
-        .map(([m, v]) => `\`${MODE_SHORT[m] || m}\` (${v.roundsPlayed})`)
-        .join(' · ');
+        .map(([m, v]) => `${MODE_SHORT[m] || m} (${v.roundsPlayed})`)
+        .join('  ·  ');
 
     return new EmbedBuilder()
-        .setColor(0x00BCD4)
-        .setAuthor({ name: `${player.name}  ·  Temporada Actual`, iconURL: PUBG_LOGO })
+        .setColor(rank.color)
+        .setAuthor({ name: `${player.name}  ·  Temporada ${seasonNum}`, iconURL: PUBG_LOGO })
         .setThumbnail(PUBG_LOGO)
         .setDescription(
-            `╔══════════════════════════════╗\n` +
-            `║  📅 Temporada: \`${seasonId?.split('-').pop() || '??'}\`\n` +
-            `╚══════════════════════════════╝\n\n` +
-            `> **Modo:** ${modeLabel}  ·  **${s.roundsPlayed}** partidas\n` +
-            `> Modos disponibles: ${modesAvail}\n\n` +
-            `> **K/D:** \`${progressBar(kd, 4)}\` **${s.kdRatio}**\n` +
-            `> **Win%:** \`${progressBar(wr, 20)}\` **${s.winRate}%**`
+            `> ${PLATFORM_EMOJI[platform] || '🎮'} **${PLATFORM_LABELS[platform] || platform}**  ·  📅 **Temporada ${seasonNum}**\n` +
+            `> ${MODE_LABELS[usedMode] || usedMode}  ·  **${s.roundsPlayed}** partidas\n` +
+            `> Modos con datos: ${modesAvail}\n\n` +
+            `> ${rank.emoji} **K/D** — \`${bar(kd, 5)}\` **${s.kdRatio}** *(${rank.label})*\n` +
+            `> 🏆 **Victorias%** — \`${bar(wr, 25)}\` **${s.winRate}%**\n` +
+            `> 🎯 **HS%** — \`${bar(hs, 60)}\` **${s.headshotRate}%**\n` +
+            `> 🔟 **Top 10%** — \`${bar(t10, 60)}\` **${s.top10Rate}%**`,
         )
         .addFields(
             {
-                name: '```⚔️  C O M B A T E```',
+                name: '```⚔️  COMBATE```',
                 value: [
-                    `╠ 🔪 **Kills:** \`${s.kills}\`  ·  🤝 **Assists:** \`${s.assists}\``,
-                    `╠ 🎯 **Headshots:** \`${s.headshotKills}\` (${s.headshotRate}%)`,
-                    `╠ 💥 **Daño total:** \`${s.damageDealt.toLocaleString()}\``,
-                    `╚ 🏹 **Kill lejano:** \`${s.longestKill}m\``,
+                    `╠ 🔪 **Eliminaciones:** \`${s.kills}\`  ·  🤝 **Asistencias:** \`${s.assists}\``,
+                    `╠ 🎯 **Cabezazos:** \`${s.headshotKills}\` (${s.headshotRate}%)`,
+                    `╠ 💥 **Daño total:** \`${s.damageDealt.toLocaleString()}\`  ·  💥 **Daño/G:** \`${s.avgDamage}\``,
+                    `╚ 🏹 **Kill más lejano:** \`${s.longestKill}m\``,
                 ].join('\n'),
                 inline: true,
             },
             {
-                name: '```📈  P R O M E D I O S```',
+                name: '```🏆  RESULTADOS```',
                 value: [
-                    `╠ 🔪 **Kills/Partida:** \`${s.avgKills}\``,
-                    `╠ 💥 **Daño/Partida:** \`${s.avgDamage}\``,
-                    `╠ ⏱️ **Supervivencia:** \`${s.avgSurvivalTime} min\``,
-                    `╚ 🔟 **Top 10 Rate:** \`${s.top10Rate}%\``,
+                    `╠ 🥇 **Victorias:** \`${s.wins}\`  ·  🔟 **Top 10:** \`${s.top10s}\``,
+                    `╠ 🔄 **Revives:** \`${s.revives}\`  ·  💊 **Curas:** \`${s.heals}\``,
+                    `╚ ⚡ **Potenciadores:** \`${s.boosts}\`  ·  🤕 **Bajas aliadas:** \`${s.teamKills}\``,
                 ].join('\n'),
                 inline: true,
-            },
-            {
-                name: '```🏆  R E S U L T A D O S```',
-                value: [
-                    `╠ 🥇 **Wins:** \`${s.wins}\`  ·  🔟 **Top 10:** \`${s.top10s}\``,
-                    `╚ 🔄 **Revives:** \`${s.revives}\`  ·  💊 **Heals:** \`${s.heals}\``,
-                ].join('\n'),
-                inline: false,
             },
         )
-        .setFooter({ text: `Prophet Bot  ·  PUBG Season  ·  ${modeLabel}`, iconURL: PUBG_LOGO })
+        .setFooter({ text: `Prophet Bot  ·  PUBG Temporada ${seasonNum}  ·  ${MODE_LABELS[usedMode] || usedMode}`, iconURL: PUBG_LOGO })
         .setTimestamp();
 }
+
+// ═══════════════════════════════════════════════════
+//  EMBED: COMPARAR MODOS
+// ═══════════════════════════════════════════════════
 
 function buildCompareEmbed(session) {
     const { player, stats, platform } = session;
@@ -549,71 +501,91 @@ function buildCompareEmbed(session) {
         .slice(0, 6);
 
     if (modes.length === 0) {
-        return new EmbedBuilder()
-            .setColor(config.COLORES.WARN)
-            .setDescription('> ⚠️ No hay modos con datos para comparar.')
-            .setFooter({ text: 'Prophet Bot  ·  PUBG Stats' });
+        return embedWarn('Comparar Modos', '> ⚠️ No hay modos con datos para comparar.', 'PUBG Comparar');
     }
 
-    // Construir tabla comparativa
-    const header = `\`${'Modo'.padEnd(12)}│${'Partdas'.padStart(7)}│${'K/D'.padStart(5)}│${'Win%'.padStart(6)}│${'HS%'.padStart(5)}│${'Dmg/G'.padStart(5)}\``;
-    const separator = `\`${'─'.repeat(12)}┼${'─'.repeat(7)}┼${'─'.repeat(5)}┼${'─'.repeat(6)}┼${'─'.repeat(5)}┼${'─'.repeat(5)}\``;
-
-    const rows = modes.map(([m, s]) => {
-        const name = (MODE_SHORT[m] || m).padEnd(12);
-        const rp = String(s.roundsPlayed).padStart(7);
-        const kd = s.kdRatio.padStart(5);
-        const wr = (s.winRate + '%').padStart(6);
-        const hs = (s.headshotRate + '%').padStart(5);
-        const dmg = String(s.avgDamage).padStart(5);
-        return `\`${name}│${rp}│${kd}│${wr}│${hs}│${dmg}\``;
-    });
-
-    // Encontrar el "mejor" modo
     const bestKD = modes.reduce((a, b) => parseFloat(b[1].kdRatio) > parseFloat(a[1].kdRatio) ? b : a);
     const bestWR = modes.reduce((a, b) => parseFloat(b[1].winRate) > parseFloat(a[1].winRate) ? b : a);
     const mostPlayed = modes[0];
+
+    // Construir fields visuales por modo
+    const fields = modes.map(([m, s]) => {
+        const rank = kdRank(s.kdRatio);
+        const wr = parseFloat(s.winRate);
+        const hs = parseFloat(s.headshotRate);
+        const isBestKD = m === bestKD[0];
+        const isBestWR = m === bestWR[0];
+        const badges = [isBestKD ? '🏆KD' : null, isBestWR ? '🥇WR' : null].filter(Boolean).join(' ');
+
+        return {
+            name: `${rank.emoji} ${MODE_LABELS[m] || m}${badges ? `  ·  ${badges}` : ''}`,
+            value: [
+                `\`${bar(parseFloat(s.kdRatio), 5, 8)}\` K/D: **${s.kdRatio}**  ·  **${s.roundsPlayed}** partidas`,
+                `\`${bar(wr, 25, 8)}\` Win: **${s.winRate}%**  ·  **${s.wins}** victorias`,
+                `\`${bar(hs, 60, 8)}\` HS: **${s.headshotRate}%**  ·  Daño/G: **${s.avgDamage}**`,
+            ].join('\n'),
+            inline: false,
+        };
+    });
 
     return new EmbedBuilder()
         .setColor(0x9C27B0)
         .setAuthor({ name: `${player.name}  ·  Comparación de Modos`, iconURL: PUBG_LOGO })
         .setThumbnail(PUBG_LOGO)
         .setDescription(
-            `╔══════════════════════════════════════╗\n` +
-            `║  🔄 Comparación entre modos de juego\n` +
-            `╚══════════════════════════════════════╝\n\n` +
-            `${header}\n${separator}\n${rows.join('\n')}\n\n` +
-            `> 🏆 **Mejor K/D:** ${MODE_SHORT[bestKD[0]] || bestKD[0]} (\`${bestKD[1].kdRatio}\`)\n` +
-            `> 🥇 **Mejor Win%:** ${MODE_SHORT[bestWR[0]] || bestWR[0]} (\`${bestWR[1].winRate}%\`)\n` +
-            `> 🎮 **Más jugado:** ${MODE_SHORT[mostPlayed[0]] || mostPlayed[0]} (\`${mostPlayed[1].roundsPlayed}\` partidas)`
+            `> ${PLATFORM_LABELS[platform] || platform}  ·  **${modes.length}** modos con partidas\n\n` +
+            `> 🏆 **Mejor K/D:** ${MODE_LABELS[bestKD[0]] || bestKD[0]} — \`${bestKD[1].kdRatio}\`\n` +
+            `> 🥇 **Mejor Win%:** ${MODE_LABELS[bestWR[0]] || bestWR[0]} — \`${bestWR[1].winRate}%\`\n` +
+            `> 🎮 **Más jugado:** ${MODE_LABELS[mostPlayed[0]] || mostPlayed[0]} — \`${mostPlayed[1].roundsPlayed}\` partidas`,
         )
-        .setFooter({ text: `Prophet Bot  ·  PUBG Compare  ·  ${PLATFORM_LABELS[platform] || platform}`, iconURL: PUBG_LOGO })
+        .addFields(...fields)
+        .setFooter({ text: `Prophet Bot  ·  PUBG Comparar  ·  ${PLATFORM_LABELS[platform] || platform}`, iconURL: PUBG_LOGO })
         .setTimestamp();
 }
 
+// ═══════════════════════════════════════════════════
+//  EMBED: LISTA DE PARTIDAS
+// ═══════════════════════════════════════════════════
+
 function buildMatchListEmbed(session) {
     const { player, matchPreviews } = session;
+
+    // Calcular resumen rápido de la sesión
+    const totalKills = matchPreviews.reduce((a, m) => a + (m.playerStats?.kills ?? 0), 0);
+    const totalDamage = matchPreviews.reduce((a, m) => a + (m.playerStats?.damageDealt ?? 0), 0);
+    const wins = matchPreviews.filter(m => m.playerStats?.teamRank === 1).length;
+    const avgKills = (totalKills / matchPreviews.length).toFixed(1);
+
     const lines = matchPreviews.map((m) => {
         const ps = m.playerStats;
-        const date = m.createdAt ? new Date(m.createdAt) : null;
-        const dateStr = date ? `<t:${Math.floor(date.getTime() / 1000)}:R>` : '??';
-        const placeEmoji = ps?.teamRank === 1 ? '🏆' : ps?.teamRank <= 3 ? '🥉' : ps?.teamRank <= 10 ? '🔟' : '💀';
-        const modeStr = MODE_SHORT[m.gameMode] ? `**[${MODE_SHORT[m.gameMode]}]**` : `**[${m.gameMode.toUpperCase()}]**`;
+        const ts = m.createdAt ? Math.floor(new Date(m.createdAt).getTime() / 1000) : null;
+        const dateStr = ts ? `<t:${ts}:R>` : '??';
+        const emoji = rankEmoji(ps?.teamRank);
+        const modeStr = MODE_SHORT[m.gameMode] ?? m.gameMode.toUpperCase();
+        const dmgBar = bar(ps?.damageDealt ?? 0, 800, 6);
 
-        return `${placeEmoji} **#${ps?.teamRank || '?'}** · \`${m.mapName}\` · ${modeStr} · **${ps?.kills || 0}** kills · **${ps?.damageDealt || 0}** daño · ${m.duration}min · ${dateStr}`;
+        return (
+            `${emoji} **#${ps?.teamRank ?? '?'}** · \`${m.mapName}\` · **${modeStr}**\n` +
+            `┣ 🔪 \`${ps?.kills ?? 0}\` kills · 💥 \`${dmgBar}\` ${ps?.damageDealt ?? 0} daño · ⏱️ ${m.duration}min\n` +
+            `┗ ${dateStr}`
+        );
     });
 
     return new EmbedBuilder()
         .setColor(0xF2A900)
         .setAuthor({ name: `${player.name}  ·  Últimas Partidas`, iconURL: PUBG_LOGO })
         .setDescription(
-            `📋 Últimas **${matchPreviews.length}** partidas:\n\n` +
+            `> 📋 **${matchPreviews.length}** partidas  ·  🏆 **${wins}** victorias  ·  🔪 **${avgKills}** kills/G  ·  💥 **${Math.round(totalDamage / matchPreviews.length)}** daño/G\n\n` +
             lines.join('\n\n') +
-            '\n\n> *⬆️ Seleccioná una partida del menú para ver detalles*'
+            '\n\n> *⬆️ Usá el menú de arriba para ver el detalle de una partida*',
         )
         .setFooter({ text: 'Prophet Bot  ·  PUBG Partidas  ·  Últimos 14 días', iconURL: PUBG_LOGO })
         .setTimestamp();
 }
+
+// ═══════════════════════════════════════════════════
+//  EMBED: DETALLE DE PARTIDA
+// ═══════════════════════════════════════════════════
 
 function buildMatchDetailEmbed(session, matchData) {
     const { player, platform } = session;
@@ -625,64 +597,73 @@ function buildMatchDetailEmbed(session, matchData) {
             .setDescription('> ❌ No se encontraron datos del jugador en esta partida.');
     }
 
-    const date = matchData.createdAt ? new Date(matchData.createdAt) : null;
-    const dateStr = date ? `<t:${Math.floor(date.getTime() / 1000)}:f>` : '??';
+    const ts = matchData.createdAt ? Math.floor(new Date(matchData.createdAt).getTime() / 1000) : null;
+    const dateStr = ts ? `<t:${ts}:f>` : '??';
+    const rank = ps.teamRank;
 
-    let placeText = `💀 Puesto #${ps.teamRank}`;
-    if (ps.teamRank === 1) placeText = '🏆 ¡WINNER WINNER CHICKEN DINNER!';
-    else if (ps.teamRank <= 3) placeText = `🥉 Top 3 (#${ps.teamRank})`;
-    else if (ps.teamRank <= 10) placeText = `🔟 Top 10 (#${ps.teamRank})`;
+    let placeText;
+    if (rank === 1) placeText = '🏆  **¡CHICKEN DINNER — GANASTE!**';
+    else if (rank <= 3) placeText = `🥉  **Top 3 — Puesto #${rank}**`;
+    else if (rank <= 10) placeText = `🔟  **Top 10 — Puesto #${rank}**`;
+    else placeText = `💀  **Puesto #${rank}**`;
 
-    const deathLabels = {
-        'byplayer': '☠️ Eliminado', 'alive': '✅ Sobrevivió',
-        'byzone': '🔵 Zona azul', 'suicide': '💥 Suicidio', 'logout': '🚪 DC',
-    };
+    const embedColor = rank === 1 ? 0xFFD700 : rank <= 3 ? 0x69F0AE : rank <= 10 ? 0x42A5F5 : 0xEF5350;
 
-    // K/D de la partida
-    const matchKD = ps.kills > 0 ? ps.kills.toFixed(0) : '0';
-
-    // Link de Replay 2D
     const replayLink = `https://pubg.sh/${encodeURIComponent(player.name)}/${platform}/${matchData.matchId}`;
+    const killPctBar = bar(ps.kills, 15);
+    const dmgPctBar = bar(ps.damageDealt, 1000);
+
+    // Top compañeros de equipo (si hay roster info)
+    const teammates = matchData.participants
+        ?.filter(p => p.playerId !== player.id && matchData.rosters?.some(r =>
+            r.participantIds.includes(ps.id) && r.participantIds.includes(p.id)
+        ))
+        ?.sort((a, b) => b.kills - a.kills)
+        ?.slice(0, 3) ?? [];
+
+    const teammateStr = teammates.length > 0
+        ? teammates.map(t => `\`${t.name}\` — ${t.kills}K / ${t.damageDealt}dmg`).join('  ·  ')
+        : null;
 
     return new EmbedBuilder()
-        .setColor(ps.teamRank === 1 ? 0xFFD700 : ps.teamRank <= 10 ? 0x69F0AE : 0xEF5350)
+        .setColor(embedColor)
         .setAuthor({ name: `${player.name}  ·  Detalle de Partida`, iconURL: PUBG_LOGO })
         .setDescription(
-            `╔══════════════════════════════╗\n` +
-            `║  🗺️ **${matchData.mapName}**  ·  ${MODE_LABELS[matchData.gameMode] || matchData.gameMode}\n` +
-            `╚══════════════════════════════╝\n\n` +
-            `> 📅 ${dateStr}\n` +
-            `> ⏱️ **${matchData.duration} min**  ·  👥 **${matchData.totalPlayers}** jugadores\n\n` +
-            `> **${placeText}**\n` +
-            `> ${deathLabels[ps.deathType] || ps.deathType}\n\n` +
-            `> **Kills:** \`${progressBar(ps.kills, 10)}\` **${ps.kills}**\n` +
-            `> **Daño:** \`${progressBar(ps.damageDealt, 1000, 10)}\` **${ps.damageDealt}**\n\n` +
-            `> 🗺️ **[Ver Replay 2D de la partida](${replayLink})**`
+            `> 🗺️ **${matchData.mapName}**  ·  ${MODE_LABELS[matchData.gameMode] || matchData.gameMode}\n` +
+            `> 📅 ${dateStr}  ·  ⏱️ **${matchData.duration} min**  ·  👥 **${matchData.totalPlayers}** jugadores\n\n` +
+            `> ${placeText}\n` +
+            `> ${DEATH_ES[ps.deathType] || ps.deathType}\n\n` +
+            `> 🔪 **Kills** \`${killPctBar}\` **${ps.kills}**${ps.killPlace ? ` *(#${ps.killPlace} en kills)*` : ''}\n` +
+            `> 💥 **Daño**  \`${dmgPctBar}\` **${ps.damageDealt.toLocaleString()}**\n\n` +
+            `> 🗺️ **[Ver Replay 2D](${replayLink})**`,
         )
         .addFields(
             {
-                name: '```⚔️  C O M B A T E```',
+                name: '```⚔️  COMBATE```',
                 value: [
-                    `╠ 🔪 **Kills:** \`${ps.kills}\`  ·  🤝 **Assists:** \`${ps.assists}\``,
-                    `╠ 🎯 **Headshots:** \`${ps.headshotKills}\``,
+                    `╠ 🔪 **Kills:** \`${ps.kills}\`  ·  🤝 **Asistencias:** \`${ps.assists}\``,
+                    `╠ 🎯 **Cabezazos:** \`${ps.headshotKills}\`  ·  🔻 **Knockdowns:** \`${ps.DBNOs}\``,
                     `╠ 💥 **Daño:** \`${ps.damageDealt.toLocaleString()}\``,
-                    `╠ 🏹 **Kill lejano:** \`${ps.longestKill}m\``,
-                    `╚ 🔻 **Knockdowns:** \`${ps.DBNOs}\``,
+                    `╚ 🏹 **Kill más lejano:** \`${ps.longestKill}m\``,
                 ].join('\n'),
                 inline: true,
             },
             {
-                name: '```🏃  P A R T I D A```',
+                name: '```🏃  SUPERVIVENCIA```',
                 value: [
                     `╠ ⏱️ **Sobrevivió:** \`${ps.timeSurvived} min\``,
-                    `╠ 🚶 **A pie:** \`${ps.walkDistance} km\``,
-                    `╠ 🚗 **Vehículo:** \`${ps.rideDistance} km\``,
-                    `╠ 💊 **Heals:** \`${ps.heals}\`  ·  ⚡ **Boosts:** \`${ps.boosts}\``,
+                    `╠ 🚶 **A pie:** \`${ps.walkDistance} km\`  ·  🚗 **Vehículo:** \`${ps.rideDistance} km\``,
+                    `╠ 💊 **Curas:** \`${ps.heals}\`  ·  ⚡ **Boosts:** \`${ps.boosts}\``,
                     `╚ 🔄 **Revives:** \`${ps.revives}\``,
                 ].join('\n'),
                 inline: true,
             },
+            ...(teammateStr ? [{
+                name: '```👥  COMPAÑEROS DE EQUIPO```',
+                value: teammateStr,
+                inline: false,
+            }] : []),
         )
-        .setFooter({ text: `Prophet Bot  ·  PUBG Match  ·  ${matchData.mapName}`, iconURL: PUBG_LOGO })
+        .setFooter({ text: `Prophet Bot  ·  PUBG Partida  ·  ${matchData.mapName}`, iconURL: PUBG_LOGO })
         .setTimestamp();
 }
