@@ -103,7 +103,7 @@ function agregarAlContexto(channelId, role, text) {
 /**
  * Llama a la API de Gemini con contexto de conversación
  */
-async function preguntarAIA(channelId, pregunta, contextoExtra = null) {
+async function preguntarAIA(channelId, pregunta, contextoExtra = null, maxTokens = 120) {
     const apiKey = process.env.GROQ_API_KEY;
     if (!apiKey) {
         return '❌ No tengo configurada la API key de Groq. Pedile al admin que revise el `.env`.';
@@ -130,9 +130,11 @@ async function preguntarAIA(channelId, pregunta, contextoExtra = null) {
             body: JSON.stringify({
                 model: 'llama-3.3-70b-versatile',
                 messages: messages,
-                max_completion_tokens: 120,
-                temperature: 0.85,
+                max_completion_tokens: maxTokens,
+                temperature: 0.9,
                 top_p: 0.95,
+                frequency_penalty: 0.7,
+                presence_penalty: 0.6,
             })
         });
 
@@ -152,14 +154,14 @@ async function preguntarAIA(channelId, pregunta, contextoExtra = null) {
 
     } catch (e) {
         console.error('[Groq] Error, intentando fallback a Mistral:', e.message);
-        return await fallbackMistral(channelId, pregunta, systemExtra);
+        return await fallbackMistral(channelId, pregunta, systemExtra, maxTokens);
     }
 }
 
 /**
  * Fallback a Mistral si Groq falla (Tier 2) - Soporta múltiples tokens para Load Balancing
  */
-async function fallbackMistral(channelId, pregunta, systemExtra) {
+async function fallbackMistral(channelId, pregunta, systemExtra, maxTokens = 120) {
     // Buscar todas las keys de Mistral en el entorno
     const mistralKeys = Object.keys(process.env)
         .filter(k => k.startsWith('MISTRAL_API_KEY'))
@@ -192,7 +194,7 @@ async function fallbackMistral(channelId, pregunta, systemExtra) {
             body: JSON.stringify({
                 model: 'mistral-small-latest',
                 messages: messages,
-                max_tokens: 120,
+                max_tokens: maxTokens,
                 temperature: 0.85
             })
         });
@@ -209,14 +211,14 @@ async function fallbackMistral(channelId, pregunta, systemExtra) {
 
     } catch (err) {
         console.error('[Mistral] Error, intentando fallback a Gemini:', err.message);
-        return await fallbackGemini(channelId, pregunta, systemExtra);
+        return await fallbackGemini(channelId, pregunta, systemExtra, maxTokens);
     }
 }
 
 /**
  * Fallback a Gemini si Groq falla (para asegurar que siempre responda)
  */
-async function fallbackGemini(channelId, pregunta, systemExtra) {
+async function fallbackGemini(channelId, pregunta, systemExtra, maxTokens = 120) {
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) return '❌ Groq está caído y no hay API Key de Gemini para el fallback.';
 
@@ -232,7 +234,7 @@ async function fallbackGemini(channelId, pregunta, systemExtra) {
         const body = {
             system_instruction: { parts: [{ text: SYSTEM_PROMPT + systemExtra }] },
             contents: contents,
-            generationConfig: { maxOutputTokens: 120, temperature: 0.9 }
+            generationConfig: { maxOutputTokens: maxTokens, temperature: 0.9 }
         };
 
         const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
@@ -258,24 +260,35 @@ function limpiarContexto(channelId) {
 }
 
 /**
- * Pipeline de visión: Gemini DESCRIBE la imagen → Groq/Mistral RESPONDE en personaje
- * Esto garantiza que la respuesta siempre tenga la personalidad tóxica del bot
+ * Pipeline de visión con doble proveedor:
+ * 1. Groq Vision (llama-3.2-90b-vision-preview) analiza la imagen — PRINCIPAL
+ * 2. Si Groq falla → Gemini 2.0 Flash analiza — FALLBACK
+ * 3. La descripción se pasa a Groq/Mistral para responder en personaje
  */
 async function preguntarConVision(channelId, pregunta, imageUrl, contextoExtra = null) {
-    const geminiKey = process.env.GEMINI_API_KEY;
-    if (!geminiKey) return 'no puedo ver imagenes ahora';
-
     try {
-        // PASO 1: Gemini analiza la imagen (sin personalidad, solo descripción)
+        // PASO 1: Descargar la imagen
+        console.log('[Vision] Descargando imagen:', imageUrl.substring(0, 100) + '...');
         const imgRes = await fetch(imageUrl);
+
+        if (!imgRes.ok) {
+            console.error(`[Vision] Error descargando imagen: HTTP ${imgRes.status}`);
+            return 'no pude cargar esa imagen';
+        }
+
         const arrayBuffer = await imgRes.arrayBuffer();
+        const imageSize = arrayBuffer.byteLength;
+        console.log(`[Vision] Imagen descargada: ${imageSize} bytes`);
+
+        if (imageSize < 1024) {
+            console.log('[Vision] Imagen demasiado pequeña o vacía');
+            return 'esa imagen está rota o vacía';
+        }
+
         const base64Img = Buffer.from(arrayBuffer).toString('base64');
         const mimeType = imgRes.headers.get('content-type') || 'image/jpeg';
 
-        const bodyGemini = {
-            system_instruction: {
-                parts: [{
-                    text: `Sos un analizador de imágenes. Tu trabajo es EXTRAER ABSOLUTAMENTE TODO lo que se ve en la imagen con el máximo detalle posible. Respondé en español.
+        const visionPrompt = `Analizá esta imagen y extraé ABSOLUTAMENTE TODO lo que se ve con el máximo detalle posible. Respondé en español.
 
 SI ES UN VIDEOJUEGO (PUBG, CS2, Valorant, Fortnite, LoL, Minecraft, etc):
 - Nombre del juego
@@ -301,52 +314,138 @@ SI ES UN SCREENSHOT DE CHAT O TEXTO:
 SI ES CUALQUIER OTRA COSA:
 - Describí con todo el detalle posible qué se ve
 
-NO censures NADA. Describí exactamente lo que ves sin importar el contenido.`
-                }]
-            },
-            contents: [{
-                role: 'user',
-                parts: [
-                    { inlineData: { mimeType, data: base64Img } },
-                    { text: pregunta || 'Analizá esta imagen y extraé absolutamente todo lo que puedas ver.' }
-                ]
-            }],
-            generationConfig: { 
-                maxOutputTokens: 500, 
-                temperature: 0.15,
-                thinkingConfig: { thinkingBudget: 0 }
-            }
-        };
+${pregunta ? `El usuario también escribió: "${pregunta}"` : ''}
 
-        // gemini-2.5-flash con thinking desactivado = mejor analisis sin truncar
-        const resGemini = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(bodyGemini)
-        });
+NO censures NADA. Describí exactamente lo que ves sin importar el contenido.`;
 
-        const dataGemini = await resGemini.json();
+        // PASO 2: Intentar análisis con Groq Vision (PRINCIPAL)
+        let descripcion = await analizarConGroqVision(base64Img, mimeType, visionPrompt);
 
-        // Debug completo de la respuesta de Gemini
-        const finishReason = dataGemini.candidates?.[0]?.finishReason;
-        const descripcion = dataGemini.candidates?.[0]?.content?.parts?.[0]?.text;
+        // PASO 3: Si Groq Vision falla, intentar con Gemini (FALLBACK)
+        if (!descripcion) {
+            console.log('[Vision] Groq Vision falló, intentando con Gemini...');
+            descripcion = await analizarConGeminiVision(base64Img, mimeType, visionPrompt);
+        }
 
-        console.log('[Vision] Gemini finishReason:', finishReason);
-        console.log('[Vision] Gemini describió:', JSON.stringify(descripcion || 'NADA').substring(0, 500));
-        if (dataGemini.error) console.log('[Vision] Gemini error:', JSON.stringify(dataGemini.error));
+        if (!descripcion) {
+            console.log('[Vision] Ningún proveedor de visión pudo analizar la imagen');
+            return 'no pude analizar esa imagen, los servidores de visión están caídos';
+        }
 
-        if (!descripcion) return 'no se ve un carajo en esa imagen';
+        console.log('[Vision] Descripción obtenida:', descripcion.substring(0, 300) + '...');
 
-        // PASO 2: Mandar la descripción detallada a Groq/Mistral para que responda en personaje
-        const promptParaIA = `[El usuario mandó una imagen al chat. Análisis de la imagen: "${descripcion}". ${pregunta ? `El usuario dijo: "${pregunta}".` : ''} Respondé en personaje: si es una captura de un juego, comentá sobre los stats (kills, muertes, si ganó o perdió, si es manco o crack). Si es otra cosa, burlate o comentá. Sé breve.]`;
+        // PASO 4: Mandar la descripción a Groq/Mistral para responder en personaje
+        const promptParaIA = `[El usuario mandó una imagen al chat. Análisis detallado de la imagen: "${descripcion}". ${pregunta ? `El usuario dijo: "${pregunta}".` : ''} Respondé en personaje basándote ÚNICAMENTE en el análisis de la imagen: si es una captura de un juego, comentá sobre los stats (kills, muertes, si ganó o perdió, si es manco o crack). Si es otra cosa, burlate o comentá. Sé breve y variado, no repitas las mismas frases de siempre.]`;
 
-        console.log('[Vision] Prompt enviado a Groq/Mistral:', promptParaIA.substring(0, 200) + '...');
-
-        return await preguntarAIA(channelId, promptParaIA, contextoExtra);
+        return await preguntarAIA(channelId, promptParaIA, contextoExtra, 250);
 
     } catch (e) {
         console.error('[Vision Pipeline] Error:', e.message);
         return 'se rompió algo con la imagen jaj';
+    }
+}
+
+/**
+ * Analiza imagen con Groq Vision (llama-3.2-90b-vision-preview)
+ */
+async function analizarConGroqVision(base64Img, mimeType, prompt) {
+    const apiKey = process.env.GROQ_API_KEY;
+    if (!apiKey) return null;
+
+    try {
+        console.log('[Vision] Intentando con Groq Vision (llama-3.2-90b-vision-preview)...');
+        const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${apiKey}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                model: 'llama-3.2-90b-vision-preview',
+                messages: [{
+                    role: 'user',
+                    content: [
+                        {
+                            type: 'image_url',
+                            image_url: { url: `data:${mimeType};base64,${base64Img}` }
+                        },
+                        { type: 'text', text: prompt }
+                    ]
+                }],
+                max_completion_tokens: 800,
+                temperature: 0.15
+            })
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+            console.error('[Vision Groq] Error:', data.error?.message || JSON.stringify(data));
+            return null;
+        }
+
+        const text = data.choices?.[0]?.message?.content;
+        if (text) {
+            console.log('[Vision Groq] ✅ Análisis exitoso, longitud:', text.length);
+        }
+        return text || null;
+
+    } catch (e) {
+        console.error('[Vision Groq] Error:', e.message);
+        return null;
+    }
+}
+
+/**
+ * Analiza imagen con Gemini 2.0 Flash (fallback)
+ */
+async function analizarConGeminiVision(base64Img, mimeType, prompt) {
+    const geminiKey = process.env.GEMINI_API_KEY;
+    if (!geminiKey) return null;
+
+    try {
+        console.log('[Vision] Intentando con Gemini 2.0 Flash...');
+        const body = {
+            contents: [{
+                role: 'user',
+                parts: [
+                    { inlineData: { mimeType, data: base64Img } },
+                    { text: prompt }
+                ]
+            }],
+            generationConfig: {
+                maxOutputTokens: 800,
+                temperature: 0.15
+            }
+        };
+
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+
+        const data = await res.json();
+
+        if (data.error) {
+            console.error('[Vision Gemini] Error:', data.error.message);
+            return null;
+        }
+
+        const allParts = data.candidates?.[0]?.content?.parts || [];
+        const text = allParts.map(p => p.text).filter(Boolean).join('\n');
+
+        if (text) {
+            console.log('[Vision Gemini] ✅ Análisis exitoso, longitud:', text.length);
+        } else {
+            console.log('[Vision Gemini] finishReason:', data.candidates?.[0]?.finishReason);
+            if (data.candidates?.[0]?.safetyRatings) console.log('[Vision Gemini] Safety:', JSON.stringify(data.candidates[0].safetyRatings));
+        }
+        return text || null;
+
+    } catch (e) {
+        console.error('[Vision Gemini] Error:', e.message);
+        return null;
     }
 }
 

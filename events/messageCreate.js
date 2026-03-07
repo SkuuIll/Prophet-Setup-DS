@@ -195,29 +195,37 @@ module.exports = {
         }
 
         // ═══ AUTO-INTERVENCIÓN Y VISIÓN (BOT OPINA SOLO) ═══
-        if (esCanal && !message.author.bot && !message.content.startsWith('/')) {
+        // SOLO en el canal #chat (💬・chat)
+        const esCanalChat = config.CHANNELS.CHAT && message.channel.id === config.CHANNELS.CHAT;
+
+        if (esCanalChat && !message.author.bot && !message.content.startsWith('/')) {
             const attachment = message.attachments.find(a => a.contentType?.startsWith('image/'));
 
             // 1. Visión (Si mandan una imagen)
             if (attachment) {
-                // 100% de chances de reaccionar espontáneamente a una imagen
-                if (Math.random() < 1.0) {
-                    try {
-                        const typing = message.channel.sendTyping();
-                        const contexto = `El usuario ${message.author.username} mandó esta imagen al chat general. Comentá o burlate de la imagen.`;
-                        const resVision = await preguntarConVision(message.channel.id, message.content || '¿Qué opinás de esta imagen?', attachment.url, contexto);
-                        await typing;
-                        return setTimeout(() => message.reply(resVision).catch(() => { }), 1000);
-                    } catch (e) { console.error('Error Vision Auto:', e.message); }
+                try {
+                    // Mantener "escribiendo..." activo durante todo el pipeline de visión
+                    // Discord corta el typing después de ~10s, así que lo renovamos cada 8s
+                    const typingInterval = setInterval(() => {
+                        message.channel.sendTyping().catch(() => { });
+                    }, 8000);
+                    message.channel.sendTyping().catch(() => { });
+
+                    const contexto = `El usuario ${message.author.username} mandó esta imagen al chat general. Comentá o burlate de la imagen.`;
+                    const resVision = await preguntarConVision(message.channel.id, message.content || '¿Qué opinás de esta imagen?', attachment.url, contexto);
+
+                    clearInterval(typingInterval);
+                    return setTimeout(() => message.reply(resVision).catch(() => { }), 1000);
+                } catch (e) {
+                    console.error('Error Vision Auto:', e.message);
                 }
             }
             // 2. Intervención espontánea de texto (80% chance)
             else if (message.content.length > 2 && Math.random() < 0.80) {
                 try {
-                    const typing = message.channel.sendTyping();
+                    await message.channel.sendTyping();
                     const contexto = `El usuario ${message.author.username} dijo esto en el chat. Metete en la conversación como si fueras un usuario más. Opiná, bardeá o bromeá sobre lo que dijo. SE BREVE y directo, como si estuvieras charlando.`;
                     const resAuto = await preguntarAIA(message.channel.id, message.content, contexto);
-                    await typing;
                     // send() en lugar de reply para que parezca más natural (como un usuario mandando un mensaje general)
                     return setTimeout(() => message.channel.send(resAuto).catch(() => { }), 1500);
                 } catch (e) { console.error('Error Auto Chat:', e.message); }
