@@ -84,15 +84,13 @@ function verificarSpam(message) {
         return { esSpam: true, razon: `Menciones masivas (${mentions.users.size})` };
     }
 
-    // 5. Mayúsculas excesivas (solo mensajes >10 chars)
-    if (content.length > 10) {
-        const letras = content.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ]/g, '');
-        if (letras.length > 0) {
-            const mayus = letras.replace(/[^A-ZÁÉÍÓÚÑ]/g, '').length;
-            const porcentaje = (mayus / letras.length) * 100;
-            if (porcentaje > config.ANTISPAM.MAX_MAYUSCULAS) {
-                return { esSpam: true, razon: `Exceso de mayúsculas (${Math.round(porcentaje)}%)` };
-            }
+    // 5. Mayúsculas excesivas (evaluando solo las letras, no las menciones ni formatos)
+    const letras = content.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ]/g, '');
+    if (letras.length > 10) {
+        const mayus = letras.replace(/[^A-ZÁÉÍÓÚÑ]/g, '').length;
+        const porcentaje = (mayus / letras.length) * 100;
+        if (porcentaje > config.ANTISPAM.MAX_MAYUSCULAS) {
+            return { esSpam: true, razon: `Exceso de mayúsculas (${Math.round(porcentaje)}%)` };
         }
     }
 

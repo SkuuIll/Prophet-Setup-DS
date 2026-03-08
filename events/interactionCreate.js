@@ -15,6 +15,21 @@ module.exports = {
             const comando = client.commands.get(interaction.commandName);
             if (!comando) return;
 
+            // --- RESTRICCIÓN DE CANALES PARA COMANDOS ---
+            const { PermissionFlagsBits } = require('discord.js');
+            const canalesPermitidos = [config.CHANNELS.COMANDOS_BOT, config.CHANNELS.STAFF];
+
+            // Bypass para administradores o roles del staff preventivo
+            const esStaff = interaction.member.permissions.has(PermissionFlagsBits.Administrator) ||
+                config.STAFF_ROLES.some(rol => interaction.member.roles.cache.some(r => r.name === rol));
+
+            if (!canalesPermitidos.includes(interaction.channelId) && !esStaff) {
+                return interaction.reply({
+                    content: `> 🚫 **Canal incorrecto** — Los comandos deben usarse en <#${config.CHANNELS.COMANDOS_BOT}>.`,
+                    ephemeral: true
+                });
+            }
+
             try {
                 await comando.execute(interaction, client);
                 stmts.addLog('COMMAND', {
