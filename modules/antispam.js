@@ -85,6 +85,8 @@ function verificarSpam(message) {
     }
 
     // 5. Mayúsculas excesivas (evaluando solo las letras, no las menciones ni formatos)
+    // REGLA DESACTIVADA 
+    /*
     const letras = content.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ]/g, '');
     if (letras.length > 10) {
         const mayus = letras.replace(/[^A-ZÁÉÍÓÚÑ]/g, '').length;
@@ -93,6 +95,7 @@ function verificarSpam(message) {
             return { esSpam: true, razon: `Exceso de mayúsculas (${Math.round(porcentaje)}%)` };
         }
     }
+    */
 
     // 6. Palabras prohibidas
     if (config.ANTISPAM.PALABRAS_PROHIBIDAS.length > 0) {
