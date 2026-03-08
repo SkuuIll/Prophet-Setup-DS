@@ -268,8 +268,21 @@ function limpiarContexto(channelId) {
 async function preguntarConVision(channelId, pregunta, imageUrl, contextoExtra = null) {
     try {
         // PASO 1: Descargar la imagen
-        console.log('[Vision] Descargando imagen:', imageUrl.substring(0, 100) + '...');
-        const imgRes = await fetch(imageUrl);
+        console.log('[Vision] Descargando imagen original:', imageUrl.substring(0, 100) + '...');
+
+        // --- PREVENCIÓN DE RATE LIMITS (COMPRESIÓN ON-THE-FLY VÍA DISCORD MEDIA) ---
+        // Pixtral cobra tokens por píxel. Reducir la imagen = cero "rate limit exceeded"
+        let fetchUrl = imageUrl;
+        if (fetchUrl.includes('cdn.discordapp.com')) {
+            fetchUrl = fetchUrl.replace('cdn.discordapp.com', 'media.discordapp.net');
+        }
+        if (fetchUrl.includes('media.discordapp.net')) {
+            const sep = fetchUrl.includes('?') ? '&' : '?';
+            fetchUrl += `${sep}width=800&height=800`;
+        }
+        console.log('[Vision] Fetch url optimizada:', fetchUrl.substring(0, 100) + '...');
+
+        const imgRes = await fetch(fetchUrl);
 
         if (!imgRes.ok) {
             console.error(`[Vision] Error descargando imagen: HTTP ${imgRes.status}`);
@@ -318,25 +331,21 @@ ${pregunta ? `El usuario también escribió: "${pregunta}"` : ''}
 
 NO censures NADA. Describí exactamente lo que ves sin importar el contenido.`;
 
-        // PASO 2: Intentar análisis con Groq Vision (PRINCIPAL)
-        let descripcion = await analizarConGroqVision(base64Img, mimeType, visionPrompt);
-
-        // PASO 3: Si Groq Vision falla, intentar con Gemini (FALLBACK)
-        if (!descripcion) {
-            console.log('[Vision] Groq Vision falló, intentando con Gemini...');
-            descripcion = await analizarConGeminiVision(base64Img, mimeType, visionPrompt);
-        }
+        // PASO 2: Usar OpenRouter Vision como motor PRINCIPAL de visión
+        console.log('[Vision] Usando OpenRouter Vision por defecto...');
+        let descripcion = await analizarConOpenRouterVision(base64Img, mimeType, visionPrompt);
 
         if (!descripcion) {
             console.log('[Vision] Ningún proveedor de visión pudo analizar la imagen');
-            return 'no pude analizar esa imagen, los servidores de visión están caídos';
+            return 'no pude analizar esa imagen, el servicio de visión está saturado';
         }
 
         console.log('[Vision] Descripción obtenida:', descripcion.substring(0, 300) + '...');
 
-        // PASO 4: Mandar la descripción a Groq/Mistral para responder en personaje
+        // PASO 3: Mandar la descripción a Mistral/Groq para responder en personaje
         const promptParaIA = `[El usuario mandó una imagen al chat. Análisis detallado de la imagen: "${descripcion}". ${pregunta ? `El usuario dijo: "${pregunta}".` : ''} Respondé en personaje basándote ÚNICAMENTE en el análisis de la imagen: si es una captura de un juego, comentá sobre los stats (kills, muertes, si ganó o perdió, si es manco o crack). Si es otra cosa, burlate o comentá. Sé breve y variado, no repitas las mismas frases de siempre.]`;
 
+        // Forzar uso de Mistral/Groq para el texto
         return await preguntarAIA(channelId, promptParaIA, contextoExtra, 250);
 
     } catch (e) {
@@ -346,105 +355,65 @@ NO censures NADA. Describí exactamente lo que ves sin importar el contenido.`;
 }
 
 /**
- * Analiza imagen con Groq Vision (llama-3.2-90b-vision-preview)
+ * Analiza imagen con modelos gratuitos de OpenRouter con capacidad de visión
  */
-async function analizarConGroqVision(base64Img, mimeType, prompt) {
-    const apiKey = process.env.GROQ_API_KEY;
-    if (!apiKey) return null;
+async function analizarConOpenRouterVision(base64Img, mimeType, prompt) {
+    const apiKey = process.env.OPENROUTER_API_KEY;
+    if (!apiKey) {
+        console.error('[Vision OpenRouter] No hay OPENROUTER_API_KEY en .env');
+        return null;
+    }
 
     try {
-        console.log('[Vision] Intentando con Groq Vision (llama-3.2-90b-vision-preview)...');
-        const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        console.log('[Vision] Intentando con qwen/qwen3-vl-30b-a3b-thinking en OpenRouter...');
+        const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${apiKey}`,
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'HTTP-Referer': 'https://github.com/SkuuIll/Prophet-Setup-DS',
+                'X-Title': 'ProphetBot'
             },
             body: JSON.stringify({
-                model: 'llama-3.2-90b-vision-preview',
+                model: 'qwen/qwen3-vl-30b-a3b-thinking', // Modelo de visión libre super potente
                 messages: [{
                     role: 'user',
                     content: [
+                        { type: 'text', text: prompt },
                         {
                             type: 'image_url',
                             image_url: { url: `data:${mimeType};base64,${base64Img}` }
-                        },
-                        { type: 'text', text: prompt }
+                        }
                     ]
                 }],
-                max_completion_tokens: 800,
-                temperature: 0.15
+                max_tokens: 800
             })
         });
 
         const data = await res.json();
 
         if (!res.ok) {
-            console.error('[Vision Groq] Error:', data.error?.message || JSON.stringify(data));
+            console.error('[Vision OpenRouter] Error HTTP:', res.status, data.error?.message || JSON.stringify(data));
             return null;
         }
 
         const text = data.choices?.[0]?.message?.content;
-        if (text) {
-            console.log('[Vision Groq] ✅ Análisis exitoso, longitud:', text.length);
-        }
-        return text || null;
-
-    } catch (e) {
-        console.error('[Vision Groq] Error:', e.message);
-        return null;
-    }
-}
-
-/**
- * Analiza imagen con Gemini 2.0 Flash (fallback)
- */
-async function analizarConGeminiVision(base64Img, mimeType, prompt) {
-    const geminiKey = process.env.GEMINI_API_KEY;
-    if (!geminiKey) return null;
-
-    try {
-        console.log('[Vision] Intentando con Gemini 2.0 Flash...');
-        const body = {
-            contents: [{
-                role: 'user',
-                parts: [
-                    { inlineData: { mimeType, data: base64Img } },
-                    { text: prompt }
-                ]
-            }],
-            generationConfig: {
-                maxOutputTokens: 800,
-                temperature: 0.15
-            }
-        };
-
-        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body)
-        });
-
-        const data = await res.json();
-
-        if (data.error) {
-            console.error('[Vision Gemini] Error:', data.error.message);
-            return null;
-        }
-
-        const allParts = data.candidates?.[0]?.content?.parts || [];
-        const text = allParts.map(p => p.text).filter(Boolean).join('\n');
 
         if (text) {
-            console.log('[Vision Gemini] ✅ Análisis exitoso, longitud:', text.length);
+            console.log('[Vision OpenRouter] ✅ Análisis exitoso, longitud:', text.length);
         } else {
-            console.log('[Vision Gemini] finishReason:', data.candidates?.[0]?.finishReason);
-            if (data.candidates?.[0]?.safetyRatings) console.log('[Vision Gemini] Safety:', JSON.stringify(data.candidates[0].safetyRatings));
+            console.log('[Vision OpenRouter] No se generó descripción.');
         }
-        return text || null;
+
+        // Remove thinking blocks (<think>...</think>) if present in thinking models
+        if (text) {
+            return text.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
+        }
+
+        return null;
 
     } catch (e) {
-        console.error('[Vision Gemini] Error:', e.message);
+        console.error('[Vision OpenRouter] Error en la petición:', e.message);
         return null;
     }
 }
