@@ -75,7 +75,7 @@ async function rateLimitedFetch(url) {
 }
 
 // ── Plataformas válidas ──
-const PLATFORMS = ['steam', 'psn', 'xbox', 'kakao', 'stadia'];
+const PLATFORMS = ['steam', 'psn', 'xbox', 'kakao'];
 
 const GAME_MODES = [
     'solo', 'solo-fpp',
@@ -329,6 +329,8 @@ const MAP_NAMES = {
     'Summerland_Main': 'Karakin',
     'Tiger_Main': 'Taego',
     'Neon_Main': 'Rondo',
+    'Boardwalk_Main': 'La Coste',
+    'Türkiye_Main': 'Turkiye',
 };
 
 /**

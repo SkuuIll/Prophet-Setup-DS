@@ -1,6 +1,6 @@
 {
     "name": "prophet-bot",
-    "version": "2.0.0",
+    "version": "2.6.0",
     "description": "Bot privado todo-en-uno para Prophet Gaming",
     "main": "index.js",
     "scripts": {
@@ -12,11 +12,11 @@
         "@discord-player/ffmpeg": "^7.1.0",
         "@discordjs/opus": "^0.10.0",
         "@discordjs/voice": "^0.19.0",
-        "better-sqlite3": "^12.6.2",
+        "better-sqlite3": "^12.8.0",
         "canvas": "^3.2.1",
         "discord-antiraid": "^3.1.3",
         "discord-html-transcripts": "^3.2.0",
-        "discord-player": "^7.1.0",
+        "discord-player": "^7.2.0",
         "discord-player-youtubei": "^1.5.0",
         "discord.js": "^14.25.1",
         "dotenv": "^17.3.1",

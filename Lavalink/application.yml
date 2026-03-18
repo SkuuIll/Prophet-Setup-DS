@@ -7,7 +7,7 @@ lavalink:
     - dependency: "dev.lavalink.youtube:youtube-plugin:1.18.0"
       repository: "https://maven.lavalink.dev/releases"
     # Spotify Source plugin
-    - dependency: "com.github.topi314.lavasrc:lavasrc-plugin:4.4.1"
+    - dependency: "com.github.topi314.lavasrc:lavasrc-plugin:4.8.1"
       repository: "https://maven.lavalink.dev/releases"
   server:
     password: "youshallnotpass"

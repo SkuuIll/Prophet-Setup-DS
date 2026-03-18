@@ -1,4 +1,4 @@
-// ═══ PM2 Ecosystem — Prophet Bot v2.5 ═══
+// ═══ PM2 Ecosystem — Prophet Bot v2.6 ═══
 
 module.exports = {
     apps: [{
@@ -7,8 +7,8 @@ module.exports = {
         cwd: '/root/ProphetBot',
 
         // ── Rendimiento ──
-        node_args: '--max-old-space-size=512 --optimize-for-size',
-        max_memory_restart: '500M',
+        node_args: '--max-old-space-size=512 --optimize-for-size --disable-warning=DEP0040',
+        max_memory_restart: '600M',
 
         // ── Reinicio automático ──
         autorestart: true,
@@ -16,6 +16,9 @@ module.exports = {
         max_restarts: 10,
         min_uptime: '10s',
         restart_delay: 5000,
+
+        // ── Graceful shutdown ──
+        kill_timeout: 5000,       // Esperar 5s antes de SIGKILL
 
         // ── Logs ──
         time: true,

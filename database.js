@@ -567,6 +567,7 @@ const stmts = {
 
 module.exports = {
     stmts,
+    _db: db,
     // Provide a dummy 'data' object in case some module tries to access it, though it shouldn't be used now.
     data: new Proxy({}, {
         get() {

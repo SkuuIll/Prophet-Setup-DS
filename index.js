@@ -1,11 +1,13 @@
 // ═══════════════════════════════════════════════════
-//  PROPHET BOT v2.5 — Entry Point
+//  PROPHET BOT v2.6 — Entry Point
 //  Bot privado para Prophet Gaming
+//  Última revisión: Marzo 2026
 // ═══════════════════════════════════════════════════
 
 const { Client, GatewayIntentBits, Collection, REST, Routes, Partials, EmbedBuilder } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
+const schedule = require('node-schedule');
 const config = require('./config');
 
 // ═══ CREAR CLIENTE ═══
@@ -152,9 +154,10 @@ async function resolverIDs(guild) {
 client.once('clientReady', async () => {
     console.log('');
     console.log('═══════════════════════════════════════');
-    console.log(`  🤖 Prophet Bot v2.5`);
+    console.log(`  🤖 Prophet Bot v2.6`);
     console.log(`  📡 ${client.user.tag}`);
     console.log(`  📅 ${new Date().toLocaleString('es-AR')}`);
+    console.log(`  🟢 Node.js ${process.version}`);
     console.log('═══════════════════════════════════════');
     console.log('');
 
@@ -200,6 +203,68 @@ client.once('clientReady', async () => {
     setInterval(() => verificarServidores(client), 3 * 60 * 1000); // cada 3 min
     console.log('📡 Monitores iniciados: Twitch (2min) · YouTube (10min) · GitHub (15min) · GameServer (3min)');
 
+    // ── Auto-update yt-dlp al iniciar y semanalmente ──
+    const { exec } = require('child_process');
+    function actualizarYtdlp() {
+        exec('yt-dlp -U', { timeout: 30000 }, (err, stdout, stderr) => {
+            if (err) {
+                console.warn('⚠️  yt-dlp update falló:', err.message);
+            } else {
+                const output = (stdout || stderr || '').trim().split('\n').pop();
+                console.log(`📦 yt-dlp: ${output}`);
+            }
+        });
+    }
+    actualizarYtdlp(); // al iniciar
+    setInterval(actualizarYtdlp, 7 * 24 * 60 * 60 * 1000); // cada semana
+
+    // ── Backup diario de SQLite (04:00 UTC = 01:00 ARG) ──
+    schedule.scheduleJob('0 4 * * *', () => {
+        try {
+            const srcPath = path.join(__dirname, 'data', 'prophet.sqlite');
+            const backupDir = path.join(__dirname, 'data', 'backups');
+            if (!fs.existsSync(backupDir)) fs.mkdirSync(backupDir, { recursive: true });
+
+            const fecha = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+            const destPath = path.join(backupDir, `prophet_${fecha}.sqlite`);
+
+            // Usar el backup API de better-sqlite3 (copia segura sin corromper)
+            const { _db } = require('./database');
+            _db.backup(destPath).then(() => {
+                console.log(`💾 Backup SQLite creado: ${destPath}`);
+
+                // Borrar backups de más de 7 días
+                const archivos = fs.readdirSync(backupDir).filter(f => f.startsWith('prophet_') && f.endsWith('.sqlite'));
+                const hace7dias = Date.now() - 7 * 24 * 60 * 60 * 1000;
+                for (const archivo of archivos) {
+                    const filePath = path.join(backupDir, archivo);
+                    const stat = fs.statSync(filePath);
+                    if (stat.mtimeMs < hace7dias) {
+                        fs.unlinkSync(filePath);
+                        console.log(`🗑️  Backup viejo eliminado: ${archivo}`);
+                    }
+                }
+            }).catch(e => console.error('❌ Error en backup SQLite:', e.message));
+        } catch (e) {
+            console.error('❌ Error en sistema de backup:', e.message);
+        }
+    });
+    console.log('💾 Backup SQLite programado: 04:00 UTC diario (retención 7 días)');
+
+    // ── Limpieza mensual de warns viejos (+6 meses) ──
+    schedule.scheduleJob('0 5 1 * *', () => {  // 1ero de cada mes a las 05:00 UTC
+        try {
+            const { _db } = require('./database');
+            const hace6meses = new Date(Date.now() - 180 * 24 * 60 * 60 * 1000).toISOString();
+            const result = _db.prepare('DELETE FROM warns WHERE created_at < ?').run(hace6meses);
+            if (result.changes > 0) {
+                console.log(`🧹 ${result.changes} warns viejos (+6 meses) limpiados automáticamente`);
+            }
+        } catch (e) {
+            console.error('❌ Error limpiando warns:', e.message);
+        }
+    });
+
     // ── Tempban expiry checker (cada 60s) ──
     // (dbStmts ya fue declarado arriba)
     setInterval(async () => {
@@ -240,7 +305,7 @@ client.once('clientReady', async () => {
     }, 60000);
 
     // 🎂 Comprobador de cumpleaños (Todos los días a las 00:00)
-    const schedule = require('node-schedule');
+    // ── Reseteo DIARIO de claims diarios (midnight ARG) ──
     schedule.scheduleJob('0 3 * * *', async () => { // 00:00 Argentina (UTC-3) = 03:00 UTC
         try {
             // Obtener el día y mes actual (formato DD/MM)
@@ -290,7 +355,14 @@ client.once('clientReady', async () => {
 
     client.user.setActivity('Prophet Gaming 🎮', { type: 3 }); // "Watching"
 
-    dbStmts.addLog('SYSTEM_BOOT', { version: '2.5.0', message: 'Prophet Bot iniciado correctamente' });
+    dbStmts.addLog('SYSTEM_BOOT', { version: '2.6.0', message: 'Prophet Bot iniciado correctamente' });
+
+    // ── Heartbeat periódico para monitoreo (cada 6 horas) ──
+    setInterval(() => {
+        const mem = process.memoryUsage();
+        const uptime = Math.floor(process.uptime() / 3600);
+        console.log(`💓 Heartbeat | Uptime: ${uptime}h | RAM: ${Math.round(mem.rss / 1024 / 1024)}MB | Guilds: ${client.guilds.cache.size} | Canales IA: ${require('./modules/aiChat').getContextStats().canalesActivos}`);
+    }, 6 * 60 * 60 * 1000);
 });
 
 // Cargar todo
@@ -299,13 +371,34 @@ cargarEventos();
 
 // Manejo de errores global
 process.on('unhandledRejection', (err) => {
-    console.error('❌ Error no manejado:', err.message);
+    console.error('❌ Error no manejado:', err?.message || err);
+    if (err?.stack) console.error('   Stack:', err.stack.split('\n').slice(0, 3).join('\n'));
 });
 
 process.on('uncaughtException', (err) => {
     console.error('💀 Error fatal:', err.message);
     console.error(err.stack);
 });
+
+// ═══ GRACEFUL SHUTDOWN ═══
+async function shutdown(signal) {
+    console.log(`\n🛑 Recibida señal ${signal}. Apagando bot...`);
+    try {
+        const db = require('./database');
+        // Cerrar la base de datos de forma limpia
+        if (db._db) db._db.close();
+        console.log('💾 Base de datos cerrada correctamente');
+    } catch (e) { /* ignorar si ya estaba cerrada */ }
+    try {
+        client.destroy();
+        console.log('🔌 Cliente de Discord desconectado');
+    } catch (e) { /* ignorar */ }
+    console.log('👋 Prophet Bot apagado correctamente');
+    process.exit(0);
+}
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
 
 // Validaciones Iniciales
 if (!config.TOKEN) {

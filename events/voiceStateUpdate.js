@@ -14,19 +14,34 @@ module.exports = {
         const userId = member.id;
         const guild = member.guild;
 
-        // ── VOICE XP: Tracking de sesión ────────────────────────────────────────────────────
+        // ── VOICE XP: Tracking de sesión (con anti-abuse) ────────────────────────────
         if (!member.client.voiceSessions) member.client.voiceSessions = new Map();
 
         const joiningVoice = !oldState.channelId && newState.channelId;
         const leavingVoice = oldState.channelId && !newState.channelId;
+        const stateChanged = oldState.channelId && newState.channelId; // mute/deafen/move
+
+        // Helper: verificar si un usuario está en condiciones de ganar XP
+        const esElegibleXP = (state) => {
+            if (!state.channelId) return false;
+            // No dar XP si está self-deafened (AFK farming)
+            if (state.selfDeaf) return false;
+            // No dar XP si está en un canal AFK
+            if (state.channel && state.guild.afkChannelId === state.channelId) return false;
+            // No dar XP si está solo en el canal (sin contar bots)
+            if (state.channel && state.channel.members.filter(m => !m.user.bot).size < 2) return false;
+            return true;
+        };
 
         if (joiningVoice) {
-            // Registrar el momento en que entró
-            member.client.voiceSessions.set(userId, {
-                joinedAt: Date.now(),
-                guildId: guild.id,
-                channelId: newState.channelId
-            });
+            // Solo registrar si cumple condiciones
+            if (esElegibleXP(newState)) {
+                member.client.voiceSessions.set(userId, {
+                    joinedAt: Date.now(),
+                    guildId: guild.id,
+                    channelId: newState.channelId
+                });
+            }
         } else if (leavingVoice) {
             // Al salir: dar XP por el tiempo acumulado
             const session = member.client.voiceSessions.get(userId);
@@ -36,6 +51,26 @@ module.exports = {
                     procesarXPVoz(userId, minutosTranscurridos);
                 }
                 member.client.voiceSessions.delete(userId);
+            }
+        } else if (stateChanged) {
+            // Si cambió estado (mute/deafen/move): reevaluar elegibilidad
+            const session = member.client.voiceSessions.get(userId);
+            const ahora = esElegibleXP(newState);
+
+            if (session && !ahora) {
+                // Estaba trackeando pero ya no es elegible → guardar XP parcial y pausar
+                const minutosTranscurridos = Math.floor((Date.now() - session.joinedAt) / 60000);
+                if (minutosTranscurridos >= 1) {
+                    procesarXPVoz(userId, minutosTranscurridos);
+                }
+                member.client.voiceSessions.delete(userId);
+            } else if (!session && ahora) {
+                // No estaba trackeando pero ahora sí es elegible → empezar
+                member.client.voiceSessions.set(userId, {
+                    joinedAt: Date.now(),
+                    guildId: guild.id,
+                    channelId: newState.channelId
+                });
             }
         }
         // ─────────────────────────────────────────────────────────────────────────────

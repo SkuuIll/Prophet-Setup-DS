@@ -13,7 +13,6 @@ module.exports = {
     once: false,
     async execute(message) {
         if (message.author.bot || !message.guild) return;
-        console.log(`[DEBUG] Mensaje recibido de ${message.author.username}: "${message.content.substring(0, 50)}" en #${message.channel.name}`);
 
         // ═══ COUNTING GAME ═══
         const countingChannelId = stmts.getConfig('COUNTING_CHANNEL')?.value;
@@ -221,7 +220,7 @@ module.exports = {
                 }
             }
             // 2. Intervención espontánea de texto (80% chance)
-            else if (message.content.length > 2 && Math.random() < 0.80) {
+            else if (message.content.length > 10 && Math.random() < 0.35) {
                 try {
                     await message.channel.sendTyping();
                     const contexto = `El usuario ${message.author.username} dijo esto en el chat. Metete en la conversación como si fueras un usuario más. Opiná, bardeá o bromeá sobre lo que dijo. SE BREVE y directo, como si estuvieras charlando.`;
