@@ -7,6 +7,16 @@ const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, Butt
 
 // Historial por usuario
 const historiales = new Map();
+const HISTORIAL_MAX = 20; // Máximo de entradas por usuario
+
+// Limpieza periódica de historiales antiguos (cada 30 min)
+setInterval(() => {
+    if (historiales.size > 100) {
+        // Si hay más de 100 usuarios, limpiar los más antiguos
+        const keys = Array.from(historiales.keys()).slice(0, historiales.size - 100);
+        keys.forEach(k => historiales.delete(k));
+    }
+}, 30 * 60 * 1000);
 
 module.exports = {
     data: new SlashCommandBuilder()

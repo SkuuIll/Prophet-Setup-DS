@@ -13,6 +13,16 @@ const {
 // ─────────────────────────────────────────────────────────────
 const serverQueues = new Map();
 
+// Limpieza periódica de colas huérfanas (cada 5 min)
+setInterval(() => {
+    for (const [guildId, sq] of serverQueues) {
+        // Eliminar colas sin reproductor activo o sin canción actual
+        if (!sq.player || !sq.current) {
+            serverQueues.delete(guildId);
+        }
+    }
+}, 5 * 60 * 1000);
+
 const MUSIC_COLORS = {
     PLAYING: 0xBB86FC,
     PAUSED: 0xFFB74D,
