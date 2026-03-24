@@ -5,7 +5,7 @@ const client = new Client({
     intents: [GatewayIntentBits.Guilds]
 });
 
-client.once('ready', async () => {
+client.once('clientReady', async () => {
     console.log(`Bot conectado como ${client.user.tag}`);
     const guild = client.guilds.cache.get(config.GUILD_ID);
 
