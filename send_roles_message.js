@@ -1,12 +1,13 @@
 const { Client, GatewayIntentBits, EmbedBuilder } = require('discord.js');
 const config = require('./config');
+const { getChannel } = require('./utils/runtimeConfig');
 require('dotenv').config();
 
 const client = new Client({
     intents: [GatewayIntentBits.Guilds]
 });
 
-client.once('clientReady', async () => {
+client.once('ready', async () => {
     console.log(`🤖 Logueado como ${client.user.tag}`);
     const guild = client.guilds.cache.get(config.GUILD_ID);
 
@@ -15,12 +16,10 @@ client.once('clientReady', async () => {
         process.exit(1);
     }
 
-    // Buscar canal de roles
-    const channelName = config.CHANNELS.ROLES;
-    const channel = guild.channels.cache.find(c => c.name === channelName);
+    const channel = getChannel(guild, 'ROLES');
 
     if (!channel) {
-        console.error(`❌ No se encontró el canal de roles: ${channelName}`);
+        console.error('❌ No se encontró el canal de roles.');
         process.exit(1);
     }
 

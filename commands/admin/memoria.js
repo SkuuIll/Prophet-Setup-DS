@@ -20,7 +20,7 @@ module.exports = {
             .setTitle('🧠 Memoria del Sistema — Últimas Acciones')
             .setDescription('Aquí tienes los últimos eventos registrados por el bot:')
             .setTimestamp()
-            .setFooter({ text: 'Prophet Bot v2.0 • Memoria persistente' });
+            .setFooter({ text: 'Prophet Bot v2.9 • Memoria persistente' });
 
         logs.forEach((log, i) => {
             const time = new Date(log.timestamp).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });

@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ProphetBot · Dashboard interno</title>
+    <link rel="stylesheet" href="/dashboard/styles.css">
+</head>
+<body>
+    <div class="shell">
+        <header class="hero">
+            <div>
+                <p class="eyebrow">Dashboard interno</p>
+                <h1>ProphetBot Control Center</h1>
+                <p class="subtitle">Vista operativa privada del bot, la base de datos y los módulos principales.</p>
+            </div>
+            <div class="hero-meta">
+                <span id="status-badge" class="badge badge-warn">Cargando...</span>
+                <span id="generated-at" class="muted">Sin datos</span>
+            </div>
+        </header>
+
+        <section class="grid metrics-grid">
+            <article class="card metric-card">
+                <span class="label">Servidor</span>
+                <strong id="metric-guild">-</strong>
+                <small id="metric-members">-</small>
+            </article>
+            <article class="card metric-card">
+                <span class="label">Estado del bot</span>
+                <strong id="metric-ready">-</strong>
+                <small id="metric-ping">-</small>
+            </article>
+            <article class="card metric-card">
+                <span class="label">Uptime</span>
+                <strong id="metric-uptime">-</strong>
+                <small id="metric-version">-</small>
+            </article>
+            <article class="card metric-card">
+                <span class="label">RAM</span>
+                <strong id="metric-memory">-</strong>
+                <small id="metric-node">-</small>
+            </article>
+            <article class="card metric-card">
+                <span class="label">SQLite</span>
+                <strong id="metric-db-size">-</strong>
+                <small id="metric-backups">-</small>
+            </article>
+            <article class="card metric-card">
+                <span class="label">IA / Voz</span>
+                <strong id="metric-ai">-</strong>
+                <small id="metric-voice">-</small>
+            </article>
+        </section>
+
+        <section class="grid two-columns">
+            <article class="card">
+                <h2>Resumen técnico</h2>
+                <div id="summary-grid" class="kv-grid"></div>
+            </article>
+            <article class="card">
+                <h2>Base de datos</h2>
+                <div id="database-grid" class="kv-grid"></div>
+            </article>
+        </section>
+
+        <section class="grid two-columns">
+            <article class="card">
+                <h2>Monitor de salud</h2>
+                <div id="health-summary-grid" class="kv-grid"></div>
+                <div class="stack stack-lg">
+                    <div>
+                        <h3>Servicios core</h3>
+                        <div id="health-core-table" class="table-host"></div>
+                    </div>
+                    <div>
+                        <h3>Jobs y monitores</h3>
+                        <div id="health-jobs-table" class="table-host"></div>
+                    </div>
+                </div>
+            </article>
+            <article class="card">
+                <h2>Centro de analítica</h2>
+                <div id="analytics-summary-grid" class="kv-grid"></div>
+                <div class="stack stack-lg">
+                    <div>
+                        <h3>Actividad de los últimos 7 días</h3>
+                        <div id="analytics-daily-table" class="table-host"></div>
+                    </div>
+                </div>
+            </article>
+        </section>
+
+        <section class="grid two-columns">
+            <article class="card">
+                <h2>Comandos y canales</h2>
+                <div class="stack">
+                    <div>
+                        <h3>Comandos más usados</h3>
+                        <div id="analytics-commands-table" class="table-host"></div>
+                    </div>
+                    <div>
+                        <h3>Canales más activos</h3>
+                        <div id="analytics-channels-table" class="table-host"></div>
+                    </div>
+                    <div>
+                        <h3>Canales de voz más usados</h3>
+                        <div id="analytics-voice-channels-table" class="table-host"></div>
+                    </div>
+                </div>
+            </article>
+            <article class="card">
+                <h2>Errores y alertas</h2>
+                <div class="stack">
+                    <div>
+                        <h3>Fuentes de error</h3>
+                        <div id="analytics-errors-table" class="table-host"></div>
+                    </div>
+                    <div>
+                        <h3>Alertas disparadas por monitores</h3>
+                        <div id="analytics-alerts-table" class="table-host"></div>
+                    </div>
+                </div>
+            </article>
+        </section>
+
+        <section class="grid two-columns">
+            <article class="card">
+                <h2>Leaderboards</h2>
+                <div class="tabs">
+                    <button class="tab-button active" data-target="xp-table">XP</button>
+                    <button class="tab-button" data-target="eco-table">Economía</button>
+                    <button class="tab-button" data-target="voice-table">Voz</button>
+                </div>
+                <div id="xp-table" class="table-host"></div>
+                <div id="eco-table" class="table-host hidden"></div>
+                <div id="voice-table" class="table-host hidden"></div>
+            </article>
+            <article class="card">
+                <h2>Módulos y monitores</h2>
+                <div id="monitors-grid" class="kv-grid"></div>
+                <div id="monitors-lists" class="stack stack-lg"></div>
+            </article>
+        </section>
+
+        <section class="grid two-columns">
+            <article class="card">
+                <div class="section-head">
+                    <div class="section-copy">
+                        <h2>Retención de miembros</h2>
+                        <p class="muted">Métricas de crecimiento y retención del servidor.</p>
+                    </div>
+                </div>
+                <div id="retention-grid" class="kv-grid"></div>
+                <div>
+                    <h3>Evolución diaria (30 días)</h3>
+                    <div id="retention-daily-table" class="table-host"></div>
+                </div>
+            </article>
+            <article class="card">
+                <div class="section-head">
+                    <div class="section-copy">
+                        <h2>Acciones rápidas</h2>
+                        <p class="muted">Operaciones frecuentes para administración.</p>
+                    </div>
+                </div>
+                <div class="quick-actions">
+                    <button id="btn-send-summary" class="button">Enviar resumen técnico diario</button>
+                </div>
+                <p id="quick-actions-status" class="form-status muted"></p>
+            </article>
+        </section>
+
+        <section class="grid two-columns">
+            <article class="card">
+                <div class="section-head">
+                    <div class="section-copy">
+                        <h2>Tickets activos</h2>
+                        <p class="muted">Canales de soporte abiertos. Cerrar desde aquí elimina el canal.</p>
+                    </div>
+                </div>
+                <div id="tickets-table" class="table-host"></div>
+            </article>
+            <article class="card">
+                <div class="section-head">
+                    <div class="section-copy">
+                        <h2>Sorteos</h2>
+                        <p class="muted">Sorteos activos y finalizados. Podés forzar el sorteo desde aquí.</p>
+                    </div>
+                </div>
+                <div class="tabs">
+                    <button class="tab-button active" data-target="giveaways-active-table">Activos</button>
+                    <button class="tab-button" data-target="giveaways-ended-table">Finalizados</button>
+                </div>
+                <div id="giveaways-active-table" class="table-host"></div>
+                <div id="giveaways-ended-table" class="table-host hidden"></div>
+            </article>
+        </section>
+
+        <section class="grid two-columns">
+            <article class="card">
+                <div class="section-head">
+                    <div class="section-copy">
+                        <h2>Recordatorios pendientes</h2>
+                        <p class="muted">Recordatorios programados por usuarios. Podés eliminarlos si es necesario.</p>
+                    </div>
+                </div>
+                <div id="reminders-table" class="table-host"></div>
+            </article>
+            <article class="card">
+                <div class="section-head">
+                    <div class="section-copy">
+                        <h2>Reportes / Warns recientes</h2>
+                        <p class="muted">Advertencias registradas. Podés limpiar los warns de un usuario.</p>
+                    </div>
+                </div>
+                <div id="reportes-table" class="table-host"></div>
+            </article>
+        </section>
+
+        <section class="grid two-columns">
+            <article class="card">
+                <div class="section-head">
+                    <div class="section-copy">
+                        <h2>Configuración editable</h2>
+                        <p class="muted">Overrides persistidos para módulos internos. Usá IDs de Discord válidos o dejá vacío para limpiar el valor guardado.</p>
+                    </div>
+                </div>
+                <p id="config-save-status" class="form-status muted">Sin cambios pendientes.</p>
+                <form id="editable-config-form" class="settings-form"></form>
+            </article>
+            <article class="card">
+                <h2>Estado persistido / runtime</h2>
+                <div id="runtime-config" class="table-host"></div>
+            </article>
+        </section>
+
+        <section class="card">
+            <h2>Configuración estática</h2>
+            <pre id="static-config" class="json-box">Cargando...</pre>
+        </section>
+
+        <section class="card">
+            <h2>Logs recientes</h2>
+            <div id="logs-table" class="table-host"></div>
+        </section>
+    </div>
+
+    <script src="/dashboard/app.js" defer></script>
+</body>
+</html>

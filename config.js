@@ -4,7 +4,7 @@
 
 require('dotenv').config();
 
-module.exports = {
+const config = {
     // Token del bot (usar variable de entorno en producción)
     TOKEN: process.env.DISCORD_TOKEN,
 
@@ -170,6 +170,7 @@ module.exports = {
         WORK_COOLDOWN: 1800000,       // 30 minutos en ms
         WORK_MIN: 50,                 // Mínimo de work
         WORK_MAX: 300,                // Máximo de work
+        BOOST_REWARD: 5000,           // Recompensa por boostear el servidor
     },
 
     // Sugerencias
@@ -179,6 +180,22 @@ module.exports = {
 
     // Permisos — Roles que pueden usar comandos de moderación
     STAFF_ROLES: ['👑 Prophet', '🛡️ Staff', '⚔️ Moderador'],
+
+    // Lavalink / Shoukaku
+    LAVALINK: {
+        URL: process.env.LAVALINK_URL || 'localhost:2333',
+        PASSWORD: process.env.LAVALINK_PASSWORD || 'youshallnotpass',
+        SECURE: process.env.LAVALINK_SECURE === 'true',
+    },
+
+    // Dashboard interno
+    DASHBOARD: {
+        ENABLED: process.env.DASHBOARD_ENABLED !== 'false',
+        HOST: process.env.DASHBOARD_HOST || '127.0.0.1',
+        PORT: Number.parseInt(process.env.DASHBOARD_PORT || '3789', 10),
+        TOKEN: process.env.DASHBOARD_TOKEN || null,
+        REFRESH_MS: Number.parseInt(process.env.DASHBOARD_REFRESH_MS || '30000', 10),
+    },
 
     // APIs externas (Gaming Stats)
     APIS: {
@@ -202,3 +219,32 @@ module.exports = {
         MUSIC_BANNER: 'https://raw.githubusercontent.com/SkuuIll/Prophet-Setup-DS/main/assets/music_banner.png',
     }
 };
+
+config.CHANNELS.BIENVENIDA = config.CHANNELS.BIENVENIDOS;
+config.CHANNELS.GENERAL = config.CHANNELS.CHAT;
+config.CHANNELS.LOGS_MOD = config.CHANNELS.REPORTES;
+config.CANALES = config.CHANNELS;
+
+config.validateConfig = function validateConfig() {
+    const errors = [];
+    const warnings = [];
+
+    if (!config.TOKEN) errors.push('Falta la variable de entorno DISCORD_TOKEN.');
+    if (!config.GUILD_ID) errors.push('Falta la variable de entorno GUILD_ID.');
+    if (!Number.isInteger(config.DASHBOARD.PORT) || config.DASHBOARD.PORT < 1 || config.DASHBOARD.PORT > 65535) {
+        errors.push('DASHBOARD_PORT debe ser un puerto válido entre 1 y 65535.');
+    }
+    if (!Number.isInteger(config.DASHBOARD.REFRESH_MS) || config.DASHBOARD.REFRESH_MS < 5000) {
+        errors.push('DASHBOARD_REFRESH_MS debe ser un número entero mayor o igual a 5000.');
+    }
+    if (!config.LAVALINK.PASSWORD || config.LAVALINK.PASSWORD === 'youshallnotpass') {
+        warnings.push('LAVALINK_PASSWORD está usando el valor por defecto.');
+    }
+    if (!config.DASHBOARD.TOKEN && !['127.0.0.1', 'localhost', '::1'].includes(config.DASHBOARD.HOST)) {
+        warnings.push('El dashboard escucha fuera de localhost sin DASHBOARD_TOKEN.');
+    }
+
+    return { errors, warnings };
+};
+
+module.exports = config;

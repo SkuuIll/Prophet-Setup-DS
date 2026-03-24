@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════
-//  PROPHET BOT v2.6 — Entry Point
+//  PROPHET BOT v2.9 — Entry Point
 //  Bot privado para Prophet Gaming
 //  Última revisión: Marzo 2026
 // ═══════════════════════════════════════════════════
@@ -9,6 +9,8 @@ const fs = require('fs');
 const path = require('path');
 const schedule = require('node-schedule');
 const config = require('./config');
+const { startDashboardServer } = require('./web/server');
+const { captureChannelBaseValues, applyChannelOverridesToConfig } = require('./utils/runtimeConfig');
 
 // ═══ CREAR CLIENTE ═══
 const client = new Client({
@@ -118,43 +120,85 @@ async function resolverIDs(guild) {
     await guild.channels.fetch();
     await guild.roles.fetch();
 
-    const buscarCanal = (nombre) => guild.channels.cache.find(c => c.name === nombre);
-    const buscarRol = (nombre) => guild.roles.cache.find(r => r.name === nombre);
+    const resolverCanal = (value) => guild.channels.cache.get(value) || guild.channels.cache.find(channel => channel.name === value);
+    const resolverRol = (value) => guild.roles.cache.get(value) || guild.roles.cache.find(role => role.name === value);
 
-    // Canales (nuevos nombres del rediseño)
-    config.CHANNELS.REGLAS = buscarCanal('📜・reglas')?.id;
-    config.CHANNELS.BIENVENIDOS = buscarCanal('👋・bienvenidos')?.id;
-    config.CHANNELS.ANUNCIOS = buscarCanal('📢・anuncios')?.id;
-    config.CHANNELS.ROLES = buscarCanal('🏷️・roles')?.id;
-    config.CHANNELS.CHAT = buscarCanal('💬・chat')?.id;
-    config.CHANNELS.CHAT_VIP = buscarCanal('💎・chat-vip')?.id;
-    config.CHANNELS.MULTIMEDIA = buscarCanal('🖼️・multimedia')?.id;
-    config.CHANNELS.SOPORTE = buscarCanal('❓・soporte')?.id;
-    config.CHANNELS.COMANDOS_BOT = buscarCanal('🤖・bot-comandos')?.id;
-    config.CHANNELS.STREAMS = buscarCanal('🖥️・streams')?.id;
-    config.CHANNELS.LOGS = buscarCanal('⚙️・logs')?.id;
+    for (const [key, value] of Object.entries({ ...config.CHANNELS })) {
+        const channel = resolverCanal(value);
+        if (channel) config.CHANNELS[key] = channel.id;
+    }
 
-    // Roles
-    config.ROLES.PROPHET = buscarRol('👑 Prophet')?.id;
-    config.ROLES.STAFF = buscarRol('🛡️ Staff')?.id;
-    config.ROLES.MODERADOR = buscarRol('⚔️ Moderador')?.id;
-    config.ROLES.VIP = buscarRol('💎 VIP')?.id;
-    config.ROLES.VETERANO = buscarRol('🌟 Veterano')?.id;
-    config.ROLES.MIEMBRO = buscarRol('👤 Miembro')?.id;
-    config.ROLES.NUEVO = buscarRol('🆕 Nuevo')?.id;
-    config.ROLES.BOTS = buscarRol('🤖 Bots')?.id;
+    for (const [key, value] of Object.entries({ ...config.ROLES })) {
+        const role = resolverRol(value);
+        if (role) config.ROLES[key] = role.id;
+    }
 
     console.log('🔗 IDs resueltos:');
-    console.log('   Canales:', Object.entries(config.CHANNELS).filter(([, v]) => v).length, '/', Object.keys(config.CHANNELS).length);
-    console.log('   Roles:', Object.entries(config.ROLES).filter(([, v]) => v).length, '/', Object.keys(config.ROLES).length);
+    console.log('   Canales:', Object.values(config.CHANNELS).filter(value => guild.channels.cache.has(value)).length, '/', Object.keys(config.CHANNELS).length);
+    console.log('   Roles:', Object.values(config.ROLES).filter(value => guild.roles.cache.has(value)).length, '/', Object.keys(config.ROLES).length);
 }
 
+function startProtectedInterval(name, job, intervalMs) {
+    let running = false;
+    const { stmts } = require('./database');
+
+    stmts.setHealthCheck(`job:${name}`, {
+        status: 'idle',
+        details: {
+            intervalMs,
+            message: 'Programado, pendiente de primera ejecución'
+        }
+    });
+
+    return setInterval(async () => {
+        if (running) {
+            console.warn(`⏱️ [${name}] ejecución omitida por solapamiento`);
+            stmts.incrementAnalyticsMetric('job_overlaps', name, 1);
+            stmts.setHealthCheck(`job:${name}`, {
+                status: 'warn',
+                details: {
+                    intervalMs,
+                    message: 'Ejecución omitida por solapamiento'
+                }
+            });
+            return;
+        }
+
+        running = true;
+        const startedAt = Date.now();
+        try {
+            await job();
+            const durationMs = Date.now() - startedAt;
+            stmts.incrementAnalyticsMetric('job_runs', name, 1);
+            stmts.setHealthCheck(`job:${name}`, {
+                status: 'ok',
+                durationMs,
+                details: { intervalMs }
+            });
+        } catch (error) {
+            const durationMs = Date.now() - startedAt;
+            console.error(`❌ [${name}] ${error.message}`);
+            stmts.incrementAnalyticsMetric('job_failures', name, 1);
+            stmts.incrementAnalyticsMetric('error_events', `job:${name}`, 1);
+            stmts.setHealthCheck(`job:${name}`, {
+                status: 'error',
+                durationMs,
+                details: {
+                    intervalMs,
+                    message: error.message,
+                }
+            });
+        } finally {
+            running = false;
+        }
+    }, intervalMs);
+}
 
 // ═══ INICIO ═══
-client.once('clientReady', async () => {
+client.once('ready', async () => {
     console.log('');
     console.log('═══════════════════════════════════════');
-    console.log(`  🤖 Prophet Bot v2.6`);
+    console.log(`  🤖 Prophet Bot v2.9`);
     console.log(`  📡 ${client.user.tag}`);
     console.log(`  📅 ${new Date().toLocaleString('es-AR')}`);
     console.log(`  🟢 Node.js ${process.version}`);
@@ -168,7 +212,14 @@ client.once('clientReady', async () => {
     }
 
     await resolverIDs(guild);
+    captureChannelBaseValues();
+    applyChannelOverridesToConfig();
     await registrarComandos();
+
+    // Inicializar sistema de perfiles avanzados
+    const { initializeProfileSystem } = require('./modules/profileSystem');
+    initializeProfileSystem();
+
     await require('./modules/musicEngine')(client);
     // Shoukaku ya se inicializó antes del login (ver abajo)
 
@@ -187,9 +238,15 @@ client.once('clientReady', async () => {
         if (tempChannels.length > 0) console.log(`🔊 ${tempChannels.length} canales temporales verificados al boot`);
     } catch (e) { console.error('❌ Error limpiando canales temporales al boot:', e.message); }
 
+    const { loadPendingReminders } = require('./modules/reminders');
+    const remindersLoaded = loadPendingReminders(client);
+    if (remindersLoaded > 0) {
+        console.log(`⏰ ${remindersLoaded} recordatorios rehidratados desde SQLite`);
+    }
+
     // Iniciar chequeo de sorteos
     const { verificarSorteos } = require('./modules/giveaways');
-    setInterval(() => verificarSorteos(client), 30000);
+    startProtectedInterval('sorteos', () => verificarSorteos(client), 30000);
 
     // ── Notificaciones: Twitch / YouTube / GitHub / GameServers ──
     const { verificarTwitch } = require('./modules/twitchMonitor');
@@ -197,10 +254,10 @@ client.once('clientReady', async () => {
     const { verificarGithub } = require('./modules/githubMonitor');
     const { verificarServidores } = require('./modules/gameServerMonitor');
 
-    setInterval(() => verificarTwitch(client), 2 * 60 * 1000);     // cada 2 min
-    setInterval(() => verificarYoutube(client), 10 * 60 * 1000);   // cada 10 min
-    setInterval(() => verificarGithub(client), 15 * 60 * 1000);    // cada 15 min
-    setInterval(() => verificarServidores(client), 3 * 60 * 1000); // cada 3 min
+    startProtectedInterval('monitor-twitch', () => verificarTwitch(client), 2 * 60 * 1000);
+    startProtectedInterval('monitor-youtube', () => verificarYoutube(client), 10 * 60 * 1000);
+    startProtectedInterval('monitor-github', () => verificarGithub(client), 15 * 60 * 1000);
+    startProtectedInterval('monitor-servidores', () => verificarServidores(client), 3 * 60 * 1000);
     console.log('📡 Monitores iniciados: Twitch (2min) · YouTube (10min) · GitHub (15min) · GameServer (3min)');
 
     // ── Auto-update yt-dlp al iniciar y semanalmente ──
@@ -267,41 +324,39 @@ client.once('clientReady', async () => {
 
     // ── Tempban expiry checker (cada 60s) ──
     // (dbStmts ya fue declarado arriba)
-    setInterval(async () => {
-        try {
-            const expired = dbStmts.getActiveTempbans();
-            for (const tb of expired) {
-                try {
-                    const targetGuild = client.guilds.cache.get(tb.guild_id);
-                    if (targetGuild) {
-                        await targetGuild.members.unban(tb.user_id, 'Tempban expirado - desbaneo automático');
-                        console.log(`🔓 Tempban expirado: ${tb.user_id}`);
+    startProtectedInterval('tempban-checker', async () => {
+        const expired = dbStmts.getActiveTempbans();
+        for (const tb of expired) {
+            try {
+                const targetGuild = client.guilds.cache.get(tb.guild_id);
+                if (targetGuild) {
+                    await targetGuild.members.unban(tb.user_id, 'Tempban expirado - desbaneo automático');
+                    console.log(`🔓 Tempban expirado: ${tb.user_id}`);
 
-                        dbStmts.addLog('SYSTEM_UNBAN', { userId: tb.user_id, guildId: tb.guild_id });
+                    dbStmts.addLog('SYSTEM_UNBAN', { userId: tb.user_id, guildId: tb.guild_id });
 
-                        const logCh = targetGuild.channels.cache.get(config.CHANNELS.LOGS);
-                        if (logCh) {
-                            const { EmbedBuilder: EB } = require('discord.js');
-                            const unbanEmbed = new EB()
-                                .setColor(0x69F0AE)
-                                .setAuthor({ name: '🔓  Desbaneo automático' })
-                                .setDescription(
-                                    `> **Usuario:** <@${tb.user_id}> (\`${tb.user_id}\`)\n` +
-                                    `> **Ban original:** ${tb.reason || 'Sin razón'}\n` +
-                                    `> **Moderador original:** <@${tb.mod_id || 'Desconocido'}>`
-                                )
-                                .setFooter({ text: 'Prophet  ·  Tempban expirado' })
-                                .setTimestamp();
-                            logCh.send({ embeds: [unbanEmbed] });
-                        }
+                    const logCh = targetGuild.channels.cache.get(config.CHANNELS.LOGS);
+                    if (logCh) {
+                        const { EmbedBuilder: EB } = require('discord.js');
+                        const unbanEmbed = new EB()
+                            .setColor(0x69F0AE)
+                            .setAuthor({ name: '🔓  Desbaneo automático' })
+                            .setDescription(
+                                `> **Usuario:** <@${tb.user_id}> (\`${tb.user_id}\`)\n` +
+                                `> **Ban original:** ${tb.reason || 'Sin razón'}\n` +
+                                `> **Moderador original:** <@${tb.mod_id || 'Desconocido'}>`
+                            )
+                            .setFooter({ text: 'Prophet  ·  Tempban expirado' })
+                            .setTimestamp();
+                        logCh.send({ embeds: [unbanEmbed] });
                     }
-                    dbStmts.removeTempban(tb.guild_id, tb.user_id);
-                } catch (e) {
-                    console.error(`❌ Error desbaneando ${tb.user_id}:`, e.message);
-                    dbStmts.removeTempban(tb.guild_id, tb.user_id);
                 }
+                dbStmts.removeTempban(tb.guild_id, tb.user_id);
+            } catch (e) {
+                console.error(`❌ Error desbaneando ${tb.user_id}:`, e.message);
+                dbStmts.removeTempban(tb.guild_id, tb.user_id);
             }
-        } catch (e) { console.error('❌ Error en tempban checker:', e.message); }
+        }
     }, 60000);
 
     // 🎂 Comprobador de cumpleaños (Todos los días a las 00:00)
@@ -357,8 +412,24 @@ client.once('clientReady', async () => {
 
     dbStmts.addLog('SYSTEM_BOOT', { version: '2.6.0', message: 'Prophet Bot iniciado correctamente' });
 
+    // ── Resumen técnico diario automático (09:00 ARG = 12:00 UTC) ──
+    const { sendDailySummary } = require('./web/dashboardState');
+    schedule.scheduleJob('0 12 * * *', async () => {
+        try {
+            const result = await sendDailySummary(client);
+            if (result.success) {
+                console.log('📊 Resumen técnico diario enviado automáticamente');
+            } else {
+                console.warn('⚠️ No se pudo enviar resumen técnico diario:', result.error);
+            }
+        } catch (e) {
+            console.error('❌ Error enviando resumen técnico diario:', e.message);
+        }
+    });
+    console.log('📊 Resumen técnico diario programado: 09:00 Argentina (12:00 UTC)');
+
     // ── Heartbeat periódico para monitoreo (cada 6 horas) ──
-    setInterval(() => {
+    startProtectedInterval('heartbeat', async () => {
         const mem = process.memoryUsage();
         const uptime = Math.floor(process.uptime() / 3600);
         console.log(`💓 Heartbeat | Uptime: ${uptime}h | RAM: ${Math.round(mem.rss / 1024 / 1024)}MB | Guilds: ${client.guilds.cache.size} | Canales IA: ${require('./modules/aiChat').getContextStats().canalesActivos}`);
@@ -369,46 +440,77 @@ client.once('clientReady', async () => {
 cargarComandos();
 cargarEventos();
 
+let shuttingDown = false;
+let dashboardServer = null;
+
 // Manejo de errores global
 process.on('unhandledRejection', (err) => {
+    try {
+        const { stmts } = require('./database');
+        stmts.incrementAnalyticsMetric('error_events', 'unhandledRejection', 1);
+        stmts.setHealthCheck('system:unhandledRejection', {
+            status: 'error',
+            details: { message: err?.message || String(err) }
+        });
+    } catch { }
     console.error('❌ Error no manejado:', err?.message || err);
     if (err?.stack) console.error('   Stack:', err.stack.split('\n').slice(0, 3).join('\n'));
 });
 
 process.on('uncaughtException', (err) => {
+    try {
+        const { stmts } = require('./database');
+        stmts.incrementAnalyticsMetric('error_events', 'uncaughtException', 1);
+        stmts.setHealthCheck('system:uncaughtException', {
+            status: 'error',
+            details: { message: err.message }
+        });
+    } catch { }
     console.error('💀 Error fatal:', err.message);
-    console.error(err.stack);
+    if (err?.stack) console.error(err.stack);
+    shutdown('uncaughtException', 1).catch(() => process.exit(1));
 });
 
 // ═══ GRACEFUL SHUTDOWN ═══
-async function shutdown(signal) {
+async function shutdown(signal, exitCode = 0) {
+    if (shuttingDown) return;
+    shuttingDown = true;
+
     console.log(`\n🛑 Recibida señal ${signal}. Apagando bot...`);
     try {
+        if (dashboardServer) {
+            await new Promise(resolve => dashboardServer.close(resolve));
+            console.log('🌐 Dashboard interno cerrado');
+        }
+    } catch (e) { }
+    try {
         const db = require('./database');
-        // Cerrar la base de datos de forma limpia
-        if (db._db) db._db.close();
-        console.log('💾 Base de datos cerrada correctamente');
-    } catch (e) { /* ignorar si ya estaba cerrada */ }
+        if (db._db) {
+            db._db.close();
+            console.log('💾 Base de datos cerrada correctamente');
+        }
+    } catch (e) { }
     try {
         client.destroy();
         console.log('🔌 Cliente de Discord desconectado');
-    } catch (e) { /* ignorar */ }
+    } catch (e) { }
     console.log('👋 Prophet Bot apagado correctamente');
-    process.exit(0);
+    process.exit(exitCode);
 }
 
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT', () => shutdown('SIGINT'));
 
 // Validaciones Iniciales
-if (!config.TOKEN) {
-    console.error('❌ FATAL: No se proporcionó el TOKEN en el archivo .env o config.js');
+const { errors: configErrors, warnings: configWarnings } = config.validateConfig();
+configWarnings.forEach(warning => console.warn(`⚠️ Config: ${warning}`));
+
+if (configErrors.length > 0) {
+    configErrors.forEach(error => console.error(`❌ FATAL: ${error}`));
     process.exit(1);
 }
-if (!config.GUILD_ID) {
-    console.error('❌ FATAL: No se configuró el GUILD_ID en config.js');
-    process.exit(1);
-}
+
+dashboardServer = startDashboardServer(client);
 
 // ═══ INICIALIZAR SHOUKAKU ANTES DEL LOGIN ═══
 // CRITICO: Shoukaku necesita interceptar paquetes raw del gateway

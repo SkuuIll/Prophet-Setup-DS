@@ -8,10 +8,10 @@
 Música · Moderación · Economía · Niveles · Mini-juegos · Utilidades — todo en un solo bot.
 
 [![Discord.js](https://img.shields.io/badge/discord.js-v14-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.js.org)
-[![Node.js](https://img.shields.io/badge/Node.js-v20-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)](https://nodejs.org)
+[![Node.js](https://img.shields.io/badge/Node.js-v22-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)](https://nodejs.org)
 [![PM2](https://img.shields.io/badge/PM2-Production-2B037A?style=for-the-badge&logo=pm2&logoColor=white)](https://pm2.keymetrics.io)
 [![SQLite](https://img.shields.io/badge/SQLite-Database-003B57?style=for-the-badge&logo=sqlite&logoColor=white)](https://sqlite.org)
-[![License](https://img.shields.io/badge/Licencia-Privada-EF5350?style=for-the-badge)](LICENSE)
+[![License](https://img.shields.io/badge/Licencia-Privada-EF5350?style=for-the-badge)](#-licencia)
 
 <br>
 
@@ -31,13 +31,15 @@ Música · Moderación · Economía · Niveles · Mini-juegos · Utilidades — 
 - [Configuración VPS](#-configuración-vps-producción)
 - [Estructura del Proyecto](#-estructura-del-proyecto)
 - [Base de Datos](#-base-de-datos)
+- [Dashboard Web](#-dashboard-web)
 - [Changelog](#-changelog)
+- [Licencia](#-licencia)
 
 ---
 
 ## 🎯 Descripción
 
-**Prophet Bot** es una solución *todo-en-uno* construida exclusivamente para **Prophet Gaming**. No es solo un bot de moderación: es el corazón digital de la comunidad — integrando un sistema de economía completo, reproductor de música de alta fidelidad, niveles con roles automáticos, mini-juegos interactivos, herramientas de utilidad avanzadas y moderación automática inteligente, todo con un diseño visual premium y branding consistente.
+**Prophet Bot** es una solución *todo-en-uno* construida exclusivamente para **Prophet Gaming**. No es solo un bot de moderación: es el corazón digital de la comunidad — integrando un sistema de economía completo, reproductor de música de alta fidelidad, niveles con roles automáticos, mini-juegos interactivos, herramientas de utilidad avanzadas, sistema de perfiles con badges y achievements, IA integrada, y moderación automática inteligente, todo con un diseño visual premium y branding consistente.
 
 ### ¿Por qué Prophet Bot?
 
@@ -51,6 +53,10 @@ Música · Moderación · Economía · Niveles · Mini-juegos · Utilidades — 
 | 🎵 | **Multi-Plataforma** | YouTube, Spotify, SoundCloud, Apple Music, Vimeo y más |
 | ⏰ | **Recordatorios** | Sistema de DM con timer flexible y hasta 10 activos por usuario |
 | 🌐 | **Traducciones** | 10 idiomas, bola mágica, definiciones, QR codes y más utilidades |
+| 🤖 | **IA Integrada** | Asistente conversacional, búsqueda semántica en historial |
+| 🏆 | **Sistema de Perfiles** | 24 badges, 11 achievements, 7 quests diarias |
+| 🎮 | **Integraciones Gaming** | Steam, Riot Games (LoL), calendario de eventos |
+| 🌐 | **Dashboard Web** | Panel de administración con seguridad robusta |
 
 ---
 
@@ -119,6 +125,54 @@ Un ecosistema financiero completo con animaciones y feedback visual:
 
 ---
 
+### 🏆 Sistema de Perfiles *(v2.9)*
+
+Sistema gamificado con **badges, achievements y quests**:
+
+| Componente | Cantidad | Descripción |
+|---|---|---|
+| **Badges** | 24 | Insignias coleccionables (Fundador, Veterano, Booster, etc.) |
+| **Achievements** | 11 | Logros desbloqueables con recompensas XP/coins |
+| **Quests** | 7 diarias | Misiones con progreso automático y premios |
+
+**Comandos:**
+- `/perfil` — Ver perfil completo con badges y stats
+- `/badges` — Galería de insignias coleccionables
+- `/achievements` — Progreso de logros
+- `/quests` — Misiones activas y completadas
+
+---
+
+### 🤖 IA Integrada *(v2.9)*
+
+| Comando | Descripción |
+|---|---|
+| `/asistente` | Chat con IA para preguntas generales (Gemini API) |
+| `/buscar` | Búsqueda semántica en historial de mensajes del servidor |
+
+---
+
+### 🎮 Integraciones Gaming *(v2.9)*
+
+| Comando | Descripción |
+|---|---|
+| `/steam` | Perfil Steam, juegos, logros recientes |
+| `/lol` | Stats de League of Legends (rank, winrate, campeones) |
+| `/evento` | Sistema de eventos con calendario y recordatorios |
+
+---
+
+### 💎 Sistema Premium *(v2.9)*
+
+Sistema de suscripción opcional con Mercado Pago:
+
+- Badges exclusivos para premium
+- Mayor límite de recordatorios
+- Acceso anticipado a nuevas funciones
+- Comandos exclusivos
+
+---
+
 ### 🛡️ Moderación y Seguridad
 
 | Comando | Descripción |
@@ -157,7 +211,7 @@ Un ecosistema financiero completo con animaciones y feedback visual:
 
 ---
 
-### 🔧 Utilidades — *Suite Expandida*
+### 🔧 Utilidades — *Suite Completa*
 
 | Comando | Descripción |
 |---|---|
@@ -172,7 +226,6 @@ Un ecosistema financiero completo con animaciones y feedback visual:
 | `/traductor` | 10 idiomas, auto-detect origen, calidad 🟢🟡🔴 — MyMemory API |
 | `/definir` | Definiciones en ES/EN — Free Dictionary API + Wiktionary fallback |
 | `/qr` | QR code con colores Prophet, 3 tamaños, sin npm extra |
-| `/reporte` | Reporte anónimo al Staff con embed y botones de acción |
 | `/estadísticas` | Barra miembros/bots, top-3 XP y economía en vivo, estado del bot |
 | `/cumpleaños-lista` | Ordenado por días restantes, 🔔 próximos, 🎉 hoy |
 | `/userinfo` / `/serverinfo` | Info detallada con campos enriquecidos |
@@ -213,16 +266,16 @@ Cada vez que alguien boostea el servidor:
 ## 📋 Comandos
 
 ```
-📁 admin/       6 comandos    ⚙️  Configuración y setup del servidor
+📁 admin/      12 comandos    ⚙️  Configuración y setup del servidor
 📁 economy/    10 comandos    💰 Sistema financiero completo
 📁 fun/        10 comandos    🎉 Juegos y entretenimiento
 📁 gaming/      2 comandos    🎮 Estadísticas de juegos (PUBG, CS2)
 📁 levels/      2 comandos    📈 Niveles y leaderboard
 📁 mod/         9 comandos    🛡️  Moderación y seguridad
 📁 music/      10 comandos    🎵 Reproductor de música
-📁 utility/    24 comandos    🔧 Herramientas y utilidades
+📁 utility/    42 comandos    🔧 Herramientas y utilidades
 
-Total: ~73 comandos
+Total: 97 comandos
 ```
 
 ---
@@ -231,13 +284,15 @@ Total: ~73 comandos
 
 | Tecnología | Versión | Uso |
 |---|---|---|
-| **Node.js** | v20.x | Runtime |
-| **discord.js** | v14 | API de Discord |
-| **better-sqlite3** | latest | Base de datos SQLite |
-| **shoukaku** | latest | Cliente Lavalink para música |
-| **canvas** | v3.2.1 | Tarjetas de nivel y bienvenida |
-| **PM2** | 6.x | Process manager (producción) |
-| **dotenv** | latest | Variables de entorno |
+| **Node.js** | v22.x | Runtime |
+| **discord.js** | v14.25 | API de Discord |
+| **better-sqlite3** | v12.8 | Base de datos SQLite |
+| **shoukaku** | v4.3 | Cliente Lavalink para música |
+| **discord-player** | v7.2 | Reproductor de música alternativo |
+| **canvas** | v3.2 | Tarjetas de nivel y bienvenida |
+| **PM2** | v6.x | Process manager (producción) |
+| **dotenv** | v17.3 | Variables de entorno |
+| **node-schedule** | v2.1 | Tareas programadas |
 
 ---
 
@@ -246,7 +301,7 @@ Total: ~73 comandos
 ### Prerrequisitos
 
 - **Node.js** v18+ ([descargar](https://nodejs.org/))
-- **Lavalink** corriendo (para música)
+- **Lavalink** corriendo (para música) — incluido en `Lavalink/`
 - Una **aplicación de Discord** con bot token ([Discord Developer Portal](https://discord.com/developers/applications))
 
 ### Pasos
@@ -260,16 +315,22 @@ cd Prophet-Setup-DS
 npm install
 
 # 3. Crear archivo de entorno
-echo "DISCORD_TOKEN=tu_token_aqui" > .env
+cat > .env << EOF
+DISCORD_TOKEN=tu_token_aqui
+GUILD_ID=id_del_servidor
+EOF
 
 # 4. Configurar el bot
 #    Editá config.js con los IDs de tu servidor
 nano config.js
 
-# 5. Iniciar (desarrollo)
+# 5. Iniciar Lavalink (para música)
+java -jar Lavalink/Lavalink.jar &
+
+# 6. Iniciar (desarrollo)
 node index.js
 
-# 6. Iniciar (producción con PM2)
+# 7. Iniciar (producción con PM2)
 pm2 start ecosystem.config.js
 pm2 save
 ```
@@ -290,14 +351,24 @@ pm2 save
 ### Setup automático
 
 ```bash
-apt update && apt install -y nodejs npm ffmpeg
+apt update && apt install -y nodejs npm ffmpeg default-jdk
 npm install -g pm2
 
 git clone https://github.com/SkuuIll/Prophet-Setup-DS.git /root/ProphetBot
 cd /root/ProphetBot
 npm install
-echo "DISCORD_TOKEN=tu_token" > .env
-# Editar config.js
+
+cat > .env << EOF
+DISCORD_TOKEN=tu_token
+GUILD_ID=id_servidor
+EOF
+
+# Editar config.js con IDs reales
+nano config.js
+
+# Iniciar Lavalink
+cd Lavalink && java -jar Lavalink.jar &
+cd ..
 
 pm2 start ecosystem.config.js
 pm2 startup && pm2 save
@@ -323,17 +394,17 @@ ProphetBot/
 │   ├── banner.png              # Banner del servidor (usado en welcome card)
 │   └── logo.png                # Logo del bot
 │
-├── 📁 commands/                # ~73 Slash Commands
-│   ├── 📁 admin/       (6)    # Setup de tickets, counting, roles
+├── 📁 commands/                # 97 Slash Commands
+│   ├── 📁 admin/      (12)    # Setup de tickets, counting, roles, boost
 │   ├── 📁 economy/    (10)    # Balance, daily, work, gamble, shop, pay, bank
 │   ├── 📁 fun/        (10)    # 8ball, coinflip, rps, tictactoe, blackjack
 │   ├── 📁 gaming/      (2)    # PUBG, CS2 stats
 │   ├── 📁 levels/      (2)    # Nivel individual y leaderboard
 │   ├── 📁 mod/         (9)    # Ban, kick, mute, warn, clear, purge, tempban
 │   ├── 📁 music/      (10)    # Play, queue, skip, stop, volumen, Lavalink
-│   └── 📁 utility/    (24)    # Ping, recordatorio, hilo, calc, color, qr, etc.
+│   └── 📁 utility/    (42)    # Ping, recordatorio, hilo, calc, color, qr, IA, etc.
 │
-├── 📁 events/                  # Event Handlers
+├── 📁 events/                  # 16 Event Handlers
 │   ├── guildMemberAdd.js       # Bienvenida canvas + anti-raid + boost rewards
 │   ├── guildMemberUpdate.js    # Boost rewards + log de roles/apodos
 │   ├── interactionCreate.js    # Router de slash commands y botones
@@ -341,14 +412,31 @@ ProphetBot/
 │   ├── messageDelete.js        # Log + snipe
 │   └── voiceStateUpdate.js     # Canales dinámicos + estados gaming
 │
-├── 📁 modules/                 # Lógica reutilizable
+├── 📁 modules/                 # 25 Módulos de lógica
 │   ├── antispam.js             # Anti-spam (10 filtros), anti-raid
 │   ├── leveling.js             # Cálculo de XP, niveles y roles
 │   ├── giveaways.js            # Sistema de sorteos
-│   └── tickets.js              # Tickets de soporte
+│   ├── tickets.js              # Tickets de soporte
+│   ├── semanticSearch.js       # Búsqueda IA en historial
+│   ├── steamIntegration.js     # API de Steam
+│   ├── riotIntegration.js      # API de Riot Games (LoL)
+│   ├── calendarIntegration.js  # Sistema de eventos
+│   ├── paymentSystem.js        # Mercado Pago
+│   └── ...                     # Más módulos
+│
+├── 📁 web/                     # Dashboard web interno
+│   ├── server.js               # Servidor HTTP Express
+│   ├── dashboardState.js       # Estado del dashboard
+│   ├── security.js             # Sistema de seguridad
+│   └── ...                     # Más archivos web
+│
+├── 📁 Lavalink/                # Servidor de música
+│   ├── Lavalink.jar            # Servidor Lavalink
+│   └── application.yml         # Configuración
 │
 ├── 📁 utils/
-│   └── canvas.js               # Tarjeta de nivel + welcome card premium (canvas)
+│   ├── canvas.js               # Tarjetas de nivel + welcome card premium
+│   └── runtimeConfig.js        # Configuración runtime
 │
 ├── 📁 data/                    # Datos persistentes (gitignored)
 │   └── prophet.sqlite          # Base de datos SQLite
@@ -370,17 +458,58 @@ Prophet Bot usa **SQLite** (vía `better-sqlite3`) con modo WAL para máximo ren
 
 | Tabla | Descripción |
 |---|---|
-| `users` | XP, nivel, mensajes, balance, banco, cooldowns (`last_xp`, `last_work`, `last_daily`), cumpleaños |
+| `users` | XP, nivel, mensajes, balance, banco, cooldowns, cumpleaños, preferencias |
 | `user_inventory` | Items por usuario |
+| `user_preferences` | Timezone, idioma, configuraciones de IA |
+| `user_badges` | Badges desbloqueados |
+| `user_achievements` | Progreso de achievements |
+| `user_quests` | Quests activas y completadas |
 | `warns` | Historial de advertencias |
 | `giveaways` / `giveaway_entries` | Sorteos activos con soporte multi-ganador |
 | `tickets` | Tickets de soporte abiertos |
 | `tempbans` | Bans temporales pendientes de expirar |
-| `temp_channels` | Canales de voz temporales activos (limpieza automática al reiniciar) |
+| `temp_channels` | Canales de voz temporales activos |
 | `reaction_roles` | Paneles de auto-roles |
 | `starboards` | Mensajes destacados |
-| `config` | Configuraciones dinámicas del servidor |
-| `logs` | Historial de acciones del bot (últimas 100) |
+| `twitch_subs` | Suscripciones a streamers |
+| `youtube_subs` | Suscripciones a canales de YouTube |
+| `github_subs` | Suscripciones a repositorios |
+| `game_servers` | Monitores de servidores de juegos |
+| `reminders` | Recordatorios programados |
+| `analytics_daily` | Métricas diarias |
+| `command_metrics_daily` | Estadísticas de comandos |
+| `health_checks` | Estado de servicios |
+
+---
+
+## 🌐 Dashboard Web
+
+El bot incluye un dashboard web interno accesible solo desde localhost:
+
+```
+🌐 Dashboard interno: http://127.0.0.1:3789/dashboard
+```
+
+### Características del Dashboard
+
+- Estado en tiempo real del bot
+- Métricas del servidor
+- Gestión de monitores (Twitch, YouTube, GitHub, Game Servers)
+- Logs de actividad
+
+### Sistema de Seguridad
+
+El dashboard seguro (`web/secureServer.js`) incluye:
+
+| Medida | Implementación |
+|---|---|
+| **Autenticación** | JWT + Refresh tokens |
+| **Contraseñas** | PBKDF2 con 100,000 iteraciones |
+| **Rate Limiting** | 5 intentos de login, bloqueo 30min |
+| **CSRF** | Tokens por sesión |
+| **XSS** | Sanitización + CSP headers |
+| **RBAC** | 5 roles: superadmin, admin, moderator, editor, viewer |
+| **Auditoría** | Logs de todos los eventos de seguridad |
 
 ---
 
@@ -401,6 +530,14 @@ Prophet Bot usa **SQLite** (vía `better-sqlite3`) con modo WAL para máximo ren
 
 ### v2.9 — *Marzo 2026*
 
+**🆕 Nuevas funcionalidades:**
+- 🤖 **IA Integrada** — `/asistente` para chat con IA, `/buscar` para búsqueda semántica en historial
+- 🏆 **Sistema de Perfiles** — 24 badges, 11 achievements, 7 quests diarias con `/perfil`, `/badges`, `/achievements`, `/quests`
+- 🎮 **Integraciones Gaming** — `/steam` para perfiles Steam, `/lol` para stats de League of Legends
+- 📅 **Calendario de Eventos** — `/evento` para crear y gestionar eventos con recordatorios
+- 💎 **Sistema Premium** — Integración con Mercado Pago para suscripciones
+- 🌐 **Dashboard Web** — Panel de administración interno con seguridad robusta
+
 **🐛 Bug Fixes:**
 - ✅ **Sistema de cumpleaños** — Corregido typo `cumplanHoy` → `cumplenHoy` que causaba `ReferenceError` silencioso cada medianoche; corregido timezone a UTC-3 (Argentina)
 - ✅ **Cooldown de XP** — `last_xp` ahora se persiste correctamente en la DB (columna faltante); el cooldown anti-abuse funciona como corresponde
@@ -414,7 +551,7 @@ Prophet Bot usa **SQLite** (vía `better-sqlite3`) con modo WAL para máximo ren
 - ⚡ **Optimizaciones internas** — Limpieza de logs con 1 query (antes 2), antispam Map limpiado cada 60s (antes 5min)
 - 🔑 **`GUILD_ID` en `.env`** — Ya no hardcodeado en `config.js`
 - 🧹 **Imports dinámicos** — Todos los `require()` movidos al top de sus archivos para mejor legibilidad
-- 🗄️ **DB**: nueva tabla `temp_channels` + migration automática de columna `last_xp` (non-destructiva)
+- 🗄️ **DB**: nuevas tablas `temp_channels`, `user_badges`, `user_achievements`, `user_quests`, `user_preferences` + migrations automáticas
 
 ### v2.8 — *Marzo 2026*
 
@@ -463,6 +600,25 @@ Prophet Bot usa **SQLite** (vía `better-sqlite3`) con modo WAL para máximo ren
 
 ### v1.0 — *Release inicial*
 - Bot base con moderación y utilidades
+
+---
+
+## 📜 Licencia
+
+Este proyecto es **privado y exclusivo** para **Prophet Gaming**.
+
+```
+Copyright (c) 2026 Prophet Gaming
+
+Todos los derechos reservados.
+
+Este software y su código fuente son propiedad de Prophet Gaming.
+No está permitido copiar, modificar, distribuir, sublicenciar o usar
+este software para ningún propósito sin autorización expresa por escrito.
+
+El uso no autorizado constituye una violación de los derechos de autor
+y puede resultar en acciones legales.
+```
 
 ---
 

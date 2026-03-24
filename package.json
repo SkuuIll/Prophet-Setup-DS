@@ -1,6 +1,6 @@
 {
     "name": "prophet-bot",
-    "version": "2.6.0",
+    "version": "2.9.0",
     "description": "Bot privado todo-en-uno para Prophet Gaming",
     "main": "index.js",
     "scripts": {

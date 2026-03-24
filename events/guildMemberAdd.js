@@ -3,11 +3,15 @@
 const { EmbedBuilder, AttachmentBuilder } = require('discord.js');
 const config = require('../config');
 const { verificarRaid } = require('../modules/antispam');
+const { stmts } = require('../database');
 
 module.exports = {
     name: 'guildMemberAdd',
     once: false,
     async execute(member) {
+        // Métrica de retención
+        stmts.incrementAnalyticsMetric('member_joins', 'global', 1);
+
         // Anti-raid
         const raid = verificarRaid(member);
         if (raid.esRaid) {
@@ -85,6 +89,26 @@ module.exports = {
                 .setTimestamp();
 
             welcomeChannel.send({ content: `${member}`, embeds: [embed], files: [attachment] });
+
+            // Iniciar onboarding después de 30 segundos
+            setTimeout(async () => {
+                try {
+                    const { startOnboarding, sendOnboardingStep, getOnboardingProgress } = require('../modules/onboarding');
+                    const progress = getOnboardingProgress(member.id);
+
+                    if (!progress.completed) {
+                        const result = await sendOnboardingStep(member, 'welcome');
+                        if (result) {
+                            await member.send({
+                                embeds: [result.embed],
+                                components: result.components
+                            }).catch(() => { });
+                        }
+                    }
+                } catch (e) {
+                    console.debug('[Onboarding] No se pudo enviar DM:', e.message);
+                }
+            }, 30000);
 
         } catch (error) {
             console.error('Error enviando tarjeta de bienvenida:', error);

@@ -59,6 +59,7 @@ async function verificarYoutube(client) {
                 .setTimestamp();
 
             await sendNotification(client, sub.discord_channel, embed, `${ping}📺 **${snippet.channelTitle}** subió un nuevo video!`);
+            stmts.incrementAnalyticsMetric('monitor_alerts', 'youtube', 1);
             stmts.updateYoutubeSub(sub.id, videoId);
 
         } catch (e) {

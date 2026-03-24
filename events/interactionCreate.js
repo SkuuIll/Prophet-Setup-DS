@@ -1,44 +1,83 @@
-// ═══ EVENTO: interactionCreate (Slash commands + Botones) ═══
-
-const { EmbedBuilder } = require('discord.js');
+const { EmbedBuilder, PermissionFlagsBits } = require('discord.js');
 const config = require('../config');
 const { stmts } = require('../database');
 const { abrirTicket, cerrarTicket } = require('../modules/tickets');
 const { participarSorteo } = require('../modules/giveaways');
+const { trackCommand, updateDailyQuestProgress } = require('../modules/profileSystem');
+
+function esStaff(member) {
+    return member.permissions.has(PermissionFlagsBits.Administrator)
+        || config.STAFF_ROLES.some(rol => member.roles.cache.some(r => r.id === rol || r.name === rol));
+}
+
+function actualizarEstadoReporte(embedData, estado) {
+    const embed = EmbedBuilder.from(embedData.toJSON());
+    const fields = [...(embed.data.fields || [])];
+    const statusIndex = fields.findIndex(field => field.name.includes('Estado'));
+    const statusField = { name: '📊 Estado', value: `\`${estado}\``, inline: true };
+
+    if (statusIndex >= 0) fields[statusIndex] = statusField;
+    else fields.push(statusField);
+
+    embed.setFields(fields);
+    return embed;
+}
 
 module.exports = {
     name: 'interactionCreate',
     once: false,
     async execute(interaction, client) {
-        // ═══ SLASH COMMANDS ═══
         if (interaction.isChatInputCommand()) {
             const comando = client.commands.get(interaction.commandName);
             if (!comando) return;
 
-            // --- RESTRICCIÓN DE CANALES PARA COMANDOS ---
-            const { PermissionFlagsBits } = require('discord.js');
-            const canalesPermitidos = [config.CHANNELS.COMANDOS_BOT, config.CHANNELS.STAFF];
+            const canalesPermitidos = [config.CHANNELS.COMANDOS_BOT, config.CHANNELS.STAFF].filter(Boolean);
+            const miembroStaff = esStaff(interaction.member);
 
-            // Bypass para administradores o roles del staff preventivo
-            const esStaff = interaction.member.permissions.has(PermissionFlagsBits.Administrator) ||
-                config.STAFF_ROLES.some(rol => interaction.member.roles.cache.some(r => r.name === rol));
-
-            if (!canalesPermitidos.includes(interaction.channelId) && !esStaff) {
+            if (canalesPermitidos.length > 0 && !canalesPermitidos.includes(interaction.channelId) && !miembroStaff) {
                 return interaction.reply({
                     content: `> 🚫 **Canal incorrecto** — Los comandos deben usarse en <#${config.CHANNELS.COMANDOS_BOT}>.`,
-                    ephemeral: true
+                    ephemeral: true,
                 });
             }
 
+            const startedAt = Date.now();
             try {
                 await comando.execute(interaction, client);
+                const durationMs = Date.now() - startedAt;
+                stmts.recordCommandExecution(interaction.commandName, true, durationMs);
+
+                // Track progreso de comandos para badges/achievements y misiones
+                trackCommand(interaction.user.id);
+                updateDailyQuestProgress(interaction.user.id, 'daily_commands', 1);
+
+                stmts.setHealthCheck('commands:slash', {
+                    status: 'ok',
+                    durationMs,
+                    details: {
+                        command: interaction.commandName,
+                        userId: interaction.user.id,
+                    }
+                });
                 stmts.addLog('COMMAND', {
                     user: interaction.user.tag,
                     userId: interaction.user.id,
                     command: interaction.commandName,
-                    channel: interaction.channel.name
+                    channel: interaction.channel?.name || interaction.channelId,
+                    durationMs,
                 });
             } catch (error) {
+                const durationMs = Date.now() - startedAt;
+                stmts.recordCommandExecution(interaction.commandName, false, durationMs);
+                stmts.incrementAnalyticsMetric('error_events', 'commands', 1);
+                stmts.setHealthCheck('commands:slash', {
+                    status: 'error',
+                    durationMs,
+                    details: {
+                        command: interaction.commandName,
+                        message: error.message,
+                    }
+                });
                 console.error(`Error en /${interaction.commandName}:`, error.message);
                 const errorEmbed = new EmbedBuilder()
                     .setColor(config.COLORES.ERROR || 0xEF5350)
@@ -62,15 +101,92 @@ module.exports = {
             return;
         }
 
-        // ═══ BOTONES ═══
         if (interaction.isButton()) {
             const id = interaction.customId;
+
+            // Onboarding buttons
+            if (id.startsWith('onboarding_')) {
+                const { handleOnboardingInteraction } = require('../modules/onboarding');
+                return await handleOnboardingInteraction(interaction, id);
+            }
+
+            // Assistant quick responses
+            if (id.startsWith('assistant:')) {
+                const { handleAssistantButton } = require('../commands/utility/asistente');
+                return await handleAssistantButton(interaction);
+            }
 
             if (id === 'ticket_abrir') return abrirTicket(interaction);
             if (id === 'ticket_cerrar') return cerrarTicket(interaction);
             if (id === 'sorteo_participar') return participarSorteo(interaction);
 
-            // Reaction roles via botón
+            if (id.startsWith('rep_')) {
+                if (!esStaff(interaction.member)) {
+                    return interaction.reply({
+                        content: '> 🚫 Solo el Staff puede gestionar reportes.',
+                        ephemeral: true,
+                    });
+                }
+
+                if (id.startsWith('rep_tomado_') || id.startsWith('rep_descartado_')) {
+                    const embedOrigen = interaction.message.embeds[0];
+                    if (!embedOrigen) {
+                        return interaction.reply({
+                            content: '> ⚠️ No pude actualizar ese reporte.',
+                            ephemeral: true,
+                        });
+                    }
+
+                    const estado = id.startsWith('rep_tomado_')
+                        ? `🟡 En revisión por ${interaction.user.tag}`
+                        : `⚫ Descartado por ${interaction.user.tag}`;
+
+                    const updatedEmbed = actualizarEstadoReporte(embedOrigen, estado)
+                        .setColor(id.startsWith('rep_tomado_') ? (config.COLORES.WARN || 0xFFB74D) : (config.COLORES.ERROR || 0xEF5350))
+                        .setFooter({ text: `Gestionado por ${interaction.user.tag}` })
+                        .setTimestamp();
+
+                    return interaction.update({ embeds: [updatedEmbed], components: [] });
+                }
+
+                if (id.startsWith('rep_profile_') || id.startsWith('rep_ban_')) {
+                    const userId = id.replace('rep_profile_', '').replace('rep_ban_', '');
+                    const member = await interaction.guild.members.fetch(userId).catch(() => null);
+                    const user = member?.user || await client.users.fetch(userId).catch(() => null);
+
+                    if (!user) {
+                        return interaction.reply({
+                            content: '> ⚠️ No pude obtener la información de ese usuario.',
+                            ephemeral: true,
+                        });
+                    }
+
+                    const warns = stmts.countWarns(userId).total;
+                    const roles = member
+                        ? member.roles.cache
+                            .filter(role => role.id !== interaction.guild.id)
+                            .map(role => `<@&${role.id}>`)
+                            .slice(0, 8)
+                        : [];
+
+                    const profileEmbed = new EmbedBuilder()
+                        .setColor(config.COLORES.INFO || 0x42A5F5)
+                        .setAuthor({ name: '👤  Perfil del reportado', iconURL: user.displayAvatarURL() })
+                        .setThumbnail(user.displayAvatarURL({ size: 256 }))
+                        .addFields(
+                            { name: 'Usuario', value: `${user} (\`${user.tag}\`)`, inline: false },
+                            { name: 'ID', value: `\`${user.id}\``, inline: true },
+                            { name: 'Warns', value: `\`${warns}\``, inline: true },
+                            { name: 'Cuenta creada', value: `<t:${Math.floor(user.createdTimestamp / 1000)}:F>`, inline: false },
+                            { name: 'Entró al servidor', value: member?.joinedTimestamp ? `<t:${Math.floor(member.joinedTimestamp / 1000)}:F>` : '`No disponible`', inline: false },
+                            { name: 'Roles', value: roles.length ? roles.join(', ') : '`Sin roles visibles`', inline: false }
+                        )
+                        .setTimestamp();
+
+                    return interaction.reply({ embeds: [profileEmbed], ephemeral: true });
+                }
+            }
+
             if (id.startsWith('rr_')) {
                 const roleId = id.replace('rr_', '').replace('auto_', '');
                 const member = interaction.member;
@@ -79,7 +195,7 @@ module.exports = {
                 if (!role) {
                     return interaction.reply({
                         content: '> ❌ **Rol no encontrado** — Es posible que haya sido eliminado del servidor.',
-                        ephemeral: true
+                        ephemeral: true,
                     });
                 }
 
@@ -88,26 +204,25 @@ module.exports = {
                         await member.roles.remove(role);
                         await interaction.reply({
                             content: `> ➖ Se te removió el rol **${role.name}**.`,
-                            ephemeral: true
+                            ephemeral: true,
                         });
                     } else {
                         await member.roles.add(role);
                         await interaction.reply({
                             content: `> ✅ Se te asignó el rol **${role.name}**.`,
-                            ephemeral: true
+                            ephemeral: true,
                         });
                     }
                 } catch (e) {
                     console.error('Error RR:', e);
                     await interaction.reply({
                         content: `> ❌ **Error de permisos** — No pude modificar el rol. Avisá al Staff.\n> \`${e.message}\``,
-                        ephemeral: true
+                        ephemeral: true,
                     });
                 }
             }
         }
 
-        // ═══ MODALS (Formularios) ═══
         if (interaction.isModalSubmit()) {
             if (interaction.customId === 'modal_confesion') {
                 const comando = client.commands.get('confesion');
@@ -117,32 +232,32 @@ module.exports = {
             }
         }
 
-        // ═══ SELECT MENUS (Menús desplegables) ═══
         if (interaction.isStringSelectMenu()) {
+            // Onboarding role select
+            if (interaction.customId === 'onboarding_select_roles') {
+                const { handleOnboardingRoleSelect } = require('../modules/onboarding');
+                return await handleOnboardingRoleSelect(interaction);
+            }
+
             if (interaction.customId === 'auto_roles_juegos') {
                 const member = interaction.member;
                 const guild = interaction.guild;
-                const values = interaction.values; // Array de values (ej: 'role_valorant')
+                const values = interaction.values;
 
-                // Mapeo de value a ID de rol — resuelto desde config.ROLES_JUEGOS
-                // Si los IDs no están configurados, fallback a búsqueda por nombre (menos robusto)
                 const roleMap = {
-                    'role_valorant': config.ROLES_JUEGOS?.VALORANT || guild.roles.cache.find(r => r.name.toLowerCase().includes('valorant'))?.id,
-                    'role_lol': config.ROLES_JUEGOS?.LOL || guild.roles.cache.find(r => r.name.toLowerCase().includes('league') || r.name.toLowerCase().includes('lol'))?.id,
-                    'role_minecraft': config.ROLES_JUEGOS?.MINECRAFT || guild.roles.cache.find(r => r.name.toLowerCase().includes('minecraft'))?.id,
-                    'role_cs2': config.ROLES_JUEGOS?.CS2 || guild.roles.cache.find(r => r.name.toLowerCase().includes('cs2') || r.name.toLowerCase().includes('counter'))?.id,
-                    'role_pubg': config.ROLES_JUEGOS?.PUBG || guild.roles.cache.find(r => r.name.toLowerCase().includes('pubg'))?.id,
-                    'role_gta': config.ROLES_JUEGOS?.GTA || guild.roles.cache.find(r => r.name.toLowerCase().includes('gta') || r.name.toLowerCase().includes('roleplay'))?.id,
+                    role_valorant: config.ROLES_JUEGOS?.VALORANT || guild.roles.cache.find(r => r.name.toLowerCase().includes('valorant'))?.id,
+                    role_lol: config.ROLES_JUEGOS?.LOL || guild.roles.cache.find(r => r.name.toLowerCase().includes('league') || r.name.toLowerCase().includes('lol'))?.id,
+                    role_minecraft: config.ROLES_JUEGOS?.MINECRAFT || guild.roles.cache.find(r => r.name.toLowerCase().includes('minecraft'))?.id,
+                    role_cs2: config.ROLES_JUEGOS?.CS2 || guild.roles.cache.find(r => r.name.toLowerCase().includes('cs2') || r.name.toLowerCase().includes('counter'))?.id,
+                    role_pubg: config.ROLES_JUEGOS?.PUBG || guild.roles.cache.find(r => r.name.toLowerCase().includes('pubg'))?.id,
+                    role_gta: config.ROLES_JUEGOS?.GTA || guild.roles.cache.find(r => r.name.toLowerCase().includes('gta') || r.name.toLowerCase().includes('roleplay'))?.id,
                 };
 
-                let assigned = [];
-                let removed = [];
-
-                // Todos los IDs que maneja este menú
-                const allMenuRoleIds = Object.values(roleMap).filter(id => id);
+                const assigned = [];
+                const removed = [];
+                const allMenuRoleIds = Object.values(roleMap).filter(Boolean);
 
                 try {
-                    // Remover roles de este menú que el usuario NO seleccionó
                     for (const roleId of allMenuRoleIds) {
                         const isSelected = Object.keys(roleMap).some(key => roleMap[key] === roleId && values.includes(key));
                         if (!isSelected && member.roles.cache.has(roleId)) {
@@ -151,7 +266,6 @@ module.exports = {
                         }
                     }
 
-                    // Añadir roles que el usuario SI seleccionó
                     for (const value of values) {
                         const roleId = roleMap[value];
                         if (roleId && !member.roles.cache.has(roleId)) {
@@ -166,12 +280,11 @@ module.exports = {
                     if (assigned.length === 0 && removed.length === 0) msg = '✅ **Tus roles ya estaban al día.**';
 
                     await interaction.reply({ content: msg, ephemeral: true });
-
                 } catch (e) {
                     console.error('Error aplicando Select Menu Roles:', e);
                     await interaction.reply({ content: '❌ **Error de permisos.** No pude modificar tus roles.', ephemeral: true });
                 }
             }
         }
-    }
+    },
 };

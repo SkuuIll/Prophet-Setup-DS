@@ -4,6 +4,7 @@ const { EmbedBuilder } = require('discord.js');
 const config = require('../config');
 const { stmts } = require('../database');
 const { procesarXPVoz } = require('../modules/leveling');
+const { trackVoiceMinutes, updateDailyQuestProgress } = require('../modules/profileSystem');
 
 module.exports = {
     name: 'voiceStateUpdate',
@@ -49,6 +50,11 @@ module.exports = {
                 const minutosTranscurridos = Math.floor((Date.now() - session.joinedAt) / 60000);
                 if (minutosTranscurridos >= 1) {
                     procesarXPVoz(userId, minutosTranscurridos);
+                    stmts.incrementAnalyticsMetric('voice_minutes', 'global', minutosTranscurridos);
+
+                    // Track progreso de voz para badges/achievements y misiones
+                    trackVoiceMinutes(userId, minutosTranscurridos);
+                    updateDailyQuestProgress(userId, 'daily_voice_minutes', minutosTranscurridos);
                 }
                 member.client.voiceSessions.delete(userId);
             }
@@ -62,6 +68,7 @@ module.exports = {
                 const minutosTranscurridos = Math.floor((Date.now() - session.joinedAt) / 60000);
                 if (minutosTranscurridos >= 1) {
                     procesarXPVoz(userId, minutosTranscurridos);
+                    stmts.incrementAnalyticsMetric('voice_minutes', 'global', minutosTranscurridos);
                 }
                 member.client.voiceSessions.delete(userId);
             } else if (!session && ahora) {
@@ -141,6 +148,7 @@ module.exports = {
 
                 // Registrar en la DB
                 stmts.addTempChannel(newChannel.id, newState.guild.id, newState.member.user.id);
+                stmts.incrementAnalyticsMetric('temp_channels_created', 'global', 1);
 
                 await newState.member.voice.setChannel(newChannel.id);
 
@@ -177,9 +185,11 @@ module.exports = {
                 // Verificar si es un canal temporal registrado en la DB
                 if (stmts.isTempChannel(leftChannel.id)) {
                     stmts.removeTempChannel(leftChannel.id);
+                    stmts.incrementAnalyticsMetric('temp_channels_deleted', 'global', 1);
                     leftChannel.delete('Canal de voz temporal vacío').catch(() => { });
                 } else if (leftChannel.parentId === categoryId && leftChannel.id !== generatorId) {
                     // Fallback: si está en la categoría de temporales pero no está en DB (restart)
+                    stmts.incrementAnalyticsMetric('temp_channels_deleted', 'global', 1);
                     leftChannel.delete('Canal de voz temporal vacío (sin registro DB)').catch(() => { });
                 } else {
                     // Canal normal vacío: limpiar su status con delay para evitar rate limits
@@ -206,16 +216,21 @@ module.exports = {
 
         // Join
         if (!oldState.channelId && newState.channelId) {
+            stmts.incrementAnalyticsMetric('voice_joins', 'global', 1);
+            stmts.incrementAnalyticsMetric('voice_channels', newState.channelId, 1);
             embed.setColor(config.COLORES.SUCCESS || 0x69F0AE);
             embed.setDescription(`> 📥 ${newState.member} **entró** al canal de voz <#${newState.channelId}>`);
         }
         // Leave
         else if (oldState.channelId && !newState.channelId) {
+            stmts.incrementAnalyticsMetric('voice_leaves', 'global', 1);
             embed.setColor(config.COLORES.ERROR || 0xEF5350);
             embed.setDescription(`> 📤 ${newState.member} **salió** del canal de voz <#${oldState.channelId}>`);
         }
         // Move
         else if (oldState.channelId && newState.channelId && oldState.channelId !== newState.channelId) {
+            stmts.incrementAnalyticsMetric('voice_moves', 'global', 1);
+            stmts.incrementAnalyticsMetric('voice_channels', newState.channelId, 1);
             embed.setColor(config.COLORES.INFO || 0x42A5F5);
             embed.setDescription(`> 🔀 ${newState.member} **se movió** de canal de voz\n> De: <#${oldState.channelId}>\n> A: <#${newState.channelId}>`);
         } else {

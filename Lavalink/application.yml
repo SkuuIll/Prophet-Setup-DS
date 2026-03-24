@@ -10,7 +10,7 @@ lavalink:
     - dependency: "com.github.topi314.lavasrc:lavasrc-plugin:4.8.1"
       repository: "https://maven.lavalink.dev/releases"
   server:
-    password: "youshallnotpass"
+    password: "ProphetLava_2026_A7mQ!4sK9x"
     sources:
       youtube: false # We use the plugin instead
       bandcamp: true
@@ -46,8 +46,8 @@ plugins:
       deezer: false
       yandexmusic: false
     spotify:
-      clientId: "your_spotify_client_id"
-      clientSecret: "your_spotify_client_secret"
+      clientId: "c730c72d421c4011a9687a13098a52d4"
+      clientSecret: "ee92bb60ae00469da5eb9b1f3a456564"
       countryCode: "US"
 logging:
   file:

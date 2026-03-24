@@ -1,21 +1,23 @@
 const { Client, GatewayIntentBits, EmbedBuilder } = require('discord.js');
 const config = require('./config');
+const { getChannel } = require('./utils/runtimeConfig');
 require('dotenv').config();
 
 const client = new Client({
     intents: [GatewayIntentBits.Guilds]
 });
 
-client.once('clientReady', async () => {
+client.once('ready', async () => {
     console.log(`Bot conectado como ${client.user.tag}`);
 
-    const guild = Object.values(client.guilds.cache.map(g => g))[0];
+    const guild = client.guilds.cache.first();
     if (!guild) {
         console.log('No guild found');
         process.exit(1);
     }
 
-    const channel = guild.channels.cache.find(c => c.name === config.CHANNELS.BIENVENIDOS);
+    const channel = getChannel(guild, 'BIENVENIDOS');
+    const reglasChannel = getChannel(guild, 'REGLAS');
 
     if (!channel) {
         console.log('Canal de bienvenidas no encontrado.');
@@ -30,7 +32,7 @@ client.once('clientReady', async () => {
             '¡Hola! Es un gustazo tenerte acá en **Prophet Gaming**. Somo una comunidad enfocada en Gaming, pasarla bien, jugar en equipo y armar altas charlas. Para que te vayas ubicando rápido, acá tenés los pasos más importantes:\n\n' +
 
             '**📜 1. Pasá por las Reglas:**\n' +
-            `> Es fundamental mantener el buen rollo, leélas en <#${config.CHANNELS.REGLAS}> para evitar castigos o baneos.\n\n` +
+            `> Es fundamental mantener el buen rollo, leélas en ${reglasChannel ? `<#${reglasChannel.id}>` : '`#reglas`'} para evitar castigos o baneos.\n\n` +
 
             '**🎮 2. Las Salas Privadas (Join-To-Create):**\n' +
             '> Como acabás de llegar, debés saber que podés crear TU propia sala de voz privada con control total. Solo conectate al canal de voz `➕ Crear Sala` y el bot la genera por vos en un segundo.\n\n' +

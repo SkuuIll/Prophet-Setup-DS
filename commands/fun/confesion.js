@@ -36,7 +36,12 @@ module.exports = {
     // Esta función se llamará desde interactionCreate.js cuando se envíe el modal
     async handleModal(interaction) {
         const texto = interaction.fields.getTextInputValue('confesion_texto');
-        const channelId = stmts.getConfig('CONFESIONES_CHANNEL').value;
+        const channelId = stmts.getConfig('CONFESIONES_CHANNEL')?.value;
+
+        if (!channelId) {
+            return interaction.reply({ content: '❌ El sistema de confesiones ya no está configurado.', ephemeral: true });
+        }
+
         const channel = interaction.guild.channels.cache.get(channelId);
 
         if (!channel) {

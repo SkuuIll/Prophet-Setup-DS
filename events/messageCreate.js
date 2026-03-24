@@ -7,12 +7,16 @@ const { verificarSpam } = require('../modules/antispam');
 const { procesarXP } = require('../modules/leveling');
 const { preguntarAIA, preguntarConVision } = require('../modules/aiChat');
 const { procesarAutoRespuesta } = require('../modules/autoResponder');
+const { trackMessage, trackLevel, updateDailyQuestProgress, trackStreak } = require('../modules/profileSystem');
 
 module.exports = {
     name: 'messageCreate',
     once: false,
     async execute(message) {
         if (message.author.bot || !message.guild) return;
+
+        stmts.incrementAnalyticsMetric('messages_total', 'global', 1);
+        stmts.incrementAnalyticsMetric('messages_channel', message.channelId, 1);
 
         // ═══ COUNTING GAME ═══
         const countingChannelId = stmts.getConfig('COUNTING_CHANNEL')?.value;
@@ -142,6 +146,7 @@ module.exports = {
                     .setTimestamp();
                 logChannel.send({ embeds: [logEmbed] });
             }
+            stmts.incrementAnalyticsMetric('automod_actions', 'global', 1);
             return;
         }
 
@@ -162,6 +167,7 @@ module.exports = {
                     `¡Presente! 🤖 Preguntame lo que quieras.`,
                     `¡Hola! ¿Cómo te puedo ayudar? También tenés /ayuda para ver todos los comandos.`,
                 ];
+                stmts.incrementAnalyticsMetric('ai_replies', 'mention_quick', 1);
                 return message.reply(respuestasRapidas[Math.floor(Math.random() * respuestasRapidas.length)]);
             }
 
@@ -171,8 +177,10 @@ module.exports = {
                 const contexto = `Servidor: ${message.guild.name}, usuario: ${message.author.username}`;
                 const respuesta = await preguntarAIA(message.channel.id, textoSinMencion, contexto);
                 await typing;
+                stmts.incrementAnalyticsMetric('ai_replies', 'direct_mention', 1);
                 return message.reply({ content: respuesta });
             } catch (e) {
+                stmts.incrementAnalyticsMetric('error_events', 'ai', 1);
                 console.error('[AI mention]', e.message);
                 return message.reply('Lo siento, no puedo responder ahora mismo 😅');
             }
@@ -188,6 +196,7 @@ module.exports = {
         if (esCanal && message.content.length > 3) {
             const autoResp = procesarAutoRespuesta(message.content);
             if (autoResp) {
+                stmts.incrementAnalyticsMetric('auto_responses', 'global', 1);
                 // Pequeño delay para que parezca más natural
                 setTimeout(() => message.channel.send(autoResp).catch(() => { }), 800);
             }
@@ -214,8 +223,10 @@ module.exports = {
                     const resVision = await preguntarConVision(message.channel.id, message.content || '¿Qué opinás de esta imagen?', attachment.url, contexto);
 
                     clearInterval(typingInterval);
+                    stmts.incrementAnalyticsMetric('ai_replies', 'vision_auto', 1);
                     return setTimeout(() => message.reply(resVision).catch(() => { }), 1000);
                 } catch (e) {
+                    stmts.incrementAnalyticsMetric('error_events', 'ai', 1);
                     console.error('Error Vision Auto:', e.message);
                 }
             }
@@ -225,16 +236,38 @@ module.exports = {
                     await message.channel.sendTyping();
                     const contexto = `El usuario ${message.author.username} dijo esto en el chat. Metete en la conversación como si fueras un usuario más. Opiná, bardeá o bromeá sobre lo que dijo. SE BREVE y directo, como si estuvieras charlando.`;
                     const resAuto = await preguntarAIA(message.channel.id, message.content, contexto);
+                    stmts.incrementAnalyticsMetric('ai_replies', 'chat_auto', 1);
                     // send() en lugar de reply para que parezca más natural (como un usuario mandando un mensaje general)
                     return setTimeout(() => message.channel.send(resAuto).catch(() => { }), 1500);
-                } catch (e) { console.error('Error Auto Chat:', e.message); }
+                } catch (e) {
+                    stmts.incrementAnalyticsMetric('error_events', 'ai', 1);
+                    console.error('Error Auto Chat:', e.message);
+                }
             }
         }
 
         // ═══ SISTEMA DE XP ═══
         const resultado = procesarXP(message.author.id);
 
+        // ═══ TRACKING DE PERFILES AVANZADOS ═══
+        // Actualizar racha de mensajes
+        const streakResult = stmts.updateMessageStreak(message.author.id);
+        if (streakResult.updated && streakResult.streak > 0) {
+            trackStreak(message.author.id, streakResult.streak);
+        }
+
+        // Track progreso de mensajes para badges/achievements
+        trackMessage(message.author.id);
+
+        // Actualizar misiones diarias de mensajes
+        updateDailyQuestProgress(message.author.id, 'daily_messages', 1);
+
         if (resultado.subioNivel) {
+            stmts.incrementAnalyticsMetric('level_ups', 'global', 1);
+
+            // Track progreso de nivel para badges/achievements
+            trackLevel(message.author.id, resultado.nuevoNivel);
+
             const embed = new EmbedBuilder()
                 .setColor(config.COLORES.NIVEL || 0xBB86FC)
                 .setAuthor({ name: '🎉  ¡Subiste de nivel!' })

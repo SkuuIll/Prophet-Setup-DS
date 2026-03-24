@@ -85,6 +85,7 @@ async function verificarServidores(client) {
 
                 const statusText = online ? '✅ volvió a estar en línea' : '🔴 no responde';
                 await sendNotification(client, server.discord_channel, embed, `${ping}${gameIcon} **${label}** ${statusText}!`);
+                stmts.incrementAnalyticsMetric('monitor_alerts', 'game_servers', 1);
                 stmts.updateGameServerStatus(server.id, online);
             }
         } catch (e) {

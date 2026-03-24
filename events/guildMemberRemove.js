@@ -2,12 +2,16 @@
 
 const { EmbedBuilder, AuditLogEvent } = require('discord.js');
 const config = require('../config');
+const { stmts } = require('../database');
 
 module.exports = {
     name: 'guildMemberRemove',
     once: false,
     async execute(member) {
         if (member.user.bot) return;
+
+        // Métrica de retención
+        stmts.incrementAnalyticsMetric('member_leaves', 'global', 1);
 
         const logChannel = member.guild.channels.cache.get(config.CHANNELS.LOGS);
         if (!logChannel) return;

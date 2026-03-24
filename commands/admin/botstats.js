@@ -151,7 +151,7 @@ module.exports = {
                     inline: true
                 },
             )
-            .setFooter({ text: `Prophet Bot v2.6  ·  ${totalUsers} usuarios · ${client.commands.size} comandos` })
+            .setFooter({ text: `Prophet Bot v2.9  ·  ${totalUsers} usuarios · ${client.commands.size} comandos` })
             .setTimestamp();
 
         await interaction.editReply({ embeds: [embed] });

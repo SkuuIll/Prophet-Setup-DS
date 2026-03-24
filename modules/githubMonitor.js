@@ -93,6 +93,7 @@ async function verificarGithub(client) {
                             .setTimestamp(new Date(release.published_at));
 
                         await sendNotification(client, sub.discord_channel, embed, `${ping}🚀 Nuevo release de **${sub.repo}**: \`${release.tag_name}\``);
+                        stmts.incrementAnalyticsMetric('monitor_alerts', 'github', 1);
                         stmts.updateGithubSub(sub.id, sub.last_commit_sha, release.tag_name);
                     }
                 }

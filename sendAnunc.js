@@ -1,21 +1,22 @@
 const { Client, GatewayIntentBits, EmbedBuilder } = require('discord.js');
 const config = require('./config');
+const { getChannel } = require('./utils/runtimeConfig');
 require('dotenv').config();
 
 const client = new Client({
     intents: [GatewayIntentBits.Guilds]
 });
 
-client.once('clientReady', async () => {
+client.once('ready', async () => {
     console.log(`Bot conectado como ${client.user.tag}`);
 
-    const guild = Object.values(client.guilds.cache.map(g => g))[0];
+    const guild = client.guilds.cache.first();
     if (!guild) {
         console.log('No guild found');
         process.exit(1);
     }
 
-    const channel = guild.channels.cache.find(c => c.name === config.CHANNELS.ANUNCIOS);
+    const channel = getChannel(guild, 'ANUNCIOS');
 
     if (!channel) {
         console.log('Canal de anuncios no encontrado.');

@@ -87,14 +87,14 @@ module.exports = {
                 .setEmoji('❌')
                 .setStyle(ButtonStyle.Danger),
             new ButtonBuilder()
-                .setCustomId(`rep_ban_${reportado.id}`)
+                .setCustomId(`rep_profile_${reportado.id}`)
                 .setLabel('Ver perfil')
                 .setEmoji('👤')
                 .setStyle(ButtonStyle.Secondary),
         );
 
         // Enviar al canal de logs de moderación
-        const logChannelId = config.CANALES?.LOGS_MOD || config.CANALES?.LOGS || null;
+        const logChannelId = config.CHANNELS.REPORTES || config.CHANNELS.STAFF || config.CHANNELS.LOGS || null;
         let enviado = false;
 
         if (logChannelId) {

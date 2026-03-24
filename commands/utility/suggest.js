@@ -1,6 +1,7 @@
 // ═══ COMANDO: /suggest ═══
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const config = require('../../config');
+const { stmts } = require('../../database');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -10,7 +11,7 @@ module.exports = {
 
     async execute(interaction) {
         const suggestion = interaction.options.getString('propuesta');
-        const channelId = config.SUGERENCIAS.CHANNEL_ID;
+        const channelId = stmts.getConfig('SUGERENCIAS_CHANNEL')?.value ?? config.SUGERENCIAS.CHANNEL_ID;
         const channel = interaction.guild.channels.cache.get(channelId);
 
         if (!channel) {

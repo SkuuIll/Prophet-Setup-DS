@@ -116,6 +116,7 @@ async function verificarTwitch(client) {
                 .setTimestamp();
 
             await sendNotification(client, sub.channel_id, embed, `${ping}🔴 **${streamData.user_name}** está en vivo en Twitch!`);
+            stmts.incrementAnalyticsMetric('monitor_alerts', 'twitch', 1);
             stmts.updateTwitchSub(sub.id, 1, streamData.id);
 
         } else if (!estaLive && sub.last_live) {
