@@ -11,14 +11,14 @@ module.exports = {
     data: new SlashCommandBuilder()
         .setName('perfil')
         .setDescription('Muestra tu perfil o el de otro usuario')
-        .addUserOption(option =>
-            option.setName('usuario')
-                .setDescription('Usuario cuyo perfil quieres ver')
-                .setRequired(false)
-        )
         .addSubcommand(sub =>
             sub.setName('ver')
                 .setDescription('Ver el perfil completo')
+                .addUserOption(option =>
+                    option.setName('usuario')
+                        .setDescription('Usuario cuyo perfil quieres ver')
+                        .setRequired(false)
+                )
         )
         .addSubcommand(sub =>
             sub.setName('badges')
@@ -75,7 +75,12 @@ module.exports = {
     async execute(interaction) {
         const subcommand = interaction.options.getSubcommand();
         const targetUser = interaction.options.getUser('usuario') || interaction.user;
-        const member = await interaction.guild.members.fetch(targetUser.id);
+        
+        // Si el subcomando es 'ver', obtener usuario de ahí
+        const viewUser = subcommand === 'ver' 
+            ? (interaction.options.getUser('usuario') || interaction.user)
+            : interaction.user;
+        const member = await interaction.guild.members.fetch(viewUser.id);
 
         // Ver perfil
         if (subcommand === 'ver' || !subcommand) {
