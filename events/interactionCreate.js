@@ -1,9 +1,12 @@
-const { EmbedBuilder, PermissionFlagsBits } = require('discord.js');
+const { EmbedBuilder, PermissionFlagsBits, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const config = require('../config');
 const { stmts } = require('../database');
 const { abrirTicket, cerrarTicket } = require('../modules/tickets');
 const { participarSorteo } = require('../modules/giveaways');
 const { trackCommand, updateDailyQuestProgress } = require('../modules/profileSystem');
+const { updateLastCommand } = require('../modules/uxEnhancements');
+const { checkKeywordMentions, processNotificationQueue } = require('../modules/smartNotifications');
+const { analyzeMessagePattern, logSecurityEvent } = require('../modules/advancedMod');
 
 function esStaff(member) {
     return member.permissions.has(PermissionFlagsBits.Administrator)
@@ -50,6 +53,7 @@ module.exports = {
                 // Track progreso de comandos para badges/achievements y misiones
                 trackCommand(interaction.user.id);
                 updateDailyQuestProgress(interaction.user.id, 'daily_commands', 1);
+                updateLastCommand(interaction.user.id, interaction.commandName);
 
                 stmts.setHealthCheck('commands:slash', {
                     status: 'ok',
@@ -223,12 +227,121 @@ module.exports = {
             }
         }
 
+        // Comandos contextuales (User)
+        if (interaction.isUserContextMenuCommand()) {
+            const comando = client.commands.get(interaction.commandName);
+            if (comando) {
+                try {
+                    await comando.execute(interaction);
+                } catch (error) {
+                    console.error(`Error en contexto ${interaction.commandName}:`, error);
+                    const errorMsg = { content: `❌ Error: ${error.message}`, ephemeral: true };
+                    if (interaction.replied || interaction.deferred) {
+                        await interaction.followUp(errorMsg).catch(() => {});
+                    } else {
+                        await interaction.reply(errorMsg).catch(() => {});
+                    }
+                }
+            }
+            return;
+        }
+
+        // Comandos contextuales (Message)
+        if (interaction.isMessageContextMenuCommand()) {
+            const comando = client.commands.get(interaction.commandName);
+            if (comando) {
+                try {
+                    await comando.execute(interaction);
+                } catch (error) {
+                    console.error(`Error en contexto ${interaction.commandName}:`, error);
+                    const errorMsg = { content: `❌ Error: ${error.message}`, ephemeral: true };
+                    if (interaction.replied || interaction.deferred) {
+                        await interaction.followUp(errorMsg).catch(() => {});
+                    } else {
+                        await interaction.reply(errorMsg).catch(() => {});
+                    }
+                }
+            }
+            return;
+        }
+
         if (interaction.isModalSubmit()) {
+            // Confesiones
             if (interaction.customId === 'modal_confesion') {
                 const comando = client.commands.get('confesion');
                 if (comando) {
                     await comando.handleModal(interaction);
                 }
+                return;
+            }
+
+            // Pago contextual (Dar Coins)
+            if (interaction.customId.startsWith('pay_modal_')) {
+                const targetUserId = interaction.customId.replace('pay_modal_', '');
+                const amount = parseInt(interaction.fields.getTextInputValue('amount'));
+                
+                if (isNaN(amount) || amount <= 0) {
+                    return interaction.reply({ content: '❌ Ingresá una cantidad válida.', ephemeral: true });
+                }
+
+                const sender = stmts.getUser(interaction.user.id);
+                if (!sender || sender.balance < amount) {
+                    return interaction.reply({ content: '❌ No tenés suficientes coins.', ephemeral: true });
+                }
+
+                // Realizar transferencia
+                stmts.updateBalance(interaction.user.id, -amount);
+                stmts.updateBalance(targetUserId, amount);
+
+                const targetUser = await client.users.fetch(targetUserId).catch(() => null);
+                
+                const embed = new EmbedBuilder()
+                    .setTitle('💸 Transferencia Realizada')
+                    .setColor(config.COLORES.SUCCESS || 0x69F0AE)
+                    .setDescription(`Enviaste **${amount.toLocaleString()} coins** a ${targetUser || `<@${targetUserId}>`}`)
+                    .addFields(
+                        { name: 'Tu balance', value: `${(sender.balance - amount).toLocaleString()} coins`, inline: true },
+                        { name: 'Destinatario', value: targetUser ? targetUser.tag : targetUserId, inline: true }
+                    )
+                    .setTimestamp();
+
+                return interaction.reply({ embeds: [embed], ephemeral: true });
+            }
+
+            // Reporte contextual
+            if (interaction.customId.startsWith('context_report_')) {
+                const targetUserId = interaction.customId.replace('context_report_', '');
+                const reason = interaction.fields.getTextInputValue('reason');
+                const evidence = interaction.fields.getTextInputValue('evidence') || 'Sin evidencia adjunta';
+
+                const reportChannel = interaction.guild.channels.cache.get(config.CHANNELS.STAFF);
+                if (!reportChannel) {
+                    return interaction.reply({ content: '❌ No pude encontrar el canal de Staff.', ephemeral: true });
+                }
+
+                const targetUser = await client.users.fetch(targetUserId).catch(() => null);
+
+                const reportEmbed = new EmbedBuilder()
+                    .setTitle('🚨 Reporte de Usuario')
+                    .setColor(config.COLORES.ERROR || 0xEF5350)
+                    .setAuthor({ name: `Reportado por ${interaction.user.tag}`, iconURL: interaction.user.displayAvatarURL() })
+                    .addFields(
+                        { name: '👤 Reportado', value: targetUser ? `${targetUser} (\`${targetUser.tag}\`)` : `<@${targetUserId}>`, inline: true },
+                        { name: '📋 Razón', value: reason, inline: false },
+                        { name: '📎 Evidencia', value: evidence, inline: false }
+                    )
+                    .setTimestamp();
+
+                const row = new ActionRowBuilder()
+                    .addComponents(
+                        new ButtonBuilder().setCustomId(`rep_tomado_${targetUserId}`).setLabel('Tomar').setStyle(ButtonStyle.Primary).setEmoji('👀'),
+                        new ButtonBuilder().setCustomId(`rep_profile_${targetUserId}`).setLabel('Ver Perfil').setStyle(ButtonStyle.Secondary).setEmoji('👤'),
+                        new ButtonBuilder().setCustomId(`rep_descartado_${targetUserId}`).setLabel('Descartar').setStyle(ButtonStyle.Danger).setEmoji('🗑️')
+                    );
+
+                await reportChannel.send({ embeds: [reportEmbed], components: [row] });
+
+                return interaction.reply({ content: '✅ Reporte enviado al Staff anónimamente.', ephemeral: true });
             }
         }
 

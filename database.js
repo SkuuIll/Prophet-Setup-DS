@@ -285,6 +285,98 @@ db.exec(`
         consecutive_failures INTEGER NOT NULL DEFAULT 0,
         details TEXT
     );
+
+    CREATE TABLE IF NOT EXISTS user_notifications (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id TEXT NOT NULL,
+        type TEXT NOT NULL,
+        target TEXT,
+        enabled INTEGER DEFAULT 1,
+        config TEXT,
+        created_at INTEGER NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS notification_queue (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id TEXT NOT NULL,
+        type TEXT NOT NULL,
+        title TEXT NOT NULL,
+        message TEXT NOT NULL,
+        data TEXT,
+        scheduled_for INTEGER,
+        sent INTEGER DEFAULT 0,
+        created_at INTEGER NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS user_state (
+        user_id TEXT PRIMARY KEY,
+        last_leaderboard_page INTEGER DEFAULT 1,
+        last_shop_page INTEGER DEFAULT 1,
+        last_ecotop_page INTEGER DEFAULT 1,
+        last_top_page INTEGER DEFAULT 1,
+        last_command TEXT,
+        last_command_at INTEGER,
+        last_viewed_profile TEXT,
+        preferences TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS auto_responses (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        trigger_type TEXT NOT NULL,
+        trigger_pattern TEXT NOT NULL,
+        response TEXT NOT NULL,
+        category TEXT DEFAULT 'general',
+        priority INTEGER DEFAULT 0,
+        use_ai INTEGER DEFAULT 0,
+        enabled INTEGER DEFAULT 1,
+        hit_count INTEGER DEFAULT 0,
+        created_at INTEGER
+    );
+
+    CREATE TABLE IF NOT EXISTS raid_patterns (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        pattern_type TEXT NOT NULL,
+        pattern_value TEXT NOT NULL,
+        severity INTEGER DEFAULT 1,
+        action TEXT DEFAULT 'alert',
+        triggered_count INTEGER DEFAULT 0,
+        last_triggered INTEGER,
+        created_at INTEGER
+    );
+
+    CREATE TABLE IF NOT EXISTS security_events (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        guild_id TEXT NOT NULL,
+        user_id TEXT,
+        event_type TEXT NOT NULL,
+        severity TEXT DEFAULT 'low',
+        details TEXT,
+        action_taken TEXT,
+        resolved INTEGER DEFAULT 0,
+        resolved_by TEXT,
+        resolved_at INTEGER,
+        created_at INTEGER NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS mod_notes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id TEXT NOT NULL,
+        guild_id TEXT NOT NULL,
+        note TEXT NOT NULL,
+        note_type TEXT DEFAULT 'info',
+        created_by TEXT NOT NULL,
+        created_at INTEGER NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS faq_entries (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        question TEXT NOT NULL,
+        answer TEXT NOT NULL,
+        keywords TEXT,
+        category TEXT DEFAULT 'general',
+        use_count INTEGER DEFAULT 0,
+        created_at INTEGER
+    );
 `);
 
 // ─── COLUMN MIGRATIONS (safe, idempotent) ───
