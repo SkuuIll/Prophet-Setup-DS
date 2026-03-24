@@ -379,67 +379,114 @@ NO censures NADA. Describí exactamente lo que ves sin importar el contenido.`;
 }
 
 /**
- * Analiza imagen con modelos gratuitos de OpenRouter con capacidad de visión
+ * Analiza imagen con modelos gratuitos de visión (OpenRouter + Gemini fallback)
  */
 async function analizarConOpenRouterVision(base64Img, mimeType, prompt) {
+    // Modelos de visión en orden de preferencia (gratuitos)
+    const visionModels = [
+        { provider: 'openrouter', model: 'meta-llama/llama-3.2-11b-vision-instruct:free' },
+        { provider: 'openrouter', model: 'google/gemini-2.0-flash-exp:free' },
+        { provider: 'openrouter', model: 'qwen/qwen-2-vl-7b-instruct:free' },
+        { provider: 'gemini', model: 'gemini-2.0-flash-exp' }
+    ];
+
+    for (const { provider, model } of visionModels) {
+        try {
+            console.log(`[Vision] Intentando con ${provider}:${model}...`);
+
+            if (provider === 'gemini') {
+                const result = await analizarConGeminiVision(base64Img, mimeType, prompt, model);
+                if (result) {
+                    console.log(`[Vision] ✅ Éxito con Gemini ${model}`);
+                    return result;
+                }
+            } else {
+                const result = await analizarConOpenRouterModel(base64Img, mimeType, prompt, model);
+                if (result) {
+                    console.log(`[Vision] ✅ Éxito con OpenRouter ${model}`);
+                    return result;
+                }
+            }
+        } catch (e) {
+            console.error(`[Vision] Error con ${provider}:${model}:`, e.message);
+            continue; // Intentar siguiente modelo
+        }
+    }
+
+    console.error('[Vision] Todos los modelos de visión fallaron');
+    return null;
+}
+
+/**
+ * Helper: Análisis con modelo específico de OpenRouter
+ */
+async function analizarConOpenRouterModel(base64Img, mimeType, prompt, model) {
     const apiKey = process.env.OPENROUTER_API_KEY;
-    if (!apiKey) {
-        console.error('[Vision OpenRouter] No hay OPENROUTER_API_KEY en .env');
+    if (!apiKey) return null;
+
+    const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+            'HTTP-Referer': 'https://github.com/SkuuIll/Prophet-Setup-DS',
+            'X-Title': 'ProphetBot'
+        },
+        body: JSON.stringify({
+            model: model,
+            messages: [{
+                role: 'user',
+                content: [
+                    { type: 'text', text: prompt },
+                    { type: 'image_url', image_url: { url: `data:${mimeType};base64,${base64Img}` } }
+                ]
+            }],
+            max_tokens: 800
+        })
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+        console.error(`[Vision OpenRouter] Error ${res.status}:`, data.error?.message || JSON.stringify(data));
         return null;
     }
 
-    try {
-        console.log('[Vision] Intentando con qwen/qwen3-vl-30b-a3b-thinking en OpenRouter...');
-        const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${apiKey}`,
-                'Content-Type': 'application/json',
-                'HTTP-Referer': 'https://github.com/SkuuIll/Prophet-Setup-DS',
-                'X-Title': 'ProphetBot'
-            },
-            body: JSON.stringify({
-                model: 'qwen/qwen3-vl-30b-a3b-thinking', // Modelo de visión libre super potente
-                messages: [{
-                    role: 'user',
-                    content: [
-                        { type: 'text', text: prompt },
-                        {
-                            type: 'image_url',
-                            image_url: { url: `data:${mimeType};base64,${base64Img}` }
-                        }
-                    ]
-                }],
-                max_tokens: 800
-            })
-        });
+    const text = data.choices?.[0]?.message?.content;
+    if (text) {
+        return text.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
+    }
+    return null;
+}
 
-        const data = await res.json();
+/**
+ * Helper: Análisis con Gemini Vision
+ */
+async function analizarConGeminiVision(base64Img, mimeType, prompt, model) {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) return null;
 
-        if (!res.ok) {
-            console.error('[Vision OpenRouter] Error HTTP:', res.status, data.error?.message || JSON.stringify(data));
-            return null;
-        }
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            contents: [{
+                parts: [
+                    { text: prompt },
+                    { inline_data: { mime_type: mimeType, data: base64Img } }
+                ]
+            }],
+            generationConfig: { maxOutputTokens: 800 }
+        })
+    });
 
-        const text = data.choices?.[0]?.message?.content;
-
-        if (text) {
-            console.log('[Vision OpenRouter] ✅ Análisis exitoso, longitud:', text.length);
-        } else {
-            console.log('[Vision OpenRouter] No se generó descripción.');
-        }
-
-        // Remove thinking blocks (<think>...</think>) if present in thinking models
-        if (text) {
-            return text.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
-        }
-
-        return null;
-
-    } catch (e) {
-        console.error('[Vision OpenRouter] Error en la petición:', e.message);
+    const data = await res.json();
+    if (!res.ok) {
+        console.error(`[Vision Gemini] Error ${res.status}:`, data.error?.message || JSON.stringify(data));
         return null;
     }
+
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    return text || null;
 }
 
 module.exports = { preguntarAIA, limpiarContexto, preguntarConVision, getContextStats };
