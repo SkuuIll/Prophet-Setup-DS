@@ -1,32 +1,29 @@
-// ═══ COMANDO: /queue ═══
+// ═══ COMANDO: /queue — Cola de reproducción con paginación ═══
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const { useQueue } = require('discord-player');
 const config = require('../../config');
+const { paginate, chunk } = require('../../utils/PaginationBuilder');
 
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('queue')
         .setDescription('📋 Ver la cola de reproducción actual'),
 
-    async execute(interaction, client) {
+    async execute(interaction) {
         const queue = useQueue(interaction.guild.id);
 
         if (!queue || !queue.isPlaying()) {
             return interaction.reply({
                 content: '> ❌ **Sin reproducción** — No hay nada sonando en este momento.',
-                ephemeral: true
+                flags: 64
             });
         }
 
+        await interaction.deferReply();
+
         const tracks = queue.tracks.toArray();
         const currentTrack = queue.currentTrack;
-
-        // Formatear título
-        const fmt = (title, max = 45) => title.length > max ? title.substring(0, max - 2) + '…' : title;
-
-        const canciones = tracks.map((track, i) =>
-            `\`${String(i + 1).padStart(2, ' ')}.\` [${fmt(track.title, 38)}](${track.url}) · \`${track.duration}\``
-        ).slice(0, 15);
+        const fmt = (title, max = 42) => title.length > max ? title.substring(0, max - 2) + '…' : title;
 
         // Tiempo total
         const tiempoTotal = tracks.reduce((acc, t) => {
@@ -37,19 +34,57 @@ module.exports = {
         const minutos = Math.floor((tiempoTotal % 3600) / 60);
         const duracionCola = horas > 0 ? `${horas}h ${minutos}m` : `${minutos}m`;
 
-        const embed = new EmbedBuilder()
-            .setColor(config.COLORES.MUSICA || 0xBB86FC)
-            .setAuthor({ name: '📋  Cola de reproducción' })
-            .setDescription(
-                `**🎵 Reproduciendo ahora:**\n` +
-                `> [${fmt(currentTrack.title)}](${currentTrack.url}) · \`${currentTrack.duration}\`\n` +
-                `> Pedida por ${currentTrack.requestedBy || 'Desconocido'}\n\n` +
-                `**Siguientes:**\n${canciones.length ? canciones.join('\n') : '> *La cola está vacía.*'}` +
-                (tracks.length > 15 ? `\n\n> *...y ${tracks.length - 15} temas más.*` : '')
-            )
-            .setFooter({ text: `${tracks.length} en cola  ·  Duración: ${duracionCola}  ·  Vol: ${queue.node.volume}%` })
-            .setTimestamp();
+        // Barra de progreso del tema actual
+        const progress = queue.node.getTimestamp();
+        let progressBar = '';
+        if (progress && progress.current && progress.total) {
+            const pct = progress.current.value / Math.max(progress.total.value, 1);
+            const len = 14;
+            const filled = Math.round(pct * len);
+            progressBar = `\n> \`${progress.current.label}\` ${'▬'.repeat(filled)}🔘${'▬'.repeat(len - filled)} \`${progress.total.label}\``;
+        }
 
-        await interaction.reply({ embeds: [embed] });
+        // Header: tema actual (aparece en todas las páginas)
+        const nowPlaying =
+            `**🎵 Reproduciendo:**\n` +
+            `> [${fmt(currentTrack.title)}](${currentTrack.url}) · \`${currentTrack.duration}\`\n` +
+            `> Pedida por ${currentTrack.requestedBy || 'Desconocido'}` +
+            progressBar;
+
+        if (tracks.length === 0) {
+            const embed = new EmbedBuilder()
+                .setColor(config.COLORES.MUSICA || 0xBB86FC)
+                .setAuthor({ name: '📋  Cola de Reproducción', iconURL: interaction.guild.iconURL() })
+                .setDescription(nowPlaying + '\n\n> *La cola está vacía — Usá `/play` para agregar más.*')
+                .setFooter({ text: `Vol: ${queue.node.volume}%  ·  Prophet Music` })
+                .setTimestamp();
+
+            return interaction.editReply({ embeds: [embed] });
+        }
+
+        // Paginar tracks en grupos de 10
+        const chunks = chunk(tracks, 10);
+        const pages = chunks.map((group, pageIdx) => {
+            const lines = group.map((t, i) => {
+                const idx = pageIdx * 10 + i + 1;
+                return `\`${String(idx).padStart(2)}\` [${fmt(t.title)}](${t.url}) · \`${t.duration}\``;
+            });
+
+            return new EmbedBuilder()
+                .setColor(config.COLORES.MUSICA || 0xBB86FC)
+                .setAuthor({ name: '📋  Cola de Reproducción', iconURL: interaction.guild.iconURL() })
+                .setDescription(
+                    nowPlaying + '\n\n' +
+                    `**Siguientes (${tracks.length}):**\n` +
+                    lines.join('\n')
+                )
+                .setFooter({ text: `${tracks.length} en cola  ·  ${duracionCola}  ·  Vol: ${queue.node.volume}%` })
+                .setTimestamp();
+        });
+
+        await paginate(interaction, pages, {
+            footerPrefix: 'Prophet Music',
+            timeout: 120000
+        });
     }
 };

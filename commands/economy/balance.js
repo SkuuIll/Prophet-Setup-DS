@@ -15,13 +15,12 @@ module.exports = {
         const currency = config.ECONOMIA.CURRENCY;
         const total = eco.balance + eco.bank;
 
-        // Barra visual de distribución efectivo vs banco (10 bloques)
-        const barLength = 10;
+        // Barra visual de distribución efectivo vs banco
+        const barLength = 12;
         const balPct = total > 0 ? Math.round((eco.balance / total) * barLength) : 0;
         const bankPct = barLength - balPct;
         const barra = '🟢'.repeat(Math.min(balPct, barLength)) + '🔵'.repeat(Math.max(bankPct, 0));
 
-        // Riqueza relativa con label dinámico
         const getRangoLabel = (t) => {
             if (t <= 0) return '🪨 Sin fondos';
             if (t < 1000) return '🌱 Empezando';
@@ -31,8 +30,29 @@ module.exports = {
             return '👑 Magnate del servidor';
         };
 
+        // Posición en ranking
+        let rankPos = '??';
+        try {
+            const allUsers = stmts.getTop(200);
+            const sorted = allUsers.map(u => {
+                const e = stmts.getEconomy(u.id);
+                return { id: u.id, total: (e?.balance || 0) + (e?.bank || 0) };
+            }).sort((a, b) => b.total - a.total);
+            const pos = sorted.findIndex(u => u.id === target.id) + 1;
+            rankPos = pos > 0 ? `#${pos}` : 'Sin ranking';
+        } catch { }
+
         const isSelf = target.id === interaction.user.id;
         const titleSuffix = isSelf ? 'Tu Cartera' : `Cartera de ${target.username}`;
+
+        // Tip dinámico
+        const tip = total < 1000
+            ? '💡 *Usá `/daily` y `/work` para empezar a ganar.*'
+            : total < 10000
+            ? '💡 *Depositá en el banco con `/deposit` para proteger tus coins.*'
+            : total < 50000
+            ? '💡 *Probá suerte en `/gamble` o `/blackjack` para multiplicar.*'
+            : '💡 *Visitá `/shop` para gastar tus riquezas.*';
 
         const embed = new EmbedBuilder()
             .setColor(config.COLORES.PRINCIPAL || 0xBB86FC)
@@ -46,9 +66,10 @@ module.exports = {
                 `\`\`\`` +
                 `\nDistribución: ${barra}\n` +
                 `> 🟢 Efectivo · 🔵 Banco\n\n` +
-                `> ${getRangoLabel(total)}`
+                `> ${getRangoLabel(total)}  ·  📊 Ranking: **${rankPos}**\n\n` +
+                `> ${tip}`
             )
-            .setFooter({ text: 'Prophet Economy  ·  /daily /work /gamble' })
+            .setFooter({ text: 'Prophet Economy  ·  /daily /work /gamble /shop' })
             .setTimestamp();
 
         await interaction.reply({ embeds: [embed] });

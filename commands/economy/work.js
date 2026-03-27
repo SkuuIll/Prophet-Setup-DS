@@ -65,6 +65,9 @@ module.exports = {
 
         const nuevoSaldo = stmts.getEconomy(userId);
 
+        // ── Overtime chance (25%) ──
+        const hasOvertime = Math.random() < 0.25;
+
         const embed = new EmbedBuilder()
             .setColor(config.COLORES.SUCCESS || 0x69F0AE)
             .setAuthor({ name: '👷  Trabajo Completado', iconURL: interaction.user.displayAvatarURL() })
@@ -72,11 +75,59 @@ module.exports = {
                 `> 📋 ${trabajo.text}\n\n` +
                 `> 💼 Concepto: **${trabajo.salario}**\n` +
                 `> 💰 **+${config.ECONOMIA.CURRENCY} ${reward.toLocaleString()}** ganados\n` +
-                `> 💵 Saldo actual: **${config.ECONOMIA.CURRENCY} ${nuevoSaldo.balance.toLocaleString()}**`
+                `> 💵 Saldo actual: **${config.ECONOMIA.CURRENCY} ${nuevoSaldo.balance.toLocaleString()}**` +
+                (hasOvertime ? '\n\n> ⚡ **¡HORA EXTRA DISPONIBLE!** Presioná el botón en 5s para ganar bonus.' : '')
             )
-            .setFooter({ text: 'Prophet Economy  ·  Trabajá cada 30 minutos para maximizar ganancias' })
+            .setFooter({ text: 'Prophet Economy  ·  Trabajá cada 30 minutos' })
             .setTimestamp();
 
-        await interaction.reply({ embeds: [embed] });
+        if (!hasOvertime) {
+            return interaction.reply({ embeds: [embed] });
+        }
+
+        // Overtime mini-game
+        const { ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType } = require('discord.js');
+        const overtimeBonus = Math.floor(reward * 0.5); // 50% extra
+
+        const row = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+                .setCustomId('work_overtime')
+                .setLabel(`⚡ Hora Extra (+${config.ECONOMIA.CURRENCY} ${overtimeBonus})`)
+                .setStyle(ButtonStyle.Success)
+        );
+
+        const msg = await interaction.reply({ embeds: [embed], components: [row], fetchReply: true });
+
+        const collector = msg.createMessageComponentCollector({
+            componentType: ComponentType.Button,
+            time: 5000,
+            filter: i => i.user.id === userId,
+            max: 1
+        });
+
+        collector.on('collect', async i => {
+            stmts.addMoney(userId, overtimeBonus, 'balance');
+            const finalBal = stmts.getEconomy(userId);
+
+            embed.setDescription(
+                `> 📋 ${trabajo.text}\n\n` +
+                `> 💼 Concepto: **${trabajo.salario}**\n` +
+                `> 💰 **+${config.ECONOMIA.CURRENCY} ${reward.toLocaleString()}** ganados\n` +
+                `> ⚡ **+${config.ECONOMIA.CURRENCY} ${overtimeBonus.toLocaleString()}** bonus hora extra!\n` +
+                `> 💵 Saldo final: **${config.ECONOMIA.CURRENCY} ${finalBal.balance.toLocaleString()}**`
+            );
+            embed.setColor(0xFFD700);
+
+            await i.update({ embeds: [embed], components: [] });
+        });
+
+        collector.on('end', (collected) => {
+            if (collected.size === 0) {
+                embed.setDescription(
+                    embed.data.description.replace('⚡ **¡HORA EXTRA DISPONIBLE!** Presioná el botón en 5s para ganar bonus.', '⏰ *Hora extra expirada — fuiste muy lento.*')
+                );
+                interaction.editReply({ embeds: [embed], components: [] }).catch(() => {});
+            }
+        });
     }
 };

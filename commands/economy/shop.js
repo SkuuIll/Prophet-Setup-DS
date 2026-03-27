@@ -7,7 +7,12 @@ const config = require('../../config');
 const ROLE_SHOP = [
     { id: 'rol_neon', name: 'Color Neón', desc: 'Rol con color verde neón brillante', price: 5000, emoji: '🟢', rareza: 'Común' },
     { id: 'rol_diablo', name: 'Color Diablo', desc: 'Rol con color rojo sangre', price: 5000, emoji: '🔴', rareza: 'Común' },
+    { id: 'xp_boost', name: 'XP Boost x2', desc: 'Doble XP por 1 hora (se activa al comprar)', price: 8000, emoji: '⚡', rareza: 'Poco Común' },
+    { id: 'shield', name: 'Escudo Anti-Rob', desc: 'Protege tu balance 24h contra /rob', price: 10000, emoji: '🛡️', rareza: 'Poco Común' },
+    { id: 'lottery', name: 'Boleto de Lotería', desc: 'Chance de ganar entre 1x y 10x', price: 3000, emoji: '🎰', rareza: 'Común' },
     { id: 'rol_vip', name: 'Rango VIP Temporal', desc: 'Acceso a canales VIP (30 Días)', price: 15000, emoji: '💎', rareza: 'Premium' },
+    { id: 'custom_role', name: 'Rol Personalizado', desc: 'Rol con el color que quieras (contactar Staff)', price: 25000, emoji: '🎨', rareza: 'Premium' },
+    { id: 'legendary_badge', name: 'Insignia Legendaria', desc: 'Badge exclusivo en tu perfil', price: 50000, emoji: '👑', rareza: 'Legendario' },
 ];
 
 const RAREZA_COLOR = {
