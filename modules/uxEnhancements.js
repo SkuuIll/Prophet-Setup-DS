@@ -38,6 +38,8 @@ function updateUserState(userId, updates) {
     
     if (updates.preferences) {
         merged.preferences = JSON.stringify({ ...state.preferences, ...updates.preferences });
+    } else {
+        merged.preferences = JSON.stringify(state.preferences || {});
     }
     
     return db.prepare(`
