@@ -30,6 +30,43 @@ module.exports = {
     name: 'interactionCreate',
     once: false,
     async execute(interaction, client) {
+        // ── Handler para botones de música huérfanos (post-reinicio) ──
+        if (interaction.isButton() && (interaction.customId.startsWith('ll_') || interaction.customId.startsWith('music_'))) {
+            // Si hay un collector activo en playl, dejar que ese lo maneje
+            // Solo intervenir si nadie va a procesar este botón (collector muerto post-restart)
+            try {
+                // Esperar 500ms para dar chance al collector local
+                await new Promise(r => setTimeout(r, 300));
+                if (interaction.replied || interaction.deferred) return;
+
+                // Ningún collector lo tomó — sesión muerta
+                await interaction.reply({
+                    embeds: [new EmbedBuilder()
+                        .setColor(0xFFB74D)
+                        .setDescription(
+                            '> ⚠️ **Sesión de música expirada**\n' +
+                            '> El bot fue reiniciado y esta sesión ya no existe.\n\n' +
+                            '> Usá `/playl <canción>` para empezar una nueva reproducción. 🎵'
+                        )
+                        .setFooter({ text: 'Prophet Music' })],
+                    flags: 64
+                });
+
+                // Intentar deshabilitar los botones del mensaje viejo
+                try {
+                    const oldMsg = interaction.message;
+                    const disabledComponents = oldMsg.components.map(row => {
+                        const { ActionRowBuilder: AR, ButtonBuilder: BB } = require('discord.js');
+                        const newRow = AR.from(row);
+                        newRow.components.forEach(c => c.setDisabled(true));
+                        return newRow;
+                    });
+                    await oldMsg.edit({ components: disabledComponents });
+                } catch { }
+            } catch { }
+            return;
+        }
+
         if (interaction.isChatInputCommand()) {
             const comando = client.commands.get(interaction.commandName);
             if (!comando) return;
