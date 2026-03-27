@@ -102,6 +102,12 @@ db.exec(`
         value TEXT
     );
 
+    CREATE TABLE IF NOT EXISTS guild_settings (
+        guild_id TEXT PRIMARY KEY,
+        music_volume INTEGER DEFAULT 10,
+        prefix TEXT DEFAULT '/'
+    );
+
     CREATE TABLE IF NOT EXISTS logs (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         type TEXT,
@@ -1410,6 +1416,22 @@ const stmts = {
         }
 
         return results;
+    },
+
+    // ─── GUILD SETTINGS (Volume) ───
+    getGuildSettings: (guildId) => {
+        let settings = db.prepare('SELECT * FROM guild_settings WHERE guild_id = ?').get(guildId);
+        if (!settings) {
+            db.prepare('INSERT INTO guild_settings (guild_id, music_volume) VALUES (?, 10)').run(guildId);
+            settings = { guild_id: guildId, music_volume: 10, prefix: '/' };
+        }
+        return settings;
+    },
+    setGuildVolume: (guildId, volume) => {
+        db.prepare(`
+            INSERT INTO guild_settings (guild_id, music_volume) VALUES (?, ?)
+            ON CONFLICT(guild_id) DO UPDATE SET music_volume = excluded.music_volume
+        `).run(guildId, volume);
     }
 };
 

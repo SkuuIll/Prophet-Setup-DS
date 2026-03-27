@@ -290,6 +290,8 @@ function setupCollector(sq) {
                 }
                 case 'll_voldown': {
                     sq.volume = Math.max(0, sq.volume - 10);
+                    const DBStmts = require('../../database').stmts;
+                    DBStmts.setGuildVolume(i.guild.id, sq.volume);
                     await sq.player.setVolume(sq.volume);
                     await i.deferUpdate();
                     await actualizarUI(sq);
@@ -297,6 +299,8 @@ function setupCollector(sq) {
                 }
                 case 'll_volup': {
                     sq.volume = Math.min(100, sq.volume + 10);
+                    const DBStmts = require('../../database').stmts;
+                    DBStmts.setGuildVolume(i.guild.id, sq.volume);
                     await sq.player.setVolume(sq.volume);
                     await i.deferUpdate();
                     await actualizarUI(sq);
@@ -417,6 +421,9 @@ module.exports = {
                     shardId: interaction.guild.shardId || 0,
                 });
 
+                const DBStmts = require('../../database').stmts;
+                const dbSettings = DBStmts.getGuildSettings(guildId);
+
                 sq = {
                     player,
                     channel: interaction.channel,
@@ -428,7 +435,7 @@ module.exports = {
                     skipping: false,
                     msg: null,
                     collector: null,
-                    volume: 50,
+                    volume: dbSettings.music_volume || 10,
                 };
 
                 serverQueues.set(guildId, sq);

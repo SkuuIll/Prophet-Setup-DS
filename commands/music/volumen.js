@@ -1,6 +1,6 @@
 // ═══ COMANDO: /volumen ═══
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
-const { useQueue } = require('discord-player');
+const { stmts } = require('../../database');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -13,28 +13,31 @@ module.exports = {
         if (!voiceChannel) {
             return interaction.reply({
                 content: '> ❌ **Sin canal** — Tenés que estar en un canal de voz.',
-                ephemeral: true
+                flags: 64
             });
         }
 
         if (interaction.guild.members.me.voice.channelId && voiceChannel.id !== interaction.guild.members.me.voice.channelId) {
             return interaction.reply({
                 content: '> ❌ **Canal incorrecto** — Tenés que estar en el mismo canal de voz.',
-                ephemeral: true
-            });
-        }
-
-        const queue = useQueue(interaction.guild.id);
-
-        if (!queue || !queue.isPlaying()) {
-            return interaction.reply({
-                content: '> ❌ **Sin reproducción** — No hay nada sonando en este momento.',
-                ephemeral: true
+                flags: 64
             });
         }
 
         const vol = interaction.options.getInteger('nivel');
-        queue.node.setVolume(vol);
+
+        // Guardar en DB para futuras reproducciones (tanto Shoukaku como discord-player)
+        stmts.setGuildVolume(interaction.guild.id, vol);
+
+        // Aplicar a la cola actual si existe (discord-player)
+        let isPlaying = false;
+        try {
+            const queue = useQueue(interaction.guild.id);
+            if (queue && queue.isPlaying()) {
+                queue.node.setVolume(vol);
+                isPlaying = true;
+            }
+        } catch { }
 
         // Barra visual
         const bloques = 10;

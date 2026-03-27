@@ -35,11 +35,11 @@ module.exports = {
             // Si hay un collector activo en playl, dejar que ese lo maneje
             // Solo intervenir si nadie va a procesar este botón (collector muerto post-restart)
             try {
-                // Esperar 500ms para dar chance al collector local
-                await new Promise(r => setTimeout(r, 300));
+                // Esperar 2000ms para dar chance al collector local
+                await new Promise(r => setTimeout(r, 2000));
                 if (interaction.replied || interaction.deferred) return;
 
-                // Ningún collector lo tomó — sesión muerta
+                // Ningún collector lo tomó en 2 segundos — sesión muerta
                 await interaction.reply({
                     embeds: [new EmbedBuilder()
                         .setColor(0xFFB74D)

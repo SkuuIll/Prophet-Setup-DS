@@ -446,6 +446,7 @@ module.exports = async function inicializarMusica(client) {
                         case 'music_voldown': {
                             const newVol = Math.max(0, currentQueue.node.volume - 10);
                             currentQueue.node.setVolume(newVol);
+                            stmts.setGuildVolume(guildId, newVol);
                             await actualizarNowPlaying(currentQueue);
                             await i.deferUpdate();
                             break;
@@ -454,6 +455,7 @@ module.exports = async function inicializarMusica(client) {
                         case 'music_volup': {
                             const newVol = Math.min(100, currentQueue.node.volume + 10);
                             currentQueue.node.setVolume(newVol);
+                            stmts.setGuildVolume(guildId, newVol);
                             await actualizarNowPlaying(currentQueue);
                             await i.deferUpdate();
                             break;

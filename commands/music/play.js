@@ -67,13 +67,16 @@ module.exports = {
         const query = limpiarQuery(queryOriginal);
 
         try {
+            const { stmts } = require('../../database');
+            const volDb = stmts.getGuildSettings(interaction.guildId).music_volume || 10;
+
             const { track } = await client.player.play(voiceChannel, query, {
                 requestedBy: interaction.user,
                 nodeOptions: {
                     metadata: {
                         channel: interaction.channel
                     },
-                    volume: 50,
+                    volume: volDb,
                     leaveOnEmpty: false,
                     leaveOnEmptyCooldown: 30000,
                     leaveOnEnd: true,
@@ -88,6 +91,9 @@ module.exports = {
             // Si falla con URL, intentar buscar por nombre del video
             if (query !== queryOriginal || query.startsWith('http')) {
                 try {
+                    const { stmts } = require('../../database');
+                    const volDb = stmts.getGuildSettings(interaction.guildId).music_volume || 10;
+                    
                     // Extraer un término de búsqueda de la URL o usar el query original
                     const searchQuery = queryOriginal.startsWith('http')
                         ? query.replace(/https?:\/\/(www\.)?youtube\.com\/watch\?v=/, '').replace(/[&?].*/, '')
@@ -98,7 +104,7 @@ module.exports = {
                         searchEngine: 'youtube',
                         nodeOptions: {
                             metadata: { channel: interaction.channel },
-                            volume: 50,
+                            volume: volDb,
                             leaveOnEmpty: false,
                             leaveOnEmptyCooldown: 30000,
                             leaveOnEnd: true,
