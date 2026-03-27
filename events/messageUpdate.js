@@ -11,6 +11,18 @@ module.exports = {
         if (oldMessage.partial || !oldMessage.content) return;
         if (oldMessage.content === newMessage.content) return;
 
+        // ═══ EDIT SNIPE SYSTEM (guarda hasta 5 por canal) ═══
+        if (!newMessage.client.editSnipes) newMessage.client.editSnipes = new Map();
+        const channelEdits = newMessage.client.editSnipes.get(newMessage.channel.id) || [];
+        channelEdits.unshift({
+            oldContent: oldMessage.content,
+            newContent: newMessage.content,
+            author: newMessage.author,
+            timestamp: Date.now()
+        });
+        if (channelEdits.length > 5) channelEdits.pop();
+        newMessage.client.editSnipes.set(newMessage.channel.id, channelEdits);
+
         const logChannel = newMessage.guild.channels.cache.get(config.CHANNELS.LOGS);
         if (!logChannel) return;
 

@@ -1,9 +1,10 @@
-const { SlashCommandBuilder } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+const config = require('../../config');
 
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('afk')
-        .setDescription('💤 Ponte en modo AFK (Ausente) y notifica a quienes te mencionen')
+        .setDescription('💤 Ponte en modo AFK — notifica a quienes te mencionen')
         .addStringOption(option =>
             option.setName('motivo')
                 .setDescription('Razón por la que estás AFK')),
@@ -11,28 +12,32 @@ module.exports = {
     async execute(interaction) {
         const reason = interaction.options.getString('motivo') || 'Sin motivo especificado';
 
-        // Guardar estado AFK en la colección del cliente (en memoria)
+        // Guardar estado AFK con lista de menciones
         interaction.client.afk.set(interaction.user.id, {
             reason: reason,
-            timestamp: Date.now()
+            timestamp: Date.now(),
+            mentions: [] // {from, channel, timestamp, preview}
         });
 
-        // Respuesta divertida
-        await interaction.reply({
-            content: `💤 **${interaction.user.username}** ahora está AFK: ${reason}`,
-            ephemeral: false
-        });
+        const embed = new EmbedBuilder()
+            .setColor(config.COLORES.WARN || 0xFFB74D)
+            .setDescription(
+                `> 💤 **${interaction.user.username}** ahora está AFK\n` +
+                `> **Motivo:** ${reason}\n\n` +
+                `> *Te avisaré cuando alguien te mencione mientras estás ausente.*`
+            )
+            .setFooter({ text: 'Enviá un mensaje en cualquier canal para salir del modo AFK' });
 
-        // Opcional: Cambiar el apodo del usuario para indicar AFK (requiere permisos)
+        await interaction.reply({ embeds: [embed] });
+
+        // Cambiar apodo
         if (interaction.guild.members.me.permissions.has('ManageNicknames')) {
             try {
                 const member = interaction.member;
                 if (!member.displayName.startsWith('[AFK]')) {
                     await member.setNickname(`[AFK] ${member.displayName}`.substring(0, 32));
                 }
-            } catch (e) {
-                // Ignorar error si no se puede cambiar el apodo (ej. es el dueño o rol superior)
-            }
+            } catch (e) { }
         }
     }
 };

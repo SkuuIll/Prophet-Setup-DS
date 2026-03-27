@@ -40,7 +40,7 @@ module.exports = {
             if (canalesPermitidos.length > 0 && !canalesPermitidos.includes(interaction.channelId) && !miembroStaff) {
                 return interaction.reply({
                     content: `> 🚫 **Canal incorrecto** — Los comandos deben usarse en <#${config.CHANNELS.COMANDOS_BOT}>.`,
-                    ephemeral: true,
+                    flags: 64,
                 });
             }
 
@@ -59,7 +59,7 @@ module.exports = {
                         const unixExpiry = Math.floor(expiresAt / 1000);
                         return interaction.reply({
                             content: `> ⏳ **Cooldown activo** — Podés volver a usar \`/${interaction.commandName}\` <t:${unixExpiry}:R>.`,
-                            ephemeral: true,
+                            flags: 64,
                         });
                     }
                 }
@@ -152,7 +152,7 @@ module.exports = {
                 if (!esStaff(interaction.member)) {
                     return interaction.reply({
                         content: '> 🚫 Solo el Staff puede gestionar reportes.',
-                        ephemeral: true,
+                        flags: 64,
                     });
                 }
 
@@ -161,7 +161,7 @@ module.exports = {
                     if (!embedOrigen) {
                         return interaction.reply({
                             content: '> ⚠️ No pude actualizar ese reporte.',
-                            ephemeral: true,
+                            flags: 64,
                         });
                     }
 
@@ -185,7 +185,7 @@ module.exports = {
                     if (!user) {
                         return interaction.reply({
                             content: '> ⚠️ No pude obtener la información de ese usuario.',
-                            ephemeral: true,
+                            flags: 64,
                         });
                     }
 
@@ -211,7 +211,7 @@ module.exports = {
                         )
                         .setTimestamp();
 
-                    return interaction.reply({ embeds: [profileEmbed], ephemeral: true });
+                    return interaction.reply({ embeds: [profileEmbed], flags: 64 });
                 }
             }
 
@@ -223,7 +223,7 @@ module.exports = {
                 if (!role) {
                     return interaction.reply({
                         content: '> ❌ **Rol no encontrado** — Es posible que haya sido eliminado del servidor.',
-                        ephemeral: true,
+                        flags: 64,
                     });
                 }
 
@@ -232,20 +232,20 @@ module.exports = {
                         await member.roles.remove(role);
                         await interaction.reply({
                             content: `> ➖ Se te removió el rol **${role.name}**.`,
-                            ephemeral: true,
+                            flags: 64,
                         });
                     } else {
                         await member.roles.add(role);
                         await interaction.reply({
                             content: `> ✅ Se te asignó el rol **${role.name}**.`,
-                            ephemeral: true,
+                            flags: 64,
                         });
                     }
                 } catch (e) {
                     console.error('Error RR:', e);
                     await interaction.reply({
                         content: `> ❌ **Error de permisos** — No pude modificar el rol. Avisá al Staff.\n> \`${e.message}\``,
-                        ephemeral: true,
+                        flags: 64,
                     });
                 }
             }
@@ -360,12 +360,12 @@ module.exports = {
                 const amount = parseInt(interaction.fields.getTextInputValue('amount'));
                 
                 if (isNaN(amount) || amount <= 0) {
-                    return interaction.reply({ content: '❌ Ingresá una cantidad válida.', ephemeral: true });
+                    return interaction.reply({ content: '❌ Ingresá una cantidad válida.', flags: 64 });
                 }
 
                 const sender = stmts.getUser(interaction.user.id);
                 if (!sender || sender.balance < amount) {
-                    return interaction.reply({ content: '❌ No tenés suficientes coins.', ephemeral: true });
+                    return interaction.reply({ content: '❌ No tenés suficientes coins.', flags: 64 });
                 }
 
                 // Realizar transferencia
@@ -384,7 +384,7 @@ module.exports = {
                     )
                     .setTimestamp();
 
-                return interaction.reply({ embeds: [embed], ephemeral: true });
+                return interaction.reply({ embeds: [embed], flags: 64 });
             }
 
             // Reporte contextual
@@ -395,7 +395,7 @@ module.exports = {
 
                 const reportChannel = interaction.guild.channels.cache.get(config.CHANNELS.STAFF);
                 if (!reportChannel) {
-                    return interaction.reply({ content: '❌ No pude encontrar el canal de Staff.', ephemeral: true });
+                    return interaction.reply({ content: '❌ No pude encontrar el canal de Staff.', flags: 64 });
                 }
 
                 const targetUser = await client.users.fetch(targetUserId).catch(() => null);
@@ -420,7 +420,7 @@ module.exports = {
 
                 await reportChannel.send({ embeds: [reportEmbed], components: [row] });
 
-                return interaction.reply({ content: '✅ Reporte enviado al Staff anónimamente.', ephemeral: true });
+                return interaction.reply({ content: '✅ Reporte enviado al Staff anónimamente.', flags: 64 });
             }
         }
 
@@ -471,10 +471,10 @@ module.exports = {
                     if (removed.length > 0) msg += `> ➖ **Removidos:** ${removed.join(', ')}\n`;
                     if (assigned.length === 0 && removed.length === 0) msg = '✅ **Tus roles ya estaban al día.**';
 
-                    await interaction.reply({ content: msg, ephemeral: true });
+                    await interaction.reply({ content: msg, flags: 64 });
                 } catch (e) {
                     console.error('Error aplicando Select Menu Roles:', e);
-                    await interaction.reply({ content: '❌ **Error de permisos.** No pude modificar tus roles.', ephemeral: true });
+                    await interaction.reply({ content: '❌ **Error de permisos.** No pude modificar tus roles.', flags: 64 });
                 }
             }
         }

@@ -10,14 +10,19 @@ module.exports = {
         if (!message.guild || message.author?.bot) return;
         if (message.partial) return;
 
-        // ═══ SNIPE SYSTEM ═══
+        // ═══ SNIPE SYSTEM (multi-snipe: guarda hasta 5 por canal) ═══
         if (message.content || message.attachments.size > 0) {
-            message.client.snipes.set(message.channel.id, {
+            if (!message.client.snipes) message.client.snipes = new Map();
+            const channelSnipes = message.client.snipes.get(message.channel.id) || [];
+            channelSnipes.unshift({
                 content: message.content,
                 author: message.author,
                 image: message.attachments.first()?.url || null,
                 timestamp: Date.now()
             });
+            // Mantener máximo 5
+            if (channelSnipes.length > 5) channelSnipes.pop();
+            message.client.snipes.set(message.channel.id, channelSnipes);
         }
 
         const logChannel = message.guild.channels.cache.get(config.CHANNELS.LOGS);

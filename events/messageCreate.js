@@ -68,7 +68,7 @@ module.exports = {
 
         // ═══ SISTEMA AFK ═══
 
-        // 1. Si el autor estaba AFK, quitarlo
+        // 1. Si el autor estaba AFK, quitarlo y mostrar resumen
         if (message.client.afk.has(message.author.id)) {
             const afkData = message.client.afk.get(message.author.id);
             message.client.afk.delete(message.author.id);
@@ -82,21 +82,51 @@ module.exports = {
                 if (tiempoAFK >= 3600) duracion = `${Math.floor(tiempoAFK / 3600)}h ${Math.floor((tiempoAFK % 3600) / 60)}m`;
                 else if (tiempoAFK >= 60) duracion = `${Math.floor(tiempoAFK / 60)}m ${tiempoAFK % 60}s`;
 
+                // Resumen de menciones recibidas
+                const mentions = afkData.mentions || [];
+                let mentionSummary = '';
+                if (mentions.length > 0) {
+                    const shown = mentions.slice(0, 5);
+                    mentionSummary = '\n\n> 📬 **Mientras no estabas te mencionaron:**\n' +
+                        shown.map(m =>
+                            `> • **${m.from}** en <#${m.channel}> — *"${m.preview.slice(0, 60)}${m.preview.length > 60 ? '...' : ''}"*`
+                        ).join('\n');
+                    if (mentions.length > 5) {
+                        mentionSummary += `\n> *...y ${mentions.length - 5} más*`;
+                    }
+                }
+
                 const embed = new EmbedBuilder()
                     .setColor(config.COLORES.SUCCESS || 0x69F0AE)
-                    .setDescription(`> 👋 **¡Bienvenido de vuelta, ${message.author}!**\n> Estuviste AFK por \`${duracion}\`.`)
+                    .setDescription(
+                        `> 👋 **¡Bienvenido de vuelta, ${message.author}!**\n` +
+                        `> Estuviste AFK por \`${duracion}\`.` +
+                        (mentions.length > 0 ? ` (${mentions.length} mencion${mentions.length !== 1 ? 'es' : ''})` : '') +
+                        mentionSummary
+                    )
                     .setFooter({ text: 'Prophet  ·  Sistema AFK' });
 
                 const welcomeMsg = await message.reply({ embeds: [embed] });
-                setTimeout(() => welcomeMsg.delete().catch(() => { }), 8000);
+                setTimeout(() => welcomeMsg.delete().catch(() => { }), mentions.length > 0 ? 15000 : 8000);
             } catch (e) { console.debug('[AFK] Error enviando mensaje de bienvenida:', e.message); }
         }
 
-        // 2. Si mencionan a un usuario AFK
+        // 2. Si mencionan a un usuario AFK, trackear la mención
         if (message.mentions.users.size > 0) {
             message.mentions.users.forEach(user => {
                 const afkData = message.client.afk.get(user.id);
                 if (afkData && user.id !== message.author.id) {
+                    // Trackear mención (máx 20)
+                    if (!afkData.mentions) afkData.mentions = [];
+                    if (afkData.mentions.length < 20) {
+                        afkData.mentions.push({
+                            from: message.author.username,
+                            channel: message.channel.id,
+                            timestamp: Date.now(),
+                            preview: message.content.replace(/<@!?\d+>/g, '').trim() || '[archivo/embed]'
+                        });
+                    }
+
                     const embed = new EmbedBuilder()
                         .setColor(config.COLORES.WARN || 0xFFB74D)
                         .setDescription(`> 💤 **${user.username}** está AFK: *${afkData.reason}*\n> Ausente desde <t:${Math.floor(afkData.timestamp / 1000)}:R>`)
