@@ -4,6 +4,7 @@ const config = require('../../config');
 const { stmts } = require('../../database');
 
 module.exports = {
+    cooldown: 30, // 30 segundos entre sugerencias
     data: new SlashCommandBuilder()
         .setName('suggest')
         .setDescription('💡 Enviar una sugerencia al servidor')

@@ -20,6 +20,7 @@ const LOSE_PHRASES = [
 ];
 
 module.exports = {
+    cooldown: 5, // 5 segundos entre apuestas
     data: new SlashCommandBuilder()
         .setName('gamble')
         .setDescription('🎰 Apostar dinero — ¡Doble o Nada!')

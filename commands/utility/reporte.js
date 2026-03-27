@@ -3,6 +3,7 @@ const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, Butt
 const config = require('../../config');
 
 module.exports = {
+    cooldown: 60, // 60 segundos entre reportes para evitar spam
     data: new SlashCommandBuilder()
         .setName('reporte')
         .setDescription('🚨 Reportar a un usuario al Staff de manera discreta')

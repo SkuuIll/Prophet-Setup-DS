@@ -266,64 +266,98 @@ function formatProfileEmbed(profile, member) {
         }
     }
 
+    // Barra de progreso XP visual
+    const barLength = 12;
+    const filled = Math.round((profile.progressPercent / 100) * barLength);
+    const progressBar = '█'.repeat(filled) + '░'.repeat(barLength - filled);
+
+    // Streak emoji dinámico
+    const streakEmoji = profile.streak >= 30 ? '🔥🔥🔥' : profile.streak >= 14 ? '🔥🔥' : profile.streak >= 3 ? '🔥' : '❄️';
+
+    // Formatear tiempo de voz
+    const voiceDays = Math.floor(profile.voiceMinutes / 1440);
+    const voiceHrs = Math.floor((profile.voiceMinutes % 1440) / 60);
+    const voiceMins = profile.voiceMinutes % 60;
+    const voiceStr = voiceDays > 0 ? `${voiceDays}d ${voiceHrs}h` : voiceHrs > 0 ? `${voiceHrs}h ${voiceMins}m` : `${voiceMins}m`;
+
     const embed = new EmbedBuilder()
         .setColor(embedColor)
         .setAuthor({
-            name: `${member.displayName}'s Profile`,
+            name: `${member.displayName}`,
             iconURL: member.user.displayAvatarURL({ dynamic: true })
         })
         .setThumbnail(member.user.displayAvatarURL({ size: 256 }))
+        .setDescription(
+            `**Nivel ${profile.level}** — ${profile.xp.toLocaleString()} / ${(profile.xp + profile.xpNeeded).toLocaleString()} XP\n` +
+            `\`${progressBar}\` ${profile.progressPercent}%`
+        )
         .addFields(
             {
-                name: '📊 Nivel',
-                value: `**${profile.level}** (${profile.progressPercent}% al siguiente)\n${profile.xp.toLocaleString()} XP`,
-                inline: true
-            },
-            {
-                name: '🏆 Ranks',
-                value: `XP: #${profile.ranks.xp}${profile.ranks.voice ? `\nVoz: #${profile.ranks.voice}` : ''}`,
+                name: '🏆 Ranking',
+                value:
+                    `> 📊 XP: **#${profile.ranks.xp}** del server\n` +
+                    (profile.ranks.voice ? `> 🎙️ Voz: **#${profile.ranks.voice}**\n` : '') +
+                    (profile.ranks.economy ? `> 💎 Economía: **#${profile.ranks.economy}**` : ''),
                 inline: true
             },
             {
                 name: '💰 Economía',
-                value: `💵 ${profile.balance.toLocaleString()}\n🏦 ${profile.bank.toLocaleString()}\n💎 ${profile.totalCoins.toLocaleString()} total`,
+                value:
+                    `> 💵 Efectivo: **${profile.balance.toLocaleString()}**\n` +
+                    `> 🏦 Banco: **${profile.bank.toLocaleString()}**\n` +
+                    `> 💎 Total: **${profile.totalCoins.toLocaleString()}**`,
                 inline: true
             }
         );
 
-    // Badges
+    // Badges (en una sola línea compacta)
     if (profile.badges.length > 0) {
-        const badgeText = profile.badges.map(b => `${b.icon} ${b.name}`).join('\n');
+        const badgeIcons = profile.badges.map(b => b.icon).join(' ');
+        const extra = profile.totalBadges > profile.badges.length ? ` +${profile.totalBadges - profile.badges.length}` : '';
         embed.addFields({
             name: `🏅 Badges (${profile.totalBadges})`,
-            value: badgeText,
-            inline: true
+            value: badgeIcons + extra,
+            inline: false
         });
     }
 
-    // Stats
+    // Stats con formato visual
     embed.addFields(
         {
-            name: '📈 Estadísticas',
-            value: `💬 ${profile.messages.toLocaleString()} mensajes\n🎤 ${profile.voiceHours}h en voz\n⭐ ${profile.reputation} reputación\n🔥 ${profile.streak} días de racha`,
+            name: '📈 Actividad',
+            value:
+                `> 💬 **${profile.messages.toLocaleString()}** mensajes\n` +
+                `> 🎙️ **${voiceStr}** en voz\n` +
+                `> ⌨️ Racha: ${streakEmoji} **${profile.streak}** días`,
+            inline: true
+        },
+        {
+            name: '⭐ Social',
+            value:
+                `> ⭐ **${profile.reputation}** reputación\n` +
+                (profile.activeQuests.length > 0
+                    ? `> 🎯 **${profile.totalActiveQuests}** misiones activas`
+                    : `> 🎯 Sin misiones activas`),
             inline: true
         }
     );
 
-    // Misiones activas
+    // Misiones activas (compactas con mini-barra)
     if (profile.activeQuests.length > 0) {
         const questText = profile.activeQuests.map(q => {
             const progress = Math.min(100, Math.round((q.progress / q.requirement_value) * 100));
-            return `${q.name}: ${progress}%`;
+            const miniBar = '▓'.repeat(Math.floor(progress / 20)) + '░'.repeat(5 - Math.floor(progress / 20));
+            return `${miniBar} ${q.name} (${progress}%)`;
         }).join('\n');
         embed.addFields({
-            name: `🎯 Misiones Activas (${profile.totalActiveQuests})`,
-            value: questText,
-            inline: true
+            name: '🎯 Misiones',
+            value: `\`\`\`\n${questText}\n\`\`\``,
+            inline: false
         });
     }
 
-    embed.setFooter({ text: `Prophet Gaming • Miembro desde ${member.joinedAt?.toLocaleDateString('es-AR') || 'siempre'}` });
+    const memberSince = member.joinedAt?.toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' }) || 'siempre';
+    embed.setFooter({ text: `Prophet Gaming  ·  Miembro desde ${memberSince}` });
 
     return embed;
 }

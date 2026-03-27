@@ -44,6 +44,30 @@ module.exports = {
                 });
             }
 
+            // ── COOLDOWN HANDLER ──
+            if (comando.cooldown) {
+                const cdKey = `${interaction.commandName}-${interaction.user.id}`;
+                const now = Date.now();
+                const cdMs = comando.cooldown * 1000; // cooldown en segundos → ms
+
+                if (!client.cooldowns) client.cooldowns = new Collection();
+                const timestamps = client.cooldowns;
+
+                if (timestamps.has(cdKey)) {
+                    const expiresAt = timestamps.get(cdKey) + cdMs;
+                    if (now < expiresAt) {
+                        const unixExpiry = Math.floor(expiresAt / 1000);
+                        return interaction.reply({
+                            content: `> ⏳ **Cooldown activo** — Podés volver a usar \`/${interaction.commandName}\` <t:${unixExpiry}:R>.`,
+                            ephemeral: true,
+                        });
+                    }
+                }
+                timestamps.set(cdKey, now);
+                // Auto-limpiar después de que expire
+                setTimeout(() => timestamps.delete(cdKey), cdMs);
+            }
+
             const startedAt = Date.now();
             try {
                 await comando.execute(interaction, client);
@@ -231,15 +255,43 @@ module.exports = {
         if (interaction.isUserContextMenuCommand()) {
             const comando = client.commands.get(interaction.commandName);
             if (comando) {
+                const startedAt = Date.now();
                 try {
                     await comando.execute(interaction);
+                    const durationMs = Date.now() - startedAt;
+
+                    // Tracking unificado (igual que slash commands)
+                    trackCommand(interaction.user.id);
+                    updateDailyQuestProgress(interaction.user.id, 'daily_commands', 1);
+                    updateLastCommand(interaction.user.id, `ctx:${interaction.commandName}`);
+                    stmts.recordCommandExecution(`ctx:${interaction.commandName}`, true, durationMs);
+                    stmts.addLog('CONTEXT_COMMAND', {
+                        user: interaction.user.tag,
+                        userId: interaction.user.id,
+                        command: interaction.commandName,
+                        type: 'user',
+                        durationMs,
+                    });
                 } catch (error) {
-                    console.error(`Error en contexto ${interaction.commandName}:`, error);
-                    const errorMsg = { content: `❌ Error: ${error.message}`, ephemeral: true };
+                    const durationMs = Date.now() - startedAt;
+                    stmts.recordCommandExecution(`ctx:${interaction.commandName}`, false, durationMs);
+                    stmts.incrementAnalyticsMetric('error_events', 'context_commands', 1);
+                    console.error(`Error en contexto ${interaction.commandName}:`, error.message);
+                    const errorEmbed = new EmbedBuilder()
+                        .setColor(config.COLORES.ERROR || 0xEF5350)
+                        .setAuthor({ name: '⚠️  Error del sistema' })
+                        .setDescription(
+                            `> No se pudo ejecutar \`${interaction.commandName}\`.\n` +
+                            `> Si el problema persiste, avisá al Staff.\n\n` +
+                            `\`\`\`\n${error.message.substring(0, 200)}\n\`\`\``
+                        )
+                        .setFooter({ text: 'Prophet Bot  ·  Error handler' })
+                        .setTimestamp();
+                    const respuesta = { embeds: [errorEmbed], flags: 64 };
                     if (interaction.replied || interaction.deferred) {
-                        await interaction.followUp(errorMsg).catch(() => {});
+                        await interaction.followUp(respuesta).catch(() => {});
                     } else {
-                        await interaction.reply(errorMsg).catch(() => {});
+                        await interaction.reply(respuesta).catch(() => {});
                     }
                 }
             }
@@ -250,15 +302,42 @@ module.exports = {
         if (interaction.isMessageContextMenuCommand()) {
             const comando = client.commands.get(interaction.commandName);
             if (comando) {
+                const startedAt = Date.now();
                 try {
                     await comando.execute(interaction);
+                    const durationMs = Date.now() - startedAt;
+
+                    trackCommand(interaction.user.id);
+                    updateDailyQuestProgress(interaction.user.id, 'daily_commands', 1);
+                    updateLastCommand(interaction.user.id, `ctx:${interaction.commandName}`);
+                    stmts.recordCommandExecution(`ctx:${interaction.commandName}`, true, durationMs);
+                    stmts.addLog('CONTEXT_COMMAND', {
+                        user: interaction.user.tag,
+                        userId: interaction.user.id,
+                        command: interaction.commandName,
+                        type: 'message',
+                        durationMs,
+                    });
                 } catch (error) {
-                    console.error(`Error en contexto ${interaction.commandName}:`, error);
-                    const errorMsg = { content: `❌ Error: ${error.message}`, ephemeral: true };
+                    const durationMs = Date.now() - startedAt;
+                    stmts.recordCommandExecution(`ctx:${interaction.commandName}`, false, durationMs);
+                    stmts.incrementAnalyticsMetric('error_events', 'context_commands', 1);
+                    console.error(`Error en contexto ${interaction.commandName}:`, error.message);
+                    const errorEmbed = new EmbedBuilder()
+                        .setColor(config.COLORES.ERROR || 0xEF5350)
+                        .setAuthor({ name: '⚠️  Error del sistema' })
+                        .setDescription(
+                            `> No se pudo ejecutar \`${interaction.commandName}\`.\n` +
+                            `> Si el problema persiste, avisá al Staff.\n\n` +
+                            `\`\`\`\n${error.message.substring(0, 200)}\n\`\`\``
+                        )
+                        .setFooter({ text: 'Prophet Bot  ·  Error handler' })
+                        .setTimestamp();
+                    const respuesta = { embeds: [errorEmbed], flags: 64 };
                     if (interaction.replied || interaction.deferred) {
-                        await interaction.followUp(errorMsg).catch(() => {});
+                        await interaction.followUp(respuesta).catch(() => {});
                     } else {
-                        await interaction.reply(errorMsg).catch(() => {});
+                        await interaction.reply(respuesta).catch(() => {});
                     }
                 }
             }
