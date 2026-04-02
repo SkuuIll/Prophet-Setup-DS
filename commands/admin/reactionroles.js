@@ -26,11 +26,25 @@ module.exports = {
         const descripcion = interaction.options.getString('descripcion') || 'Hacé click en un botón para obtener o quitar el rol.';
 
         const roles = [];
+        const rolesProtegidos = [
+            config.ROLES.PROPHET,
+            config.ROLES.STAFF,
+            config.ROLES.MODERADOR,
+            config.ROLES.VIP,
+            config.ROLES.BOTS
+        ].filter(Boolean);
+
         for (let i = 1; i <= 5; i++) {
-            const rol = interaction.options.getRole(`rol${i}`);
+            const contribution = interaction.options.getRole(`rol${i}`);
             const emoji = interaction.options.getString(`emoji${i}`);
-            if (rol && emoji) {
-                roles.push({ rol, emoji });
+            
+            if (contribution && emoji) {
+                // Verificar si el rol es restringido
+                if (rolesProtegidos.includes(contribution.id) || rolesProtegidos.includes(contribution.name)) {
+                    console.log(`⚠️ Intento de crear reaction role restringido: ${contribution.name}`);
+                    continue; // Saltar roles protegidos
+                }
+                roles.push({ rol: contribution, emoji });
             }
         }
 

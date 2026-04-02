@@ -176,7 +176,20 @@ async function sendOnboardingStep(member, stepId) {
 
 async function handleOnboardingInteraction(interaction, customId) {
     const userId = interaction.user.id;
-    const member = interaction.member;
+    let member = interaction.member;
+    let guild = interaction.guild;
+
+    // Si es por DM, intentar obtener el miembro desde el servidor principal
+    if (!guild) {
+        guild = interaction.client.guilds.cache.get(config.GUILD_ID);
+        if (guild) {
+            member = await guild.members.fetch(userId).catch(() => null);
+        }
+    }
+
+    if (!member) {
+        return await interaction.reply({ content: '❌ No se pudo encontrar tu información de miembro en el servidor.', ephemeral: true });
+    }
 
     if (customId === 'onboarding_complete') {
         // Completar onboarding
@@ -228,8 +241,20 @@ async function handleOnboardingInteraction(interaction, customId) {
 
 async function handleOnboardingRoleSelect(interaction) {
     const selectedGames = interaction.values;
-    const member = interaction.member;
-    const guild = interaction.guild;
+    let member = interaction.member;
+    let guild = interaction.guild;
+
+    // Manejo de DMs
+    if (!guild) {
+        guild = interaction.client.guilds.cache.get(config.GUILD_ID);
+        if (guild) {
+            member = await guild.members.fetch(interaction.user.id).catch(() => null);
+        }
+    }
+
+    if (!guild || !member) {
+        return await interaction.reply({ content: '❌ Solo podés seleccionar roles si estás dentro del servidor.', ephemeral: true });
+    }
 
     const roleMap = {
         valorant: config.ROLES_JUEGOS?.VALORANT || guild.roles.cache.find(r => r.name.toLowerCase().includes('valorant'))?.id,
