@@ -33,8 +33,8 @@ const ONBOARDING_STEPS = [
     },
     {
         id: 'roles',
-        title: '🎭 Elegí tus Roles',
-        description: 'Seleccioná los juegos que te interesan para obtener acceso a canales y notificaciones específicas.',
+        title: '🎭 ¿Qué venís a jugar?',
+        description: 'Actualmente nuestros roles gratuitos principales son **PUBG** y **CS**. ¿Cuál de los dos vas a jugar con nosotros? (Podés elegir ambos). Ese rol será el que se te otorgue.',
         action: 'select_roles',
         nextStep: 'channels'
     },
@@ -74,14 +74,8 @@ const ONBOARDING_STEPS = [
 ];
 
 const GAME_ROLES = [
-    { id: 'valorant', label: '🎯 Valorant', description: 'Notificaciones de Valorant' },
-    { id: 'lol', label: '⚔️ League of Legends', description: 'Notificaciones de LoL' },
-    { id: 'csgo', label: '🔫 CS2', description: 'Notificaciones de CS2' },
-    { id: 'minecraft', label: '⛏️ Minecraft', description: 'Notificaciones de Minecraft' },
-    { id: 'gta', label: '🚗 GTA/RP', description: 'Notificaciones de GTA' },
-    { id: 'fortnite', label: '🏗️ Fortnite', description: 'Notificaciones de Fortnite' },
-    { id: 'apex', label: '🤖 Apex Legends', description: 'Notificaciones de Apex' },
-    { id: 'fifa', label: '⚽ FIFA/EA FC', description: 'Notificaciones de FIFA' },
+    { id: 'pubg', label: '🪂 PUBG Battlegrounds', description: 'Rol gratuito de PUBG' },
+    { id: 'csgo', label: '🔫 Counter-Strike 2', description: 'Rol gratuito de CS2' }
 ];
 
 // ═══════════════════════════════════════════════════
@@ -257,14 +251,8 @@ async function handleOnboardingRoleSelect(interaction) {
     }
 
     const roleMap = {
-        valorant: config.ROLES_JUEGOS?.VALORANT || guild.roles.cache.find(r => r.name.toLowerCase().includes('valorant'))?.id,
-        lol: config.ROLES_JUEGOS?.LOL || guild.roles.cache.find(r => r.name.toLowerCase().includes('league') || r.name.toLowerCase().includes('lol'))?.id,
+        pubg: config.ROLES_JUEGOS?.PUBG || guild.roles.cache.find(r => r.name.toLowerCase().includes('pubg'))?.id,
         csgo: config.ROLES_JUEGOS?.CS2 || guild.roles.cache.find(r => r.name.toLowerCase().includes('cs2') || r.name.toLowerCase().includes('counter'))?.id,
-        minecraft: config.ROLES_JUEGOS?.MINECRAFT || guild.roles.cache.find(r => r.name.toLowerCase().includes('minecraft'))?.id,
-        gta: config.ROLES_JUEGOS?.GTA || guild.roles.cache.find(r => r.name.toLowerCase().includes('gta') || r.name.toLowerCase().includes('roleplay'))?.id,
-        fortnite: config.ROLES_JUEGOS?.FORTNITE || guild.roles.cache.find(r => r.name.toLowerCase().includes('fortnite'))?.id,
-        apex: config.ROLES_JUEGOS?.APEX || guild.roles.cache.find(r => r.name.toLowerCase().includes('apex'))?.id,
-        fifa: config.ROLES_JUEGOS?.FIFA || guild.roles.cache.find(r => r.name.toLowerCase().includes('fifa') || r.name.toLowerCase().includes('fc'))?.id,
     };
 
     const assigned = [];
@@ -320,7 +308,7 @@ function getPersonalizedRecommendations(member) {
     }
 
     // Basado en roles
-    const gamingRoles = ['valorant', 'lol', 'csgo', 'minecraft', 'gta', 'fortnite', 'apex'];
+    const gamingRoles = ['pubg', 'csgo', 'cs2', 'counter'];
     const hasGamingRole = gamingRoles.some(roleName =>
         member.roles.cache.some(r => r.name.toLowerCase().includes(roleName))
     );

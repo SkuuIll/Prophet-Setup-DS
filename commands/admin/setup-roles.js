@@ -13,24 +13,19 @@ module.exports = {
 
         const embed = new EmbedBuilder()
             .setColor(config.COLORES.PRINCIPAL || 0xBB86FC)
-            .setTitle('🎮 Selecciona tus Juegos')
-            .setDescription('¡Elige los juegos que juegas para recibir notificaciones y encontrar con quién jugar!\n\nSelecciona una o más opciones en el menú de abajo.')
+            .setTitle('🎮 Selecciona tu Juego')
+            .setDescription('¡Nuestros roles gratuitos son PUBG y CS! ¿Cuál de los dos vas a jugar en nuestra comunidad?\n\nSelecciona una o ambas opciones en el menú de abajo.')
             .setImage(config.ASSETS.BANNER)
             .setFooter({ text: 'Prophet Gaming · Auto-Roles' });
 
-        // Nota: Asegúrate de que las IDs de estos roles coincidan con tu servidor
-        // Para este ejemplo usamos nombres descriptivos en el value, luego en interactionCreate crearemos una lógica para mapearlo o asignarlo
         const options = [
-            { label: 'Valorant', description: 'Acceso a canales de Valorant', value: 'role_valorant', emoji: '🔫' },
-            { label: 'League of Legends', description: 'Acceso a canales de LoL', value: 'role_lol', emoji: '⚔️' },
-            { label: 'Minecraft', description: 'Acceso a canales de Minecraft', value: 'role_minecraft', emoji: '🪨' },
-            { label: 'CS2', description: 'Acceso a canales de Counter Strike 2', value: 'role_cs2', emoji: '💣' },
-            { label: 'GTA V Roleplay', description: 'Acceso a canales de GTA RP', value: 'role_gta', emoji: '🚗' },
+            { label: 'PUBG Battlegrounds', description: 'Rol gratuito de PUBG', value: 'role_pubg', emoji: '🪂' },
+            { label: 'Counter Strike 2', description: 'Rol gratuito de CS2', value: 'role_cs2', emoji: '🔫' },
         ];
 
         const selectMenu = new StringSelectMenuBuilder()
             .setCustomId('auto_roles_juegos')
-            .setPlaceholder('Haz click para seleccionar tus juegos...')
+            .setPlaceholder('Haz click para elegir PUBG o CS...')
             .setMinValues(0)
             .setMaxValues(options.length)
             .addOptions(options);
