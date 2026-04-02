@@ -15,6 +15,45 @@ module.exports = {
         const userId = member.id;
         const guild = member.guild;
 
+        // Función ayudante para procesar nivel visualmente
+        const manejarSubidaDeNivel = async (member, resultado) => {
+            stmts.incrementAnalyticsMetric('level_ups', 'global', 1);
+            const { trackLevel } = require('../modules/profileSystem');
+            trackLevel(member.id, resultado.nuevoNivel);
+
+            const chatChannel = guild.channels.cache.get(config.CHANNELS.CHAT);
+            if (!chatChannel) return;
+
+            const embed = new EmbedBuilder()
+                .setColor(config.COLORES.NIVEL || 0xBB86FC)
+                .setAuthor({ name: '🎉  ¡Subiste de nivel hablando!' })
+                .setDescription(
+                    `> ${member.user} subió a **Nivel ${resultado.nuevoNivel}** por su tiempo en canales de voz!\n` +
+                    `> ¡Seguí participando para desbloquear más recompensas!`
+                )
+                .setThumbnail(member.user.displayAvatarURL({ size: 128 }))
+                .setFooter({ text: 'Prophet  ·  Sistema de Niveles' })
+                .setTimestamp();
+
+            if (resultado.rolNuevo) {
+                embed.addFields({
+                    name: '🏅 Nuevo rol desbloqueado',
+                    value: `> ¡Obtuviste el rol **${resultado.rolNuevo}**!`
+                });
+
+                const rol = guild.roles.cache.find(r => r.name === resultado.rolNuevo);
+                if (rol) {
+                    try {
+                        await member.roles.add(rol, `Subió a nivel ${resultado.nuevoNivel} (XP de Voz)`);
+                    } catch (e) {
+                        console.error('Error asignando rol de nivel por voz:', e.message);
+                    }
+                }
+            }
+
+            chatChannel.send({ embeds: [embed] }).catch(() => {});
+        };
+
         // ── VOICE XP: Tracking de sesión (con anti-abuse) ────────────────────────────
         if (!member.client.voiceSessions) member.client.voiceSessions = new Map();
 
@@ -49,12 +88,17 @@ module.exports = {
             if (session) {
                 const minutosTranscurridos = Math.floor((Date.now() - session.joinedAt) / 60000);
                 if (minutosTranscurridos >= 1) {
-                    procesarXPVoz(userId, minutosTranscurridos);
+                    const resultado = procesarXPVoz(userId, minutosTranscurridos);
                     stmts.incrementAnalyticsMetric('voice_minutes', 'global', minutosTranscurridos);
 
                     // Track progreso de voz para badges/achievements y misiones
                     trackVoiceMinutes(userId, minutosTranscurridos);
                     updateDailyQuestProgress(userId, 'daily_voice_minutes', minutosTranscurridos);
+                    
+                    // Si subió de nivel gracias al tiempo en voz
+                    if (resultado.subioNivel) {
+                        manejarSubidaDeNivel(member, resultado);
+                    }
                 }
                 member.client.voiceSessions.delete(userId);
             }
@@ -67,8 +111,12 @@ module.exports = {
                 // Estaba trackeando pero ya no es elegible → guardar XP parcial y pausar
                 const minutosTranscurridos = Math.floor((Date.now() - session.joinedAt) / 60000);
                 if (minutosTranscurridos >= 1) {
-                    procesarXPVoz(userId, minutosTranscurridos);
+                    const resultado = procesarXPVoz(userId, minutosTranscurridos);
                     stmts.incrementAnalyticsMetric('voice_minutes', 'global', minutosTranscurridos);
+                    
+                    if (resultado.subioNivel) {
+                        manejarSubidaDeNivel(member, resultado);
+                    }
                 }
                 member.client.voiceSessions.delete(userId);
             } else if (!session && ahora) {
