@@ -185,6 +185,20 @@ module.exports = {
                     if (rolesProtegidos.includes(role.id) || rolesProtegidos.includes(role.name)) {
                         return interaction.reply({ content: `> 🚫 **Acceso restringido** — El rol **${role.name}** no es auto-asignable.`, flags: 64 });
                     }
+                    
+                    // Capa de Seguridad Extra: Bloquear automáticamente roles con permisos altos, sin importar su nombre
+                    const permisosPeligrosos = [
+                        PermissionFlagsBits.Administrator,
+                        PermissionFlagsBits.ManageGuild,
+                        PermissionFlagsBits.ManageRoles,
+                        PermissionFlagsBits.ManageChannels,
+                        PermissionFlagsBits.BanMembers
+                    ];
+                    
+                    if (permisosPeligrosos.some(p => role.permissions.has(p))) {
+                        return interaction.reply({ content: `> 🛡️ **Seguridad del Sistema** — El rol **${role.name}** tiene permisos avanzados y el bot no permite repartirlo mediante auto-roles automáticos por protección.`, flags: 64 });
+                    }
+
                     if (member.roles.cache.has(roleId)) {
                         await member.roles.remove(role);
                         await interaction.reply({ content: `> ➖ Removido: **${role.name}**.`, flags: 64 });
