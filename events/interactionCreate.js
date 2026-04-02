@@ -178,8 +178,19 @@ module.exports = {
 
                 if (id.startsWith('rr_')) {
                     const roleId = id.replace('rr_', '').replace('auto_', '');
-                    const member = interaction.member;
-                    const role = interaction.guild.roles.cache.get(roleId);
+                    let member = interaction.member;
+                    let guild = interaction.guild;
+
+                    if (!guild) {
+                        guild = interaction.client.guilds.cache.get(config.GUILD_ID);
+                        if (guild) member = await guild.members.fetch(interaction.user.id).catch(() => null);
+                    }
+
+                    if (!guild || !member) {
+                        return interaction.reply({ content: '> ❌ Este botón solo funciona dentro del servidor.', flags: 64 });
+                    }
+
+                    const role = guild.roles.cache.get(roleId);
                     if (!role) return interaction.reply({ content: '> ❌ Rol no encontrado.', flags: 64 });
                     const rolesProtegidos = [config.ROLES.PROPHET, config.ROLES.STAFF, config.ROLES.MODERADOR, config.ROLES.VIP, config.ROLES.BOTS].filter(Boolean);
                     if (rolesProtegidos.includes(role.id) || rolesProtegidos.includes(role.name)) {
@@ -244,8 +255,18 @@ module.exports = {
                 }
 
                 if (interaction.customId === 'auto_roles_juegos') {
-                    const member = interaction.member;
-                    const guild = interaction.guild;
+                    let member = interaction.member;
+                    let guild = interaction.guild;
+                    
+                    if (!guild) {
+                        guild = interaction.client.guilds.cache.get(config.GUILD_ID);
+                        if (guild) member = await guild.members.fetch(interaction.user.id).catch(() => null);
+                    }
+
+                    if (!guild || !member) {
+                        return interaction.reply({ content: '> ❌ Este menú solo funciona dentro del servidor.', flags: 64 });
+                    }
+
                     const values = interaction.values;
                     const roleMap = {
                         role_valorant: config.ROLES_JUEGOS?.VALORANT || guild.roles.cache.find(r => r.name.toLowerCase().includes('valorant'))?.id,
