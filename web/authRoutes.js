@@ -86,9 +86,8 @@ async function handleRefresh(req, res) {
         
         const refreshTokenHash = require('crypto').createHash('sha256').update(refreshToken).digest('hex');
         
-        // Buscar el refresh token
         const tokenRecord = _db.prepare(`
-            SELECT rt.*, du.username, du.role
+            SELECT rt.*, du.username, du.role, du.email, du.two_factor_enabled, du.must_change_password
             FROM refresh_tokens rt
             JOIN dashboard_users du ON rt.user_id = du.id
             WHERE rt.token_hash = ? AND rt.revoked = 0 AND rt.expires_at > ?
@@ -98,28 +97,35 @@ async function handleRefresh(req, res) {
             middleware.sendError(res, 401, 'Refresh token inválido o expirado');
             return;
         }
-        
-        // Revocar el token anterior
+
+        const now = Date.now();
+        const previousSession = _db.prepare('SELECT id FROM dashboard_sessions WHERE refresh_token_hash = ?').get(refreshTokenHash);
+
         _db.prepare('UPDATE refresh_tokens SET revoked = 1, revoked_at = ? WHERE id = ?')
-            .run(Date.now(), tokenRecord.id);
+            .run(now, tokenRecord.id);
+
+        if (previousSession?.id) {
+            _db.prepare('DELETE FROM dashboard_sessions WHERE id = ?').run(previousSession.id);
+        }
         
-        // Crear nueva sesión
         const newSessionId = security.generateSecureToken(32);
         const newRefreshToken = security.generateRefreshToken();
         const newRefreshTokenHash = require('crypto').createHash('sha256').update(newRefreshToken).digest('hex');
-        const sessionExpiry = Date.now() + security.parseExpiry(security.SECURITY_CONFIG.REFRESH_TOKEN_EXPIRY) * 1000;
+        const refreshExpirySeconds = security.parseExpiry(security.SECURITY_CONFIG.REFRESH_TOKEN_EXPIRY);
+        const accessExpirySeconds = security.parseExpiry(security.SECURITY_CONFIG.JWT_EXPIRY);
+        const sessionExpiry = now + refreshExpirySeconds * 1000;
+        const csrfToken = security.generateCSRFToken(newSessionId);
         
         _db.prepare(`
             INSERT INTO dashboard_sessions (id, user_id, refresh_token_hash, ip_address, user_agent, created_at, expires_at, last_activity_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        `).run(newSessionId, tokenRecord.user_id, newRefreshTokenHash, ipAddress, userAgent, Date.now(), sessionExpiry, Date.now());
+        `).run(newSessionId, tokenRecord.user_id, newRefreshTokenHash, ipAddress, userAgent, now, sessionExpiry, now);
         
         _db.prepare(`
             INSERT INTO refresh_tokens (id, user_id, token_hash, expires_at, created_at)
             VALUES (?, ?, ?, ?, ?)
-        `).run(security.generateSecureToken(16), tokenRecord.user_id, newRefreshTokenHash, sessionExpiry, Date.now());
+        `).run(security.generateSecureToken(16), tokenRecord.user_id, newRefreshTokenHash, sessionExpiry, now);
         
-        // Generar nuevo JWT
         const jwt = security.generateJWT({
             userId: tokenRecord.user_id,
             username: tokenRecord.username,
@@ -136,11 +142,20 @@ async function handleRefresh(req, res) {
         
         middleware.sendJson(res, 200, {
             success: true,
+            user: {
+                id: tokenRecord.user_id,
+                username: tokenRecord.username,
+                email: tokenRecord.email,
+                role: tokenRecord.role,
+                twoFactorEnabled: tokenRecord.two_factor_enabled === 1,
+                mustChangePassword: tokenRecord.must_change_password === 1
+            },
             tokens: {
                 accessToken: jwt,
                 refreshToken: newRefreshToken,
-                expiresIn: security.parseExpiry(security.SECURITY_CONFIG.JWT_EXPIRY)
-            }
+                expiresIn: accessExpirySeconds
+            },
+            csrfToken
         });
     } catch (error) {
         middleware.sendError(res, 500, 'Error al refrescar token');
@@ -203,7 +218,7 @@ async function handleChangePassword(req, res) {
             return;
         }
         
-        await security.changePassword(req.user.id, currentPassword, newPassword, ipAddress);
+        await security.changePassword(req.user.id, currentPassword, newPassword, ipAddress, req.user.sessionId);
         
         middleware.sendJson(res, 200, { 
             success: true, 
@@ -470,19 +485,23 @@ async function handleResetUserPassword(req, res) {
         const tempPassword = security.generateSecureToken(8);
         const passwordHash = await security.hashPassword(tempPassword);
         
+        const now = Date.now();
+
         _db.prepare(`
             UPDATE dashboard_users 
             SET password_hash = ?, password_changed_at = ?, must_change_password = 1, 
                 failed_login_attempts = 0, locked_until = NULL, updated_at = ?
             WHERE id = ?
-        `).run(passwordHash, Date.now(), Date.now(), userId);
+        `).run(passwordHash, now, now, userId);
+
+        const revokedSessions = security.revokeUserSessions(userId);
         
         security.auditLog('password_reset', {
             userId: req.user.id,
             ipAddress,
             resource: 'user',
             resourceId: userId,
-            details: { targetUsername: targetUser.username }
+            details: { targetUsername: targetUser.username, revokedSessions }
         });
         
         middleware.sendJson(res, 200, {
@@ -622,84 +641,95 @@ async function handleSecurityStats(req, res) {
  * Procesa las rutas de autenticación
  */
 function handleAuthRoutes(req, res, path, method) {
-    // Rutas públicas
     if (path === '/api/auth/login' && method === 'POST') {
-        return middleware.apiSecurity(req, res, () => handleLogin(req, res));
+        middleware.apiSecurity(req, res, () => handleLogin(req, res));
+        return true;
     }
     
     if (path === '/api/auth/refresh' && method === 'POST') {
-        return middleware.apiSecurity(req, res, () => handleRefresh(req, res));
+        middleware.apiSecurity(req, res, () => handleRefresh(req, res));
+        return true;
     }
     
-    // Rutas protegidas - usuario actual
     if (path === '/api/auth/me' && method === 'GET') {
-        return middleware.protectedApi('dashboard:read')(req, res, () => handleGetCurrentUser(req, res));
+        middleware.protectedApi('dashboard:read')(req, res, () => handleGetCurrentUser(req, res));
+        return true;
     }
     
     if (path === '/api/auth/logout' && method === 'POST') {
-        return middleware.protectedApi()(req, res, () => handleLogout(req, res));
+        middleware.protectedApi()(req, res, () => handleLogout(req, res));
+        return true;
     }
     
     if (path === '/api/auth/change-password' && method === 'POST') {
-        return middleware.protectedApi()(req, res, () => handleChangePassword(req, res));
+        middleware.protectedApi()(req, res, () => handleChangePassword(req, res));
+        return true;
     }
     
     if (path === '/api/auth/csrf' && method === 'GET') {
-        return middleware.protectedApi()(req, res, () => handleGetCsrf(req, res));
+        middleware.protectedApi()(req, res, () => handleGetCsrf(req, res));
+        return true;
     }
     
-    // Gestión de usuarios - requiere admin
     if (path === '/api/users' && method === 'GET') {
-        return middleware.protectedApi('users:read')(req, res, () => handleListUsers(req, res));
+        middleware.protectedApi('users:read')(req, res, () => handleListUsers(req, res));
+        return true;
     }
     
     if (path === '/api/users' && method === 'POST') {
-        return middleware.protectedApi('users:write')(req, res, () => handleCreateUser(req, res));
+        middleware.protectedApi('users:write')(req, res, () => handleCreateUser(req, res));
+        return true;
     }
     
-    // Rutas con parámetros
     const userMatch = path.match(/^\/api\/users\/(\d+)$/);
     if (userMatch) {
         req.params = { id: userMatch[1] };
         
         if (method === 'PATCH') {
-            return middleware.protectedApi('users:write')(req, res, () => handleUpdateUser(req, res));
+            middleware.protectedApi('users:write')(req, res, () => handleUpdateUser(req, res));
+            return true;
         }
         if (method === 'DELETE') {
-            return middleware.protectedApi('users:delete')(req, res, () => handleDeleteUser(req, res));
+            middleware.protectedApi('users:delete')(req, res, () => handleDeleteUser(req, res));
+            return true;
         }
     }
     
     const resetPasswordMatch = path.match(/^\/api\/users\/(\d+)\/reset-password$/);
     if (resetPasswordMatch && method === 'POST') {
         req.params = { id: resetPasswordMatch[1] };
-        return middleware.protectedApi('users:write')(req, res, () => handleResetUserPassword(req, res));
+        middleware.protectedApi('users:write')(req, res, () => handleResetUserPassword(req, res));
+        return true;
     }
     
-    // Seguridad - requiere admin
     if (path === '/api/security/audit' && method === 'GET') {
-        return middleware.protectedApi('security:read')(req, res, () => handleGetAuditLogs(req, res));
+        middleware.protectedApi('security:read')(req, res, () => handleGetAuditLogs(req, res));
+        return true;
     }
     
     if (path === '/api/security/blocked-ips' && method === 'GET') {
-        return middleware.protectedApi('security:read')(req, res, () => handleListBlockedIps(req, res));
+        middleware.protectedApi('security:read')(req, res, () => handleListBlockedIps(req, res));
+        return true;
     }
     
     if (path === '/api/security/block-ip' && method === 'POST') {
-        return middleware.protectedApi('security:write')(req, res, () => handleBlockIp(req, res));
+        middleware.protectedApi('security:write')(req, res, () => handleBlockIp(req, res));
+        return true;
     }
     
     const unblockIpMatch = path.match(/^\/api\/security\/block-ip\/(.+)$/);
     if (unblockIpMatch && method === 'DELETE') {
         req.params = { ip: unblockIpMatch[1] };
-        return middleware.protectedApi('security:write')(req, res, () => handleUnblockIp(req, res));
+        middleware.protectedApi('security:write')(req, res, () => handleUnblockIp(req, res));
+        return true;
     }
     
     if (path === '/api/security/stats' && method === 'GET') {
-        return middleware.protectedApi('security:read')(req, res, () => handleSecurityStats(req, res));
+        middleware.protectedApi('security:read')(req, res, () => handleSecurityStats(req, res));
+        return true;
     }
     
-    return false; // Ruta no manejada
+    return false;
 }
 
 module.exports = {

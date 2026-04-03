@@ -134,7 +134,7 @@ function handleConfigUpdate(req, res, client) {
 /**
  * POST /api/tickets/close - Cerrar ticket
  */
-function handleTicketClose(req, res, client) {
+async function handleTicketClose(req, res, client) {
     try {
         const body = req.body || {};
         const channelId = body?.channelId;
@@ -170,7 +170,7 @@ function handleTicketClose(req, res, client) {
 /**
  * POST /api/giveaways/end - Finalizar sorteo
  */
-function handleGiveawayEnd(req, res, client) {
+async function handleGiveawayEnd(req, res, client) {
     try {
         const body = req.body || {};
         const messageId = body?.messageId;
@@ -267,9 +267,9 @@ function handleWarnsClear(req, res) {
 /**
  * POST /api/summary/send - Enviar resumen diario
  */
-function handleSummarySend(req, res, client) {
+async function handleSummarySend(req, res, client) {
     try {
-        const result = sendDailySummary(client);
+        const result = await sendDailySummary(client);
         
         security.auditLog('summary_sent', {
             userId: req.user?.id,
@@ -313,110 +313,76 @@ function handleSecuritySummary(req, res) {
 // ═══════════════════════════════════════════════════
 
 function createRequestHandler(client) {
-    return async (req, res) => {
+    return (req, res) => {
         const requestUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
         const pathname = requestUrl.pathname;
         const method = req.method;
-        
-        // Aplicar middleware base (headers de seguridad, CORS, etc.)
-        middleware.apiSecurity(req, res, () => {
-            // Rutas de autenticación (manejadas por authRoutes)
-            if (pathname.startsWith('/api/auth') || 
-                pathname.startsWith('/api/users') || 
-                pathname.startsWith('/api/security')) {
-                
-                const handled = handleAuthRoutes(req, res, pathname, method);
-                if (handled) return;
+        req.query = Object.fromEntries(requestUrl.searchParams.entries());
+
+        if (
+            pathname.startsWith('/api/auth') ||
+            pathname.startsWith('/api/users') ||
+            pathname.startsWith('/api/security')
+        ) {
+            if (handleAuthRoutes(req, res, pathname, method)) {
+                return;
             }
-            
-            // API de health (público)
-            if (pathname === '/api/health' && method === 'GET') {
-                return handleHealth(req, res, client);
-            }
-            
-            // Rutas protegidas que requieren autenticación
-            if (pathname.startsWith('/api/')) {
-                return middleware.authenticate(req, res, () => {
-                    // Dashboard principal
-                    if (pathname === '/api/dashboard' && method === 'GET') {
-                        return middleware.requirePermission('dashboard:read')(req, res, () => 
-                            handleDashboard(req, res, client)
-                        );
-                    }
-                    
-                    // Actualizar configuración
-                    if (pathname === '/api/config' && method === 'POST') {
-                        return middleware.requirePermission('config:write')(req, res, () => 
-                            handleConfigUpdate(req, res, client)
-                        );
-                    }
-                    
-                    // Tickets
-                    if (pathname === '/api/tickets/close' && method === 'POST') {
-                        return middleware.requirePermission('tickets:close')(req, res, () => 
-                            handleTicketClose(req, res, client)
-                        );
-                    }
-                    
-                    // Sorteos
-                    if (pathname === '/api/giveaways/end' && method === 'POST') {
-                        return middleware.requirePermission('giveaways:end')(req, res, () => 
-                            handleGiveawayEnd(req, res, client)
-                        );
-                    }
-                    
-                    // Recordatorios
-                    if (pathname === '/api/reminders/delete' && method === 'POST') {
-                        return middleware.requirePermission('moderation:write')(req, res, () => 
-                            handleReminderDelete(req, res)
-                        );
-                    }
-                    
-                    // Warns
-                    if (pathname === '/api/warns/clear' && method === 'POST') {
-                        return middleware.requirePermission('moderation:write')(req, res, () => 
-                            handleWarnsClear(req, res)
-                        );
-                    }
-                    
-                    // Resumen
-                    if (pathname === '/api/summary/send' && method === 'POST') {
-                        return middleware.requirePermission('config:write')(req, res, () => 
-                            handleSummarySend(req, res, client)
-                        );
-                    }
-                    
-                    // Seguridad
-                    if (pathname === '/api/security/summary' && method === 'GET') {
-                        return middleware.requirePermission('security:read')(req, res, () => 
-                            handleSecuritySummary(req, res)
-                        );
-                    }
-                    
-                    // Ruta no encontrada
-                    sendJson(res, 404, { ok: false, error: 'Ruta no encontrada' });
-                });
-            }
-            
-            // Redirección de raíz
-            if (pathname === '/') {
-                return sendRedirect(res, '/dashboard');
-            }
-            
-            // Archivos estáticos
-            if (method === 'GET' && STATIC_FILES[pathname]) {
-                const asset = STATIC_FILES[pathname];
-                return serveStaticFile(res, asset.filePath, asset.contentType);
-            }
-            
-            // Método no permitido
-            if (method !== 'GET') {
-                return sendText(res, 405, 'Método no permitido.');
-            }
-            
-            // Ruta no encontrada
-            sendText(res, 404, 'Ruta no encontrada.');
-        });
+        }
+
+        if (pathname === '/api/health' && method === 'GET') {
+            return middleware.apiSecurity(req, res, () => handleHealth(req, res, client));
+        }
+
+        if (pathname === '/api/dashboard' && method === 'GET') {
+            return middleware.protectedApi('dashboard:read')(req, res, () => handleDashboard(req, res, client));
+        }
+
+        if (pathname === '/api/config' && method === 'POST') {
+            return middleware.protectedApi('config:write')(req, res, () => handleConfigUpdate(req, res, client));
+        }
+
+        if (pathname === '/api/tickets/close' && method === 'POST') {
+            return middleware.protectedApi('tickets:close')(req, res, () => handleTicketClose(req, res, client));
+        }
+
+        if (pathname === '/api/giveaways/end' && method === 'POST') {
+            return middleware.protectedApi('giveaways:end')(req, res, () => handleGiveawayEnd(req, res, client));
+        }
+
+        if (pathname === '/api/reminders/delete' && method === 'POST') {
+            return middleware.protectedApi('moderation:write')(req, res, () => handleReminderDelete(req, res));
+        }
+
+        if (pathname === '/api/warns/clear' && method === 'POST') {
+            return middleware.protectedApi('moderation:write')(req, res, () => handleWarnsClear(req, res));
+        }
+
+        if (pathname === '/api/summary/send' && method === 'POST') {
+            return middleware.protectedApi('config:write')(req, res, () => handleSummarySend(req, res, client));
+        }
+
+        if (pathname === '/api/security/summary' && method === 'GET') {
+            return middleware.protectedApi('security:read')(req, res, () => handleSecuritySummary(req, res));
+        }
+
+        if (pathname.startsWith('/api/')) {
+            return sendJson(res, 404, { ok: false, error: 'Ruta no encontrada' });
+        }
+
+        if (pathname === '/') {
+            return sendRedirect(res, '/dashboard');
+        }
+
+        if (method === 'GET' && STATIC_FILES[pathname]) {
+            const asset = STATIC_FILES[pathname];
+            return serveStaticFile(res, asset.filePath, asset.contentType);
+        }
+
+        if (method !== 'GET') {
+            return sendText(res, 405, 'Método no permitido.');
+        }
+
+        sendText(res, 404, 'Ruta no encontrada.');
     };
 }
 

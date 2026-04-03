@@ -26,22 +26,22 @@ function safeCompare(a, b) {
     return crypto.timingSafeEqual(left, right);
 }
 
-function getRequestToken(req, requestUrl) {
+function getRequestToken(req) {
     const authHeader = req.headers.authorization || '';
     const bearer = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : null;
-    return req.headers['x-dashboard-token'] || requestUrl.searchParams.get('token') || bearer || null;
+    return req.headers['x-dashboard-token'] || bearer || null;
 }
 
 function isLocalRequest(req) {
     return LOCAL_ADDRESSES.has(req.socket.remoteAddress);
 }
 
-function isAuthorized(req, requestUrl) {
+function isAuthorized(req) {
     if (!config.DASHBOARD.TOKEN) {
         return isLocalRequest(req);
     }
 
-    return safeCompare(getRequestToken(req, requestUrl), config.DASHBOARD.TOKEN);
+    return safeCompare(getRequestToken(req), config.DASHBOARD.TOKEN);
 }
 
 function sendJson(res, statusCode, payload) {
@@ -112,12 +112,17 @@ function requestHandler(client) {
         const pathname = requestUrl.pathname;
 
         if (pathname === '/') {
-            const token = requestUrl.searchParams.get('token');
-            sendRedirect(res, token ? `/dashboard?token=${encodeURIComponent(token)}` : '/dashboard');
+            sendRedirect(res, '/dashboard');
             return;
         }
 
-        if (!isAuthorized(req, requestUrl)) {
+        if (req.method === 'GET' && STATIC_FILES[pathname]) {
+            const asset = STATIC_FILES[pathname];
+            serveStaticFile(res, asset.filePath, asset.contentType);
+            return;
+        }
+
+        if (!isAuthorized(req)) {
             sendText(res, config.DASHBOARD.TOKEN ? 401 : 403, config.DASHBOARD.TOKEN ? 'Dashboard token inválido o ausente.' : 'Acceso permitido solo desde localhost.');
             return;
         }
@@ -267,12 +272,6 @@ function requestHandler(client) {
 
         if (req.method !== 'GET') {
             sendText(res, 405, 'Método no permitido.');
-            return;
-        }
-
-        if (STATIC_FILES[pathname]) {
-            const asset = STATIC_FILES[pathname];
-            serveStaticFile(res, asset.filePath, asset.contentType);
             return;
         }
 

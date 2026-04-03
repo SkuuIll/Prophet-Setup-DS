@@ -20,6 +20,24 @@
             </div>
         </header>
 
+        <section id="auth-card" class="card hidden">
+            <div class="section-head">
+                <div class="section-copy">
+                    <h2>Acceso privado</h2>
+                    <p class="muted">Iniciá sesión con un usuario del dashboard. Las credenciales de la sesión se guardan solo en esta pestaña.</p>
+                </div>
+            </div>
+            <p id="auth-status" class="form-status muted">Esperando autenticación.</p>
+            <form id="auth-form" class="settings-form">
+                <input id="auth-username" class="setting-input" type="text" autocomplete="username" placeholder="Usuario del dashboard">
+                <input id="auth-password" class="setting-input" type="password" autocomplete="current-password" placeholder="Contraseña">
+                <div class="settings-actions">
+                    <button class="button" type="submit">Iniciar sesión</button>
+                    <button id="auth-logout-button" class="button button-secondary" type="button">Cerrar sesión</button>
+                </div>
+            </form>
+        </section>
+
         <section class="grid metrics-grid">
             <article class="card metric-card">
                 <span class="label">Servidor</span>

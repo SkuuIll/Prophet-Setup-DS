@@ -1,7 +1,15 @@
+const AUTH_STORAGE_KEY = 'prophet_dashboard_auth';
+const LEGACY_TOKEN_STORAGE_KEY = 'prophet_dashboard_token';
+
 const state = {
     refreshTimer: null,
     refreshMs: 30000,
-    token: null,
+    accessToken: null,
+    refreshToken: null,
+    csrfToken: null,
+    currentUser: null,
+    authRequired: false,
+    authLoading: false,
     latestSnapshot: null,
     configDirty: false,
     configSaving: false,
@@ -32,27 +40,123 @@ function setConfigSaveStatus(text, variant = 'muted') {
     host.className = variant === 'muted' ? 'form-status muted' : `form-status status-${variant}`;
 }
 
-function getStoredToken() {
-    const url = new URL(window.location.href);
-    const queryToken = url.searchParams.get('token');
-
-    if (queryToken) {
-        localStorage.setItem('prophet_dashboard_token', queryToken);
-        url.searchParams.delete('token');
-        window.history.replaceState({}, '', url.pathname + url.search + url.hash);
-        return queryToken;
+function getStoredAuth() {
+    try {
+        localStorage.removeItem(LEGACY_TOKEN_STORAGE_KEY);
+    } catch {
+        // noop
     }
 
-    return localStorage.getItem('prophet_dashboard_token');
+    const raw = sessionStorage.getItem(AUTH_STORAGE_KEY);
+    if (!raw) return null;
+
+    try {
+        return JSON.parse(raw);
+    } catch {
+        sessionStorage.removeItem(AUTH_STORAGE_KEY);
+        return null;
+    }
 }
 
-async function apiFetch(pathname, options = {}) {
+function persistAuthState() {
+    const payload = {
+        accessToken: state.accessToken,
+        refreshToken: state.refreshToken,
+        csrfToken: state.csrfToken,
+        currentUser: state.currentUser,
+    };
+
+    if (!payload.accessToken && !payload.refreshToken) {
+        sessionStorage.removeItem(AUTH_STORAGE_KEY);
+        return;
+    }
+
+    sessionStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(payload));
+}
+
+function applyAuthState(auth = {}) {
+    state.accessToken = auth.accessToken || null;
+    state.refreshToken = auth.refreshToken || null;
+    state.csrfToken = auth.csrfToken || null;
+    state.currentUser = auth.currentUser || null;
+    persistAuthState();
+}
+
+function clearAuthState() {
+    state.accessToken = null;
+    state.refreshToken = null;
+    state.csrfToken = null;
+    state.currentUser = null;
+    sessionStorage.removeItem(AUTH_STORAGE_KEY);
+}
+
+function setAuthStatus(text, variant = 'muted') {
+    const host = $('#auth-status');
+    if (!host) return;
+    host.textContent = text;
+    host.className = variant === 'muted' ? 'form-status muted' : `form-status status-${variant}`;
+}
+
+function toggleAuthCard(visible) {
+    const card = $('#auth-card');
+    if (!card) return;
+
+    card.classList.toggle('hidden', !visible);
+
+    const logoutButton = $('#auth-logout-button');
+    if (logoutButton) logoutButton.disabled = !state.accessToken && !state.refreshToken;
+}
+
+function isMutatingMethod(method = 'GET') {
+    return ['POST', 'PUT', 'PATCH', 'DELETE'].includes(String(method).toUpperCase());
+}
+
+async function refreshSession() {
+    if (!state.refreshToken) {
+        throw new Error('No hay sesión disponible para renovar.');
+    }
+
+    const response = await fetch('/api/auth/refresh', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json; charset=utf-8',
+        },
+        body: JSON.stringify({ refreshToken: state.refreshToken }),
+        cache: 'no-store',
+    });
+
+    const contentType = response.headers.get('content-type') || '';
+    const payload = contentType.includes('application/json')
+        ? await response.json()
+        : await response.text();
+
+    if (!response.ok) {
+        const message = typeof payload === 'string' ? payload : payload?.error || payload?.message || `HTTP ${response.status}`;
+        const error = new Error(message);
+        error.status = response.status;
+        throw error;
+    }
+
+    applyAuthState({
+        accessToken: payload?.tokens?.accessToken || null,
+        refreshToken: payload?.tokens?.refreshToken || state.refreshToken,
+        csrfToken: payload?.csrfToken || null,
+        currentUser: payload?.user || state.currentUser,
+    });
+
+    return payload;
+}
+
+async function apiFetch(pathname, options = {}, allowRefresh = true) {
+    const method = String(options.method || 'GET').toUpperCase();
     const headers = { ...(options.headers || {}) };
-    if (state.token) headers['x-dashboard-token'] = state.token;
+
+    if (state.accessToken) headers.Authorization = `Bearer ${state.accessToken}`;
     if (options.body !== undefined) headers['Content-Type'] = 'application/json; charset=utf-8';
+    if (isMutatingMethod(method) && state.csrfToken) headers['x-csrf-token'] = state.csrfToken;
 
     const response = await fetch(pathname, {
-        method: options.method || 'GET',
+        method,
         headers,
         body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
         cache: 'no-store',
@@ -64,10 +168,21 @@ async function apiFetch(pathname, options = {}) {
         return response.text();
     };
 
+    if (response.status === 401 && allowRefresh && pathname !== '/api/auth/login' && pathname !== '/api/auth/refresh' && state.refreshToken) {
+        try {
+            await refreshSession();
+            return apiFetch(pathname, options, false);
+        } catch {
+            clearAuthState();
+        }
+    }
+
     if (!response.ok) {
         const payload = await parseResponse();
         const message = typeof payload === 'string' ? payload : payload?.error || payload?.message || `HTTP ${response.status}`;
-        throw new Error(message);
+        const error = new Error(message);
+        error.status = response.status;
+        throw error;
     }
 
     return parseResponse();
@@ -134,7 +249,10 @@ function renderTable(targetSelector, columns, rows, emptyMessage = 'Sin datos') 
     const header = columns.map(col => `<th>${escapeHtml(col.label)}</th>`).join('');
     const body = safeRows.map(row => `
         <tr>
-            ${columns.map(col => `<td>${escapeHtml(col.render(row))}</td>`).join('')}
+            ${columns.map(col => {
+                const rendered = col.render(row);
+                return `<td>${col.allowHtml ? rendered : escapeHtml(rendered)}</td>`;
+            }).join('')}
         </tr>
     `).join('');
 
@@ -541,7 +659,7 @@ function render(snapshot) {
         { label: 'Canal', render: row => `<#${row.channelId}>` },
         { label: 'Usuario', render: row => `<@${row.userId}>` },
         { label: 'Creado', render: row => formatTimestamp(row.createdAt) },
-        { label: 'Acción', render: row => `<button class="button button-secondary button-small" onclick="handleTicketClose('${row.channelId}')">Cerrar</button>` },
+        { label: 'Acción', allowHtml: true, render: row => `<button class="button button-secondary button-small" type="button" onclick="handleTicketClose('${row.channelId}')">Cerrar</button>` },
     ], snapshot.tickets || [], 'No hay tickets abiertos.');
 
     // Sorteos
@@ -550,7 +668,7 @@ function render(snapshot) {
         { label: 'Participantes', render: row => formatNumber(row.entriesCount) },
         { label: 'Termina', render: row => row.isExpired ? 'EXPIRADO' : new Date(row.endTime).toLocaleString('es-AR') },
         { label: 'Host', render: row => `<@${row.hostId}>` },
-        { label: 'Acción', render: row => `<button class="button button-small" onclick="handleGiveawayEnd('${row.messageId}')" ${row.entriesCount === 0 ? 'disabled' : ''}>Sortear</button>` },
+        { label: 'Acción', allowHtml: true, render: row => `<button class="button button-small" type="button" onclick="handleGiveawayEnd('${row.messageId}')" ${row.entriesCount === 0 ? 'disabled' : ''}>Sortear</button>` },
     ], snapshot.giveaways?.active || [], 'No hay sorteos activos.');
 
     renderTable('#giveaways-ended-table', [
@@ -566,7 +684,7 @@ function render(snapshot) {
         { label: 'Usuario', render: row => `<@${row.userId}>` },
         { label: 'Mensaje', render: row => row.message?.slice(0, 50) + (row.message?.length > 50 ? '…' : '') },
         { label: 'Recordar', render: row => new Date(row.remindAt).toLocaleString('es-AR') },
-        { label: 'Acción', render: row => `<button class="button button-secondary button-small" onclick="handleReminderDelete(${row.id})">Eliminar</button>` },
+        { label: 'Acción', allowHtml: true, render: row => `<button class="button button-secondary button-small" type="button" onclick="handleReminderDelete(${row.id})">Eliminar</button>` },
     ], snapshot.reminders || [], 'No hay recordatorios pendientes.');
 
     // Reportes/Warns
@@ -576,7 +694,7 @@ function render(snapshot) {
         { label: 'Moderador', render: row => `<@${row.modId}>` },
         { label: 'Razón', render: row => row.reason?.slice(0, 40) + (row.reason?.length > 40 ? '…' : '') },
         { label: 'Fecha', render: row => formatTimestamp(row.createdAt) },
-        { label: 'Acción', render: row => `<button class="button button-secondary button-small" onclick="handleWarnsClear('${row.userId}')">Limpiar</button>` },
+        { label: 'Acción', allowHtml: true, render: row => `<button class="button button-secondary button-small" type="button" onclick="handleWarnsClear('${row.userId}')">Limpiar</button>` },
     ], snapshot.reportes || [], 'No hay warns registrados.');
 
     // Hacer funciones accesibles globalmente para onclick
@@ -606,13 +724,38 @@ function render(snapshot) {
 }
 
 async function loadDashboard() {
+    if (state.authRequired && !state.accessToken && !state.refreshToken) {
+        toggleAuthCard(true);
+        setStatus('Autenticación requerida', 'warn');
+        $('#generated-at').textContent = 'Iniciá sesión para ver el dashboard';
+        return;
+    }
+
     try {
         setStatus('Actualizando...', 'warn');
         const snapshot = await apiFetch('/api/dashboard');
+        state.authRequired = false;
+        toggleAuthCard(false);
         render(snapshot);
+        setAuthStatus(
+            state.currentUser?.username
+                ? `Sesión activa como ${state.currentUser.username}.`
+                : 'Sesión activa.',
+            'success'
+        );
         setStatus(snapshot.discord.ready ? 'Bot listo' : 'Bot iniciando', snapshot.discord.ready ? 'ok' : 'warn');
     } catch (error) {
         console.error(error);
+        if (error.status === 401) {
+            state.authRequired = true;
+            clearAuthState();
+            toggleAuthCard(true);
+            setAuthStatus('Sesión vencida o inválida. Iniciá sesión para continuar.', 'error');
+            setStatus('Autenticación requerida', 'warn');
+            $('#generated-at').textContent = 'Iniciá sesión para ver el dashboard';
+            return;
+        }
+
         setStatus('Error de carga', 'error');
         $('#generated-at').textContent = error.message;
     }
@@ -621,6 +764,85 @@ async function loadDashboard() {
 function startAutoRefresh() {
     if (state.refreshTimer) clearInterval(state.refreshTimer);
     state.refreshTimer = setInterval(loadDashboard, state.refreshMs);
+}
+
+async function handleAuthSubmit(event) {
+    event.preventDefault();
+    if (state.authLoading) return;
+
+    const usernameInput = $('#auth-username');
+    const passwordInput = $('#auth-password');
+    const username = usernameInput?.value?.trim();
+    const password = passwordInput?.value;
+
+    if (!username || !password) {
+        setAuthStatus('Ingresá usuario y contraseña.', 'error');
+        return;
+    }
+
+    try {
+        state.authLoading = true;
+        toggleAuthCard(true);
+        setAuthStatus('Validando credenciales...', 'warn');
+
+        const payload = await apiFetch('/api/auth/login', {
+            method: 'POST',
+            body: { username, password },
+        }, false);
+
+        applyAuthState({
+            accessToken: payload?.tokens?.accessToken || null,
+            refreshToken: payload?.tokens?.refreshToken || null,
+            csrfToken: payload?.csrfToken || null,
+            currentUser: payload?.user || null,
+        });
+
+        state.authRequired = false;
+
+        if (usernameInput) usernameInput.value = '';
+        if (passwordInput) passwordInput.value = '';
+
+        setAuthStatus(
+            payload?.user?.mustChangePassword
+                ? 'Sesión iniciada. La contraseña quedó marcada para cambio obligatorio.'
+                : `Sesión iniciada como ${payload?.user?.username || 'usuario'}.`,
+            payload?.user?.mustChangePassword ? 'warn' : 'success'
+        );
+
+        await loadDashboard();
+    } catch (error) {
+        clearAuthState();
+        state.authRequired = true;
+        toggleAuthCard(true);
+        setAuthStatus(error.message || 'No se pudo iniciar sesión.', 'error');
+        setStatus('Autenticación requerida', 'warn');
+        $('#generated-at').textContent = 'Iniciá sesión para ver el dashboard';
+    } finally {
+        state.authLoading = false;
+    }
+}
+
+async function handleAuthLogout() {
+    if (state.authLoading) return;
+
+    try {
+        state.authLoading = true;
+        setAuthStatus('Cerrando sesión...', 'warn');
+
+        if (state.accessToken && state.csrfToken) {
+            await apiFetch('/api/auth/logout', { method: 'POST' }, false);
+        }
+    } catch (error) {
+        console.error(error);
+    } finally {
+        clearAuthState();
+        state.authRequired = true;
+        toggleAuthCard(true);
+        setAuthStatus('Sesión cerrada.', 'muted');
+        setStatus('Autenticación requerida', 'warn');
+        $('#generated-at').textContent = 'Iniciá sesión para ver el dashboard';
+        state.authLoading = false;
+    }
 }
 
 function setupTabs() {
@@ -735,11 +957,27 @@ async function handleWarnsClear(userId) {
 }
 
 function init() {
-    state.token = getStoredToken();
+    applyAuthState(getStoredAuth() || {});
+    state.authRequired = !state.accessToken && !state.refreshToken;
     setConfigSaveStatus(state.configStatus.text, state.configStatus.variant);
+    setAuthStatus(
+        state.authRequired
+            ? 'Esperando autenticación.'
+            : state.currentUser?.username
+                ? `Sesión restaurada como ${state.currentUser.username}.`
+                : 'Sesión restaurada.',
+        state.authRequired ? 'muted' : 'success'
+    );
+    toggleAuthCard(state.authRequired);
     setupTabs();
     loadDashboard();
     startAutoRefresh();
+
+    const authForm = $('#auth-form');
+    if (authForm) authForm.addEventListener('submit', handleAuthSubmit);
+
+    const logoutButton = $('#auth-logout-button');
+    if (logoutButton) logoutButton.addEventListener('click', handleAuthLogout);
 
     const btnSummary = $('#btn-send-summary');
     if (btnSummary) {

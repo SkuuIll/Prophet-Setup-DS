@@ -1008,7 +1008,8 @@ async function authenticateUser(username, password, ipAddress, userAgent) {
             username: user.username,
             email: user.email,
             role: user.role,
-            twoFactorEnabled: user.two_factor_enabled === 1
+            twoFactorEnabled: user.two_factor_enabled === 1,
+            mustChangePassword: user.must_change_password === 1
         },
         tokens: {
             accessToken: jwt,
@@ -1035,27 +1036,85 @@ async function recordLoginAttempt(ipAddress, username, success, failureReason, u
 function verifySession(sessionId, userId) {
     const session = _db.prepare(`
         SELECT * FROM dashboard_sessions 
-        WHERE id = ? AND user_id = ? AND expires_at > ?
-    `).get(sessionId, userId, Date.now());
-    
+        WHERE id = ? AND user_id = ?
+    `).get(sessionId, userId);
+
     if (!session) return false;
-    
-    // Actualizar última actividad
+
+    const now = Date.now();
+    const inactive = session.last_activity_at <= (now - SECURITY_CONFIG.SESSION_TIMEOUT_MS);
+    const expired = session.expires_at <= now;
+
+    if (inactive || expired) {
+        revokeSession(sessionId, userId);
+        return false;
+    }
+
     _db.prepare('UPDATE dashboard_sessions SET last_activity_at = ? WHERE id = ?')
-        .run(Date.now(), sessionId);
-    
+        .run(now, sessionId);
+
     return true;
+}
+
+function revokeSession(sessionId, userId = null) {
+    let session;
+
+    if (userId === null) {
+        session = _db.prepare('SELECT id, user_id, refresh_token_hash FROM dashboard_sessions WHERE id = ?').get(sessionId);
+    } else {
+        session = _db.prepare('SELECT id, user_id, refresh_token_hash FROM dashboard_sessions WHERE id = ? AND user_id = ?').get(sessionId, userId);
+    }
+
+    if (!session) return null;
+
+    const now = Date.now();
+
+    if (session.refresh_token_hash) {
+        _db.prepare('UPDATE refresh_tokens SET revoked = 1, revoked_at = ? WHERE token_hash = ? AND revoked = 0')
+            .run(now, session.refresh_token_hash);
+    }
+
+    _db.prepare('DELETE FROM dashboard_sessions WHERE id = ?').run(sessionId);
+    return session;
+}
+
+function revokeUserSessions(userId, exceptSessionId = null) {
+    const sessions = exceptSessionId
+        ? _db.prepare('SELECT id, refresh_token_hash FROM dashboard_sessions WHERE user_id = ? AND id != ?').all(userId, exceptSessionId)
+        : _db.prepare('SELECT id, refresh_token_hash FROM dashboard_sessions WHERE user_id = ?').all(userId);
+
+    if (!sessions.length) return 0;
+
+    const now = Date.now();
+    const hashes = sessions.map(session => session.refresh_token_hash).filter(Boolean);
+
+    if (hashes.length) {
+        const placeholders = hashes.map(() => '?').join(',');
+        _db.prepare(`UPDATE refresh_tokens SET revoked = 1, revoked_at = ? WHERE token_hash IN (${placeholders}) AND revoked = 0`)
+            .run(now, ...hashes);
+    }
+
+    if (exceptSessionId) {
+        _db.prepare('DELETE FROM dashboard_sessions WHERE user_id = ? AND id != ?').run(userId, exceptSessionId);
+    } else {
+        _db.prepare('DELETE FROM dashboard_sessions WHERE user_id = ?').run(userId);
+    }
+
+    return sessions.length;
 }
 
 /**
  * Cierra sesión
  */
 function logout(sessionId, userId, ipAddress) {
-    _db.prepare('DELETE FROM dashboard_sessions WHERE id = ? AND user_id = ?').run(sessionId, userId);
-    _db.prepare('UPDATE refresh_tokens SET revoked = 1, revoked_at = ? WHERE token_hash IN (SELECT refresh_token_hash FROM dashboard_sessions WHERE id = ?)')
-        .run(Date.now(), sessionId);
-    
-    auditLog('logout', { userId, ipAddress, resourceId: sessionId });
+    const revokedSession = revokeSession(sessionId, userId);
+
+    auditLog('logout', {
+        userId,
+        ipAddress,
+        resourceId: sessionId,
+        status: revokedSession ? 'success' : 'failed'
+    });
 }
 
 /**
@@ -1084,11 +1143,12 @@ async function changePassword(userId, currentPassword, newPassword, ipAddress) {
     
     _db.prepare('UPDATE dashboard_users SET password_hash = ?, password_changed_at = ?, must_change_password = 0, updated_at = ? WHERE id = ?')
         .run(newPasswordHash, now, now, userId);
+
+    const revokedSessions = revokeUserSessions(userId);
     
-    // Invalidar todas las sesiones excepto la actual
-    auditLog('password_change', { userId, ipAddress });
+    auditLog('password_change', { userId, ipAddress, details: { revokedSessions } });
     
-    return { success: true };
+    return { success: true, revokedSessions };
 }
 
 // ═══════════════════════════════════════════════════
@@ -1205,6 +1265,7 @@ module.exports = {
     generateJWT,
     verifyJWT,
     generateRefreshToken,
+    parseExpiry,
     
     // CSRF
     generateCSRFToken,
@@ -1237,6 +1298,8 @@ module.exports = {
     verifySession,
     logout,
     changePassword,
+    revokeSession,
+    revokeUserSessions,
     
     // Amenazas
     detectThreats,

@@ -24,6 +24,10 @@ body {
     color: var(--text);
 }
 
+.hidden {
+    display: none !important;
+}
+
 .shell {
     width: min(1400px, calc(100% - 32px));
     margin: 0 auto;

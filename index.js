@@ -9,7 +9,7 @@ const fs = require('fs');
 const path = require('path');
 const schedule = require('node-schedule');
 const config = require('./config');
-const { startDashboardServer } = require('./web/server');
+const { startDashboardServer } = require('./web/secureServer');
 const { captureChannelBaseValues, applyChannelOverridesToConfig } = require('./utils/runtimeConfig');
 
 // ═══ CREAR CLIENTE ═══
@@ -510,7 +510,14 @@ if (configErrors.length > 0) {
     process.exit(1);
 }
 
-dashboardServer = startDashboardServer(client);
+startDashboardServer(client)
+    .then(server => {
+        dashboardServer = server;
+    })
+    .catch(error => {
+        console.error('❌ Error iniciando dashboard:', error.message);
+        process.exit(1);
+    });
 
 // ═══ INICIALIZAR SHOUKAKU ANTES DEL LOGIN ═══
 // CRITICO: Shoukaku necesita interceptar paquetes raw del gateway
