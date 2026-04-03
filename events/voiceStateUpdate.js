@@ -6,6 +6,9 @@ const { stmts } = require('../database');
 const { procesarXPVoz } = require('../modules/leveling');
 const { trackVoiceMinutes, updateDailyQuestProgress } = require('../modules/profileSystem');
 
+// Lock para evitar creaciones duplicadas simultáneas
+const creatingChannelFor = new Set();
+
 module.exports = {
     name: 'voiceStateUpdate',
     once: false,
@@ -180,12 +183,17 @@ module.exports = {
 
         // 1. Lógica del creador de salas temporales
         if (newState.channelId && newState.channelId === generatorId) {
+            // Evitar duplicados: si ya hay una creación en curso para este usuario, ignorar
+            if (creatingChannelFor.has(userId)) return;
+            creatingChannelFor.add(userId);
+
             try {
                 const channelName = `🔊 Sala de ${newState.member.user.username}`;
                 console.log(`[TempVoice] Creando sala para ${newState.member.user.username}...`);
 
-                // Resolver la categoría padre correctamente
                 const parentId = categoryId || newState.channel?.parentId || null;
+                const botId = newState.client.user.id;
+                const everyoneId = newState.guild.id; // @everyone role ID = guild ID
 
                 const newChannel = await newState.guild.channels.create({
                     name: channelName,
@@ -193,61 +201,75 @@ module.exports = {
                     parent: parentId,
                     permissionOverwrites: [
                         {
-                            id: newState.member.user.id,
-                            type: 1, // 1 = Member (no Role)
+                            // @everyone: permitir Connect explícitamente para que el usuario pueda entrar
+                            id: everyoneId,
+                            allow: ['Connect', 'ViewChannel'],
+                        },
+                        {
+                            // El bot: todos los permisos necesarios para gestionar y mover
+                            id: botId,
+                            type: 1,
+                            allow: ['ManageChannels', 'Connect', 'ViewChannel', 'Speak', 'MoveMembers'],
+                        },
+                        {
+                            // El creador de la sala
+                            id: userId,
+                            type: 1,
                             allow: ['ManageChannels', 'Connect', 'ViewChannel', 'Speak'],
                         }
                     ]
                 });
-                console.log(`[TempVoice] Sala creada: ${newChannel.id}.`);
+                console.log(`[TempVoice] Sala creada: ${newChannel.id}`);
 
                 // Registrar en la DB
-                stmts.addTempChannel(newChannel.id, newState.guild.id, newState.member.user.id);
+                stmts.addTempChannel(newChannel.id, newState.guild.id, userId);
                 stmts.incrementAnalyticsMetric('temp_channels_created', 'global', 1);
 
-                // Re-fetch del member para obtener el VoiceState más fresco posible
-                const freshMember = await newState.guild.members.fetch(newState.member.id).catch(() => null);
-                const voiceState = freshMember?.voice;
+                // Usar el voiceState directo desde el cache (más fresco que newState)
+                const liveVoiceState = newState.guild.voiceStates.cache.get(userId);
+                console.log(`[TempVoice] VoiceState actual: channelId=${liveVoiceState?.channelId}`);
 
-                if (voiceState?.channelId) {
+                if (liveVoiceState?.channelId) {
                     try {
-                        await voiceState.setChannel(newChannel);
-                        console.log(`[TempVoice] Usuario ${newState.member.user.username} movido exitosamente.`);
+                        await liveVoiceState.setChannel(newChannel);
+                        console.log(`[TempVoice] ✅ Usuario movido exitosamente a ${newChannel.id}`);
                     } catch (moveError) {
-                        console.error('[TempVoice] Error moviendo usuario:', moveError.message);
+                        console.error('[TempVoice] ❌ Error moviendo usuario:', moveError.message);
                         stmts.removeTempChannel(newChannel.id);
                         await newChannel.delete('Fallo al mover usuario').catch(() => {});
                         return;
                     }
                 } else {
-                    console.warn('[TempVoice] El usuario ya no está en voz, borrando canal creado.');
+                    console.warn('[TempVoice] Usuario ya no está en voz, borrando canal.');
                     stmts.removeTempChannel(newChannel.id);
                     await newChannel.delete('Usuario dejó el canal antes del move').catch(() => {});
                     return;
                 }
 
+                // Poner voice status
                 const randomStatus = STATUSES[Math.floor(Math.random() * STATUSES.length)];
                 try {
                     await newState.client.rest.put(`/channels/${newChannel.id}/voice-status`, {
                         body: { status: randomStatus }
                     });
-                } catch (e) {
-                    console.error('Error al setear el voice status por REST:', e.message);
-                }
+                } catch (e) { /* ignorar errores de status */ }
 
-                // Autodestrucción de seguridad a los 60 segundos si nadie se conecta
+                // Autodestrucción a los 60s si queda vacía
                 setTimeout(async () => {
                     try {
                         const checkChannel = await newState.guild.channels.fetch(newChannel.id).catch(() => null);
                         if (checkChannel && checkChannel.members.size === 0) {
                             stmts.removeTempChannel(checkChannel.id);
-                            await checkChannel.delete('Autodestrucción 60s sin conectarse').catch(() => {});
+                            await checkChannel.delete('Autodestrucción 60s sin usuarios').catch(() => {});
+                            console.log(`[TempVoice] Canal ${newChannel.id} autodestruido (60s vacío)`);
                         }
                     } catch (e) {}
                 }, 60000);
 
             } catch (error) {
-                console.error('Error creando canal temporal:', error);
+                console.error('[TempVoice] Error creando canal temporal:', error);
+            } finally {
+                creatingChannelFor.delete(userId);
             }
         }
         // 2. Asignar estado random si es el primero en entrar a un canal normal
