@@ -182,30 +182,48 @@ module.exports = {
         if (newState.channelId && newState.channelId === generatorId) {
             try {
                 const channelName = `🔊 Sala de ${newState.member.user.username}`;
+                console.log(`[TempVoice] Creando sala para ${newState.member.user.username}...`);
+
+                // Resolver la categoría padre correctamente
+                const parentId = categoryId || newState.channel?.parentId || null;
+
                 const newChannel = await newState.guild.channels.create({
                     name: channelName,
                     type: 2, // GUILD_VOICE
-                    parent: categoryId || newState.channel.parentId,
+                    parent: parentId,
                     permissionOverwrites: [
                         {
                             id: newState.member.user.id,
-                            allow: ['ManageChannels', 'ManageRoles', 'Connect', 'ViewChannel'],
+                            type: 1, // 1 = Member (no Role)
+                            allow: ['ManageChannels', 'Connect', 'ViewChannel', 'Speak'],
                         }
                     ]
                 });
+                console.log(`[TempVoice] Sala creada: ${newChannel.id}.`);
 
                 // Registrar en la DB
                 stmts.addTempChannel(newChannel.id, newState.guild.id, newState.member.user.id);
                 stmts.incrementAnalyticsMetric('temp_channels_created', 'global', 1);
 
-                try {
-                    await newState.member.voice.setChannel(newChannel.id);
-                } catch (moveError) {
-                    // Si falla moverlo, borramos el canal para evitar canales fantasma
-                    console.error('Error moviendo usuario a canal temporal:', moveError.message);
+                // Re-fetch del member para obtener el VoiceState más fresco posible
+                const freshMember = await newState.guild.members.fetch(newState.member.id).catch(() => null);
+                const voiceState = freshMember?.voice;
+
+                if (voiceState?.channelId) {
+                    try {
+                        await voiceState.setChannel(newChannel);
+                        console.log(`[TempVoice] Usuario ${newState.member.user.username} movido exitosamente.`);
+                    } catch (moveError) {
+                        console.error('[TempVoice] Error moviendo usuario:', moveError.message);
+                        stmts.removeTempChannel(newChannel.id);
+                        await newChannel.delete('Fallo al mover usuario').catch(() => {});
+                        return;
+                    }
+                } else {
+                    console.warn('[TempVoice] El usuario ya no está en voz, borrando canal creado.');
                     stmts.removeTempChannel(newChannel.id);
-                    await newChannel.delete('Fallo al mover usuario, eliminando canal fantasma').catch(() => {});
-                    return; // abort configuration
+                    await newChannel.delete('Usuario dejó el canal antes del move').catch(() => {});
+                    return;
                 }
 
                 const randomStatus = STATUSES[Math.floor(Math.random() * STATUSES.length)];
@@ -216,6 +234,17 @@ module.exports = {
                 } catch (e) {
                     console.error('Error al setear el voice status por REST:', e.message);
                 }
+
+                // Autodestrucción de seguridad a los 60 segundos si nadie se conecta
+                setTimeout(async () => {
+                    try {
+                        const checkChannel = await newState.guild.channels.fetch(newChannel.id).catch(() => null);
+                        if (checkChannel && checkChannel.members.size === 0) {
+                            stmts.removeTempChannel(checkChannel.id);
+                            await checkChannel.delete('Autodestrucción 60s sin conectarse').catch(() => {});
+                        }
+                    } catch (e) {}
+                }, 60000);
 
             } catch (error) {
                 console.error('Error creando canal temporal:', error);
