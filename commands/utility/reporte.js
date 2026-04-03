@@ -94,8 +94,8 @@ module.exports = {
                 .setStyle(ButtonStyle.Secondary),
         );
 
-        // Enviar al canal de logs de moderación
-        const logChannelId = config.CHANNELS.REPORTES || config.CHANNELS.STAFF || config.CHANNELS.LOGS || null;
+        // Enviar al canal de reportes (SIEMPRE debe ir a REPORTES, nunca a staff ni logs)
+        const logChannelId = config.CHANNELS.REPORTES || null;
         let enviado = false;
 
         if (logChannelId) {
@@ -105,21 +105,26 @@ module.exports = {
                     await logChannel.send({ embeds: [staffEmbed], components: [staffRow] });
                     enviado = true;
                 }
-            } catch (_) { }
+            } catch (e) {
+                console.error('[Reporte] Error enviando al canal de reportes:', e.message);
+            }
         }
 
-        // Si no hay canal de logs configurado, buscar canal con "mod" o "staff" en el nombre
+        // Fallback: buscar canal con "reporte" en el nombre (NO staff, NO logs)
         if (!enviado) {
             const fallback = interaction.guild.channels.cache.find(c =>
-                ['mod', 'staff', 'log', 'report', 'reporte'].some(k => c.name.toLowerCase().includes(k)) &&
-                c.isTextBased()
+                c.name.toLowerCase().includes('reporte') && c.isTextBased()
             );
             if (fallback) {
                 try {
                     await fallback.send({ embeds: [staffEmbed], components: [staffRow] });
                     enviado = true;
-                } catch (_) { }
+                } catch (e) { }
             }
+        }
+
+        if (!enviado) {
+            console.warn('[Reporte] No se encontró canal de reportes configurado. Verificar config.CHANNELS.REPORTES');
         }
 
         // Respuesta al reportador (anónima — nunca menciona si se envió o no para evitar que se sepa)

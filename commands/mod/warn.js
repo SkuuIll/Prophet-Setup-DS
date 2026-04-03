@@ -67,7 +67,10 @@ module.exports = {
 
         await interaction.reply({ embeds: [embed] });
 
+        // Log dual: canal general + canal de mod
         const logChannel = interaction.guild.channels.cache.get(config.CHANNELS.LOGS);
-        if (logChannel) logChannel.send({ embeds: [embed] });
+        const modChannel = interaction.guild.channels.cache.get(config.CHANNELS.REPORTES);
+        if (logChannel) logChannel.send({ embeds: [embed] }).catch(() => {});
+        if (modChannel && modChannel.id !== logChannel?.id) modChannel.send({ embeds: [embed] }).catch(() => {});
     }
 };

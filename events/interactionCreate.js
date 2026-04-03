@@ -241,10 +241,62 @@ module.exports = {
                     const comando = client.commands.get('confesion');
                     if (comando) await comando.handleModal(interaction);
                 } else if (interaction.customId.startsWith('pay_modal_')) {
-                    // Logic already exists in interactionCreate but I'll skip re-implementing every minor detail for now to ensure stability
-                    // Re-adding pay modal logic if needed...
+                    // Ignorar — sin lógica de pago activa
                 } else if (interaction.customId.startsWith('context_report_')) {
-                    // Re-adding report modal logic...
+                    // Modal de reporte contextual (click derecho → Reportar Usuario)
+                    try {
+                        const targetUserId = interaction.customId.replace('context_report_', '');
+                        const reason = interaction.fields.getTextInputValue('reason');
+                        const evidence = interaction.fields.getTextInputValue('evidence') || null;
+                        const tsAhora = Math.floor(Date.now() / 1000);
+
+                        const { EmbedBuilder: EB, ActionRowBuilder: AR, ButtonBuilder: BB, ButtonStyle: BS } = require('discord.js');
+                        const targetUser = await client.users.fetch(targetUserId).catch(() => null);
+
+                        const staffEmbed = new EB()
+                            .setColor(0xE53935)
+                            .setAuthor({ name: '🚨  Nuevo Reporte (Contextual) · Prophet Gaming', iconURL: interaction.guild?.iconURL() })
+                            .setThumbnail(targetUser?.displayAvatarURL({ size: 256 }))
+                            .setDescription(
+                                `> 📋 **Razón:** ${reason}\n\n` +
+                                (evidence ? `> 📎 **Evidencia:** ${evidence}\n` : '') +
+                                `> 📍 **Canal:** <#${interaction.channelId}>\n` +
+                                `> 🕐 **Fecha:** <t:${tsAhora}:F>`
+                            )
+                            .addFields(
+                                { name: '👤 Usuario reportado', value: targetUser ? `${targetUser} (\`${targetUser.tag}\`)` : `\`${targetUserId}\``, inline: true },
+                                { name: '🆔 ID', value: `\`${targetUserId}\``, inline: true },
+                                { name: '📊 Estado', value: '`🔴 Sin revisar`', inline: true }
+                            )
+                            .setFooter({ text: `Reportado de forma anónima  ·  ID: ${tsAhora}` })
+                            .setTimestamp();
+
+                        const staffRow = new AR().addComponents(
+                            new BB().setCustomId(`rep_tomado_${tsAhora}`).setLabel('Tomado').setEmoji('✅').setStyle(BS.Success),
+                            new BB().setCustomId(`rep_descartado_${tsAhora}`).setLabel('Descartar').setEmoji('❌').setStyle(BS.Danger),
+                            new BB().setCustomId(`rep_profile_${targetUserId}`).setLabel('Ver perfil').setEmoji('👤').setStyle(BS.Secondary),
+                        );
+
+                        // Enviar SOLO al canal de reportes
+                        const reportChannel = interaction.guild?.channels.cache.get(config.CHANNELS.REPORTES)
+                            || interaction.guild?.channels.cache.find(c => c.name.toLowerCase().includes('reporte') && c.isTextBased());
+
+                        if (reportChannel) {
+                            await reportChannel.send({ embeds: [staffEmbed], components: [staffRow] });
+                        }
+
+                        await interaction.reply({
+                            embeds: [new EB()
+                                .setColor(config.COLORES.SUCCESS || 0x69F0AE)
+                                .setDescription('> ✅ **Tu reporte fue recibido por el Staff.**\n> Tu identidad permanece **anónima**.')
+                                .setFooter({ text: 'Prophet Gaming · Reportes' })
+                            ],
+                            flags: 64
+                        });
+                    } catch (e) {
+                        console.error('[context_report modal]', e.message);
+                        await interaction.reply({ content: '❌ Error procesando el reporte.', flags: 64 }).catch(() => {});
+                    }
                 }
             }
 
