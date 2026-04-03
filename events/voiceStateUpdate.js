@@ -189,7 +189,7 @@ module.exports = {
                     permissionOverwrites: [
                         {
                             id: newState.member.user.id,
-                            allow: ['ManageChannels', 'ManageRoles'],
+                            allow: ['ManageChannels', 'ManageRoles', 'Connect', 'ViewChannel'],
                         }
                     ]
                 });
@@ -198,7 +198,15 @@ module.exports = {
                 stmts.addTempChannel(newChannel.id, newState.guild.id, newState.member.user.id);
                 stmts.incrementAnalyticsMetric('temp_channels_created', 'global', 1);
 
-                await newState.member.voice.setChannel(newChannel.id);
+                try {
+                    await newState.member.voice.setChannel(newChannel.id);
+                } catch (moveError) {
+                    // Si falla moverlo, borramos el canal para evitar canales fantasma
+                    console.error('Error moviendo usuario a canal temporal:', moveError.message);
+                    stmts.removeTempChannel(newChannel.id);
+                    await newChannel.delete('Fallo al mover usuario, eliminando canal fantasma').catch(() => {});
+                    return; // abort configuration
+                }
 
                 const randomStatus = STATUSES[Math.floor(Math.random() * STATUSES.length)];
                 try {
