@@ -6,6 +6,7 @@ const config = require('../config');
 const conversaciones = new Map();
 const MAX_CONTEXTO = 12; // turnos de conversación recordados por canal
 const CONTEXT_TTL = 2 * 60 * 60 * 1000; // 2 horas — después se limpia el contexto
+const REQUEST_TIMEOUT_MS = 20000;
 
 // Limpieza periódica de contextos viejos para evitar memory leaks
 setInterval(() => {
@@ -39,7 +40,7 @@ TU ONDA:
 COSAS DEL SERVER QUE SABÉS (solo tirás esta data cuando preguntan, no la repetís como loro):
 - guita: /balance /work /gamble /rob
 - xp: se farmea en canales de voz, /topvoz para ver el ranking
-- música: /play /playl
+- música: /play
 - si no saben algo: /ayuda
 
 --- EJEMPLOS (copiá este tono EXACTO, son tu biblia) ---
@@ -94,6 +95,15 @@ vos: meh
 
 ---`;
 
+function fetchWithTimeout(url, options = {}, timeoutMs = REQUEST_TIMEOUT_MS) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(new Error('Timeout')), timeoutMs);
+
+    return fetch(url, {
+        ...options,
+        signal: controller.signal,
+    }).finally(() => clearTimeout(timeout));
+}
 
 /**
  * Agrega un mensaje al contexto de conversación del canal
@@ -133,7 +143,7 @@ async function preguntarAIA(channelId, pregunta, contextoExtra = null, maxTokens
     ];
 
     try {
-        const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        const res = await fetchWithTimeout('https://api.groq.com/openai/v1/chat/completions', {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${apiKey}`,
@@ -197,7 +207,7 @@ async function fallbackMistral(channelId, pregunta, systemExtra, maxTokens = 120
             { role: 'user', content: pregunta }
         ];
 
-        const res = await fetch('https://api.mistral.ai/v1/chat/completions', {
+        const res = await fetchWithTimeout('https://api.mistral.ai/v1/chat/completions', {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${apiKey}`,
@@ -251,7 +261,7 @@ async function fallbackGemini(channelId, pregunta, systemExtra, maxTokens = 120)
 
         // TODO: Gemini 2.5 Flash se depreca el 17 de Junio de 2026.
         //       Migrar a Gemini 3.x cuando haya una versión GA estable.
-        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+        const res = await fetchWithTimeout(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body)
@@ -306,7 +316,7 @@ async function preguntarConVision(channelId, pregunta, imageUrl, contextoExtra =
         }
         console.log('[Vision] Fetch url optimizada:', fetchUrl.substring(0, 100) + '...');
 
-        const imgRes = await fetch(fetchUrl);
+        const imgRes = await fetchWithTimeout(fetchUrl, {}, REQUEST_TIMEOUT_MS);
 
         if (!imgRes.ok) {
             console.error(`[Vision] Error descargando imagen: HTTP ${imgRes.status}`);
@@ -424,7 +434,7 @@ async function analizarConOpenRouterModel(base64Img, mimeType, prompt, model) {
     const apiKey = process.env.OPENROUTER_API_KEY;
     if (!apiKey) return null;
 
-    const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    const res = await fetchWithTimeout('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST',
         headers: {
             'Authorization': `Bearer ${apiKey}`,
@@ -465,7 +475,7 @@ async function analizarConGeminiVision(base64Img, mimeType, prompt, model) {
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) return null;
 
-    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+    const res = await fetchWithTimeout(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

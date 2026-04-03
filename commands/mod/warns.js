@@ -28,7 +28,15 @@ module.exports = {
 
         if (accion === 'borrar' && warnId) {
             try {
-                stmts.removeWarn?.(warnId, target.id);
+                const warnExists = stmts.getWarns(target.id).some(warn => warn.id === warnId);
+                if (!warnExists) {
+                    return interaction.reply({
+                        content: '> ❌ No se encontró ese warn para ese usuario. Verificá el ID.',
+                        flags: 64
+                    });
+                }
+
+                stmts.deleteWarn(warnId);
                 const remaining = stmts.countWarns(target.id);
                 return interaction.reply({
                     embeds: [new EmbedBuilder()

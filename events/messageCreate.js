@@ -242,10 +242,9 @@ module.exports = {
 
             // 1. Visión (Si mandan una imagen)
             if (attachment) {
+                let typingInterval = null;
                 try {
-                    // Mantener "escribiendo..." activo durante todo el pipeline de visión
-                    // Discord corta el typing después de ~10s, así que lo renovamos cada 8s
-                    const typingInterval = setInterval(() => {
+                    typingInterval = setInterval(() => {
                         message.channel.sendTyping().catch(() => { });
                     }, 8000);
                     message.channel.sendTyping().catch(() => { });
@@ -253,12 +252,13 @@ module.exports = {
                     const contexto = `El usuario ${message.author.username} mandó esta imagen al chat general. Comentá o burlate de la imagen.`;
                     const resVision = await preguntarConVision(message.channel.id, message.content || '¿Qué opinás de esta imagen?', attachment.url, contexto);
 
-                    clearInterval(typingInterval);
                     stmts.incrementAnalyticsMetric('ai_replies', 'vision_auto', 1);
                     return setTimeout(() => message.reply(resVision).catch(() => { }), 1000);
                 } catch (e) {
                     stmts.incrementAnalyticsMetric('error_events', 'ai', 1);
                     console.error('Error Vision Auto:', e.message);
+                } finally {
+                    if (typingInterval) clearInterval(typingInterval);
                 }
             }
             // 2. Intervención espontánea de texto (80% chance)

@@ -43,7 +43,7 @@ module.exports = {
                         .setDescription(
                             '> ⚠️ **Sesión de música expirada**\n' +
                             '> El bot fue reiniciado y esta sesión ya no existe.\n\n' +
-                            '> Usá `/playl <canción>` para empezar una nueva reproducción. 🎵'
+                            '> Usá `/play <canción>` para empezar una nueva reproducción. 🎵'
                         )
                         .setFooter({ text: 'Prophet Music' })],
                     flags: 64
@@ -241,7 +241,8 @@ module.exports = {
                     const comando = client.commands.get('confesion');
                     if (comando) await comando.handleModal(interaction);
                 } else if (interaction.customId.startsWith('pay_modal_')) {
-                    // Ignorar — sin lógica de pago activa
+                    const comando = client.commands.get('Dar Coins');
+                    if (comando?.handleModal) await comando.handleModal(interaction);
                 } else if (interaction.customId.startsWith('context_report_')) {
                     // Modal de reporte contextual (click derecho → Reportar Usuario)
                     try {

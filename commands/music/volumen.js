@@ -1,5 +1,6 @@
 // ═══ COMANDO: /volumen ═══
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+const { useQueue } = require('discord-player');
 const { stmts } = require('../../database');
 
 module.exports = {

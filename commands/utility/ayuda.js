@@ -213,8 +213,8 @@ function buildMusicEmbed() {
                 name: '▶️ Reproducción',
                 value:
                     '`/play <canción o URL>` — Buscar y reproducir\n' +
-                    '`/playl <URL>` — Reproducir vía Lavalink (más estable)\n' +
-                    '`/queue` — Ver la cola de canciones',
+                    '`/queue` — Ver la cola de canciones\n' +
+                    '`/volumen <1-100>` — Ajustar volumen actual',
                 inline: false
             },
             {
