@@ -20,38 +20,46 @@ module.exports = {
     name: 'channelCreate',
     once: false,
     async execute(channel) {
-        if (!channel.guild) return;
-
-        const logChannel = channel.guild.channels.cache.get(config.CHANNELS.LOGS);
-        if (!logChannel) return;
-
-        let executor = null;
         try {
-            const logs = await channel.guild.fetchAuditLogs({ limit: 1, type: AuditLogEvent.ChannelCreate });
-            const entry = logs.entries.first();
-            if (entry && Date.now() - entry.createdTimestamp < 5000) {
-                executor = entry.executor;
-            }
-        } catch (e) { }
+            if (!channel.guild) return;
 
-        const tipoCanal = CHANNEL_TYPES[channel.type] ?? `Tipo ${channel.type}`;
-        const categoria = channel.parent ? `\`${channel.parent.name}\`` : '*Sin categoría*';
+            const logChannel = channel.guild.channels.cache.get(config.CHANNELS.LOGS);
+            if (!logChannel) return;
 
-        const embed = new EmbedBuilder()
-            .setColor(config.COLORES.SUCCESS || 0x69F0AE)
-            .setAuthor({
-                name: '📁  Canal Creado',
-                iconURL: executor?.displayAvatarURL() || channel.guild.iconURL()
-            })
-            .setDescription(
-                `> **Nombre:** ${channel.toString()} (\`${channel.id}\`)\n` +
-                `> **Tipo:** ${tipoCanal}\n` +
-                `> **Categoría:** ${categoria}\n` +
-                (executor ? `> **Creado por:** <@${executor.id}>\n` : '')
-            )
-            .setFooter({ text: 'Prophet  ·  Log de Servidor' })
-            .setTimestamp();
+            // Solo logear canales creados por usuarios (no por el bot)
+            let executor = null;
+            try {
+                const logs = await channel.guild.fetchAuditLogs({ limit: 1, type: AuditLogEvent.ChannelCreate });
+                const entry = logs.entries.first();
+                if (entry && Date.now() - entry.createdTimestamp < 5000) {
+                    executor = entry.executor;
+                }
+            } catch (e) { /* Sin permiso para audit logs — continuar sin executor */ }
 
-        logChannel.send({ embeds: [embed] }).catch(() => { });
+            // Si fue creado por el propio bot, no loguear (evita spam de logs por salas temporales)
+            if (executor?.id === channel.client.user.id) return;
+
+            const tipoCanal = CHANNEL_TYPES[channel.type] ?? `Tipo ${channel.type}`;
+            const categoria = channel.parent ? `\`${channel.parent.name}\`` : '*Sin categoría*';
+
+            const embed = new EmbedBuilder()
+                .setColor(config.COLORES.SUCCESS || 0x69F0AE)
+                .setAuthor({
+                    name: '📁  Canal Creado',
+                    iconURL: executor?.displayAvatarURL() || channel.guild.iconURL()
+                })
+                .setDescription(
+                    `> **Nombre:** ${channel.toString()} (\`${channel.id}\`)\n` +
+                    `> **Tipo:** ${tipoCanal}\n` +
+                    `> **Categoría:** ${categoria}\n` +
+                    (executor ? `> **Creado por:** <@${executor.id}>\n` : '')
+                )
+                .setFooter({ text: 'Prophet  ·  Log de Servidor' })
+                .setTimestamp();
+
+            logChannel.send({ embeds: [embed] }).catch(() => { });
+        } catch (err) {
+            console.error('[channelCreate] Error:', err.message);
+        }
     }
 };

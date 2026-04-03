@@ -13,8 +13,9 @@ module.exports = {
     name: 'voiceStateUpdate',
     once: false,
     async execute(oldState, newState) {
+        try {
         const member = newState.member || oldState.member;
-        if (member.user.bot) return;
+        if (!member || member.user.bot) return;
         const userId = member.id;
         const guild = member.guild;
 
@@ -345,5 +346,8 @@ module.exports = {
         }
 
         logChannel.send({ embeds: [embed] }).catch(() => { });
+        } catch (err) {
+            console.error('[voiceStateUpdate] Error no manejado:', err.message);
+        }
     }
 };

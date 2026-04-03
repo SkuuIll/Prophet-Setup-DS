@@ -13,6 +13,7 @@ module.exports = {
     name: 'messageCreate',
     once: false,
     async execute(message) {
+        try {
         if (message.author.bot || !message.guild) return;
 
         stmts.incrementAnalyticsMetric('messages_total', 'global', 1);
@@ -326,6 +327,9 @@ module.exports = {
             }
 
             message.channel.send({ embeds: [embed] });
+        }
+        } catch (err) {
+            console.error('[messageCreate] Error no manejado:', err.message);
         }
     }
 };
