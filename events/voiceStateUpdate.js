@@ -29,15 +29,37 @@ module.exports = {
                 || guild.channels.cache.get(config.CHANNELS.CHAT);
             if (!chatChannel) return;
 
+            // Mensajes dinámicos según hito de nivel
+            const lvl = resultado.nuevoNivel;
+            let levelTitle = '🎉  ¡Subiste de nivel hablando!';
+            let levelDesc = `> ${member.user} subió a **Nivel ${lvl}** por su tiempo en canales de voz!\n> ¡Seguí participando para desbloquear más recompensas!`;
+
+            if (lvl === 5) {
+                levelTitle = '🌱  ¡Nivel 5 — Voz activa!';
+                levelDesc = `> ${member.user} alcanzó **Nivel 5** en voz — ¡ya se nota tu presencia!\n> La comunidad te escucha. 🎤`;
+            } else if (lvl === 10) {
+                levelTitle = '📚  ¡Nivel 10 — Aprendiz de la voz!';
+                levelDesc = `> ${member.user} alcanzó **Nivel 10** en voz — ¡vas para arriba!\n> Tu voz ya es parte del servidor. 👊`;
+            } else if (lvl === 25) {
+                levelTitle = '⚔️  ¡Nivel 25 — Veterano!';
+                levelDesc = `> ${member.user} alcanzó **Nivel 25** en voz — ¡leyenda activa!\n> Los nuevos miran tu nivel con admiración. 🔥`;
+            } else if (lvl === 50) {
+                levelTitle = '👑  ¡Nivel 50 — ÉLITE del servidor!';
+                levelDesc = `> ${member.user} alcanzó **Nivel 50** en voz — ¡pilar absoluto!\n> Mitad del camino a la leyenda. 🏆`;
+            } else if (lvl === 100) {
+                levelTitle = '🏆  ¡NIVEL 100 — LEYENDA ABSOLUTA!';
+                levelDesc = `> 🔔 ${member.user} alcanzó **Nivel 100** en voz — ¡RECORD HISTÓRICO!\n> Sos la leyenda de Prophet Gaming. 🙌`;
+            } else if (lvl % 10 === 0) {
+                levelTitle = `⭐  ¡Nivel ${lvl} — Hito de Voz!`;
+                levelDesc = `> ${member.user} alcanzó **Nivel ${lvl}** en voz — ¡imparable!\n> Cada minuto en voz cuenta. 🚀`;
+            }
+
             const embed = new EmbedBuilder()
-                .setColor(config.COLORES.NIVEL || 0xBB86FC)
-                .setAuthor({ name: '🎉  ¡Subiste de nivel hablando!' })
-                .setDescription(
-                    `> ${member.user} subió a **Nivel ${resultado.nuevoNivel}** por su tiempo en canales de voz!\n` +
-                    `> ¡Seguí participando para desbloquear más recompensas!`
-                )
+                .setColor(lvl >= 50 ? 0xFFD700 : lvl >= 25 ? 0xE040FB : config.COLORES.NIVEL || 0xBB86FC)
+                .setAuthor({ name: levelTitle })
+                .setDescription(levelDesc)
                 .setThumbnail(member.user.displayAvatarURL({ size: 128 }))
-                .setFooter({ text: 'Prophet  ·  Sistema de Niveles' })
+                .setFooter({ text: `Prophet  ·  Sistema de Niveles  ·  Nivel ${lvl}` })
                 .setTimestamp();
 
             if (resultado.rolNuevo) {

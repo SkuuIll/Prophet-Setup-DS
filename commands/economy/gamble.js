@@ -9,6 +9,15 @@ const WIN_PHRASES = [
     '🔥 ¡Instinto de campeón, puro juego!',
     '⚡ ¡Un golpe de suerte legendario!',
     '🤑 ¡El dinero llegó solo, rey!',
+    '🎯 ¡Aim assist del universo activado!',
+    '💎 ¡Drop de coins, full loot conseguido!',
+    '🍀 ¡La suerte es tuya hoy, aprovechála!',
+    '🚀 ¡Despegaste directo al top 1!',
+    '🪅 ¡El as siempre estaba en tu manga!',
+    '🌶️ ¡Sabes cómo se come, jefe!',
+    '🏆 ¡Chicken dinner del casino!',
+    '💰 Llovieron coins, y estabas en el lugar correcto.',
+    '🤯 ¡Eso es lo que se llama olfato gamer!',
 ];
 
 const LOSE_PHRASES = [
@@ -17,6 +26,15 @@ const LOSE_PHRASES = [
     '💀 El casino siempre gana... hoy.',
     '🌧️ Mala racha, mañana mejor.',
     '🎲 El azar no perdonó esta vez.',
+    '😭 Se fue como llegó, rápido y sin aviso.',
+    '🫣 El RNG te odio esta vez.',
+    '🔫 Headshot de la mala suerte.',
+    '💫 Caiste en zone sin botiquin. R.I.P. coins.',
+    '🤪 ¿En qué estabas pensando? (igual nosotros tampoco sabemos).',
+    '💔 El corazón del servidor llora contigo.',
+    '🌪️ Vino la tormenta y se llevó todo.',
+    '💀 GG no re. La casa siempre gana, campeon.',
+    '🙍 Hasta los pros pierden una. Seguimos.',
 ];
 
 module.exports = {

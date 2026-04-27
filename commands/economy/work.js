@@ -22,6 +22,23 @@ const TRABAJOS = [
     { text: '🐉 Completaste una raid entera como healer improvisado', salario: 'Recompensas de raid' },
     { text: '🏗️ Terminaste el primer piso de tu base en Rust sin morir', salario: 'Recursos salvados' },
     { text: '🎓 Tutor online de mates: tu alumno sacó 10', salario: 'Honorarios de tutor' },
+    // PUBG
+    { text: '🪖 Entrenaste a un squad de PUBG y los llevaste al Chicken Dinner', salario: 'Coaching de PUBG' },
+    { text: '🎯 Eliminaste 15 jugadores en Erangel con solo pistola — la gente te contrató de coach', salario: 'Premio de clutch' },
+    { text: '🚁 Caíste en Pochinki, limpiaste el drop y saliste vivo. El squad te pagó el drop', salario: 'Loot vendido' },
+    { text: '🛡️ Fuiste el último de tu squad vivo y ganaste con un pan y un vendaje', salario: 'Recompensa de superviviente' },
+    { text: '🗺️ Marcaste la zona perfecta y el squad llegó top 2 sin pelear', salario: 'Estrategia maestra' },
+    // CS2
+    { text: '🔫 Clutcheaste un 1v5 en matchmaking y el rival team te invitó a su clan', salario: 'Oferta de clan' },
+    { text: '💣 Defuseaste la bomba con 0.3s y toda la faceit te lo agradeció con coins', salario: 'Premio de defusal' },
+    { text: '🖱️ Le enseñaste a apuntar a un plata y llegó a oro en dos semanas', salario: 'Sesión de aim training' },
+    { text: '🎙️ Callcheaste perfectamente la rotación y el equipo gana pistol round', salario: 'IGL profesional' },
+    { text: '📊 Analizaste el demo del partido perdido y encontraste el error del equipo', salario: 'Análisis táctico' },
+    // Extra fun
+    { text: '🧋 Vendiste bubble tea gamer en el torneo y agotaste el stock en 20 min', salario: 'Ventas récord' },
+    { text: '🤝 Hiciste de traductor entre el IGL y el jugador brasileño — ganaron igual', salario: 'Servicio de traducción' },
+    { text: '🖨️ Imprimiste los memes del squad para decorar la sala de juego', salario: 'Trabajo creativo' },
+    { text: '🧃 Alcanzaste jugo a todo el café gaming y ninguno se fue sediento', salario: 'Propina colectiva' },
 ];
 
 module.exports = {

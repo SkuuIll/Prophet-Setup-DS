@@ -299,15 +299,37 @@ module.exports = {
             // Track progreso de nivel para badges/achievements
             trackLevel(message.author.id, resultado.nuevoNivel);
 
+            // Mensajes dinámicos según hito de nivel
+            const lvl = resultado.nuevoNivel;
+            let levelTitle = '🎉  ¡Subiste de nivel!';
+            let levelDesc = `> ${message.author} subió a **Nivel ${lvl}**!\n> ¡Seguí participando para desbloquear más recompensas!`;
+
+            if (lvl === 5) {
+                levelTitle = '🌱  ¡Primer logro desbloqueado!';
+                levelDesc = `> ${message.author} alcanzó **Nivel 5** — ¡ya no sos nuevo acá!\n> La comunidad te da la bienvenida al club de los activos. 👏`;
+            } else if (lvl === 10) {
+                levelTitle = '📚  ¡Nivel 10 — Aprendiz!';
+                levelDesc = `> ${message.author} alcanzó **Nivel 10** — ¡el camino recién empieza!\n> Ya ganaste respeto en Prophet Gaming. 👊`;
+            } else if (lvl === 25) {
+                levelTitle = '⚔️  ¡Nivel 25 — Veterano!';
+                levelDesc = `> ${message.author} alcanzó **Nivel 25** — ¡leyenda creciente!\n> Los nuevos van a querer ser como vos. 🔥`;
+            } else if (lvl === 50) {
+                levelTitle = '👑  ¡Nivel 50 — ÉLITE del servidor!';
+                levelDesc = `> ${message.author} alcanzó **Nivel 50** — ¡un verdadero pilar del servidor!\n> Mitad del camino a la leyenda absoluta. 🏆`;
+            } else if (lvl === 100) {
+                levelTitle = '🏆  ¡NIVEL 100 — LEYENDA ABSOLUTA!';
+                levelDesc = `> 🔔 ${message.author} alcanzó **Nivel 100** — ¡IMPARABLE!\n> Sos oficialmente una leyenda de Prophet Gaming. Todo el servidor te saluda. 🙌`;
+            } else if (lvl % 10 === 0) {
+                levelTitle = `⭐  ¡Nivel ${lvl} — Hito Desbloqueado!`;
+                levelDesc = `> ${message.author} alcanzó **Nivel ${lvl}** — ¡sigue imárarable!\n> Cada nivel es un paso más en la historia de Prophet. 🚀`;
+            }
+
             const embed = new EmbedBuilder()
-                .setColor(config.COLORES.NIVEL || 0xBB86FC)
-                .setAuthor({ name: '🎉  ¡Subiste de nivel!' })
-                .setDescription(
-                    `> ${message.author} subió a **Nivel ${resultado.nuevoNivel}**!\n` +
-                    `> ¡Seguí participando para desbloquear más recompensas!`
-                )
+                .setColor(lvl >= 50 ? 0xFFD700 : lvl >= 25 ? 0xE040FB : config.COLORES.NIVEL || 0xBB86FC)
+                .setAuthor({ name: levelTitle })
+                .setDescription(levelDesc)
                 .setThumbnail(message.author.displayAvatarURL({ size: 128 }))
-                .setFooter({ text: 'Prophet  ·  Sistema de Niveles' })
+                .setFooter({ text: `Prophet  ·  Sistema de Niveles  ·  Nivel ${lvl}` })
                 .setTimestamp();
 
             if (resultado.rolNuevo) {
