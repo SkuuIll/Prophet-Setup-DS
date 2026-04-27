@@ -326,7 +326,12 @@ module.exports = {
                 }
             }
 
-            message.channel.send({ embeds: [embed] });
+            // Enviar al canal de bienvenida/general, no en el canal donde escribió
+            const levelUpChannel = message.guild.channels.cache.get(config.CHANNELS.BIENVENIDOS)
+                || message.guild.channels.cache.get(config.CHANNELS.CHAT);
+            if (levelUpChannel) {
+                levelUpChannel.send({ embeds: [embed] }).catch(() => {});
+            }
         }
         } catch (err) {
             console.error('[messageCreate] Error no manejado:', err.message);

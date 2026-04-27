@@ -25,7 +25,8 @@ module.exports = {
             const { trackLevel } = require('../modules/profileSystem');
             trackLevel(member.id, resultado.nuevoNivel);
 
-            const chatChannel = guild.channels.cache.get(config.CHANNELS.CHAT);
+            const chatChannel = guild.channels.cache.get(config.CHANNELS.BIENVENIDOS)
+                || guild.channels.cache.get(config.CHANNELS.CHAT);
             if (!chatChannel) return;
 
             const embed = new EmbedBuilder()

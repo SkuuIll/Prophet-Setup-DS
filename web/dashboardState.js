@@ -864,7 +864,7 @@ function generateDailySummary(client) {
 
 async function sendDailySummary(client) {
     const guild = getGuild(client);
-    const channel = getChannel(guild, 'STAFF') || getChannel(guild, 'LOGS');
+    const channel = getChannel(guild, 'LOGS');
 
     if (!channel) {
         return { success: false, error: 'No hay canal de staff configurado' };
