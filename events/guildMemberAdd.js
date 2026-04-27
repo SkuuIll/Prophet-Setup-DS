@@ -48,10 +48,15 @@ module.exports = {
 
         // Asignar rol Nuevo
         if (config.ROLES.NUEVO) {
-            try {
-                await member.roles.add(config.ROLES.NUEVO, 'Nuevo miembro');
-            } catch (e) {
-                console.error('Error asignando rol:', e.message);
+            const rolesProtegidos = [config.ROLES.PROPHET, config.ROLES.STAFF, config.ROLES.MODERADOR, config.ROLES.VIP, config.ROLES.BOTS].filter(Boolean);
+            if (rolesProtegidos.includes(config.ROLES.NUEVO)) {
+                console.error(`⚠️ ALERTA DE SEGURIDAD: config.ROLES.NUEVO apunta a un rol protegido (${config.ROLES.NUEVO}). Ignorando asignación.`);
+            } else {
+                try {
+                    await member.roles.add(config.ROLES.NUEVO, 'Nuevo miembro');
+                } catch (e) {
+                    console.error('Error asignando rol:', e.message);
+                }
             }
         }
 

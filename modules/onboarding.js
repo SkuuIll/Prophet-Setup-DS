@@ -259,6 +259,11 @@ async function handleOnboardingRoleSelect(interaction) {
     for (const game of selectedGames) {
         const roleId = roleMap[game];
         if (roleId && !member.roles.cache.has(roleId)) {
+            const rolesProtegidos = [config.ROLES.PROPHET, config.ROLES.STAFF, config.ROLES.MODERADOR, config.ROLES.VIP, config.ROLES.BOTS].filter(Boolean);
+            if (rolesProtegidos.includes(roleId)) {
+                console.error(`⚠️ ALERTA DE SEGURIDAD: onboarding intentó asignar un rol protegido (${roleId}). Bloqueado.`);
+                continue;
+            }
             try {
                 await member.roles.add(roleId, 'Onboarding - Rol de juego');
                 const role = guild.roles.cache.get(roleId);

@@ -335,6 +335,11 @@ module.exports = {
                         if (!rid) continue;
                         if (values.includes(key)) {
                             if (!member.roles.cache.has(rid)) {
+                                const rolesProtegidos = [config.ROLES.PROPHET, config.ROLES.STAFF, config.ROLES.MODERADOR, config.ROLES.VIP, config.ROLES.BOTS].filter(Boolean);
+                                if (rolesProtegidos.includes(rid)) {
+                                    console.error(`⚠️ ALERTA: Intento de auto-asignación bloqueado para rol protegido: ${rid}`);
+                                    continue;
+                                }
                                 await member.roles.add(rid);
                                 assigned.push(guild.roles.cache.get(rid).name);
                             }
