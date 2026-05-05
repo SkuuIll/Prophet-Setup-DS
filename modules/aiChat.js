@@ -312,7 +312,7 @@ async function preguntarConVision(channelId, pregunta, imageUrl, contextoExtra =
         }
         if (fetchUrl.includes('media.discordapp.net')) {
             const sep = fetchUrl.includes('?') ? '&' : '?';
-            fetchUrl += `${sep}width=800&height=800`;
+            fetchUrl += `${sep}width=800&height=800&format=jpeg`;
         }
         console.log('[Vision] Fetch url optimizada:', fetchUrl.substring(0, 100) + '...');
 
@@ -422,7 +422,7 @@ async function analizarConNvidiaVision(base64Img, mimeType, prompt) {
                 temperature: 0.2,
                 top_p: 0.7
             })
-        });
+        }, 60000);
 
         const data = await res.json();
         if (!res.ok) {
