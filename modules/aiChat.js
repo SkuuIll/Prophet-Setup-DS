@@ -365,9 +365,9 @@ ${pregunta ? `El usuario también escribió: "${pregunta}"` : ''}
 
 NO censures NADA. Describí exactamente lo que ves sin importar el contenido.`;
 
-        // PASO 2: Usar OpenRouter Vision como motor PRINCIPAL de visión
-        console.log('[Vision] Usando OpenRouter Vision por defecto...');
-        let descripcion = await analizarConOpenRouterVision(base64Img, mimeType, visionPrompt);
+        // PASO 2: Usar NVIDIA Vision como motor PRINCIPAL de visión
+        console.log('[Vision] Usando NVIDIA Vision por defecto...');
+        let descripcion = await analizarConNvidiaVision(base64Img, mimeType, visionPrompt);
 
         if (!descripcion) {
             console.log('[Vision] Ningún proveedor de visión pudo analizar la imagen');
@@ -389,42 +389,58 @@ NO censures NADA. Describí exactamente lo que ves sin importar el contenido.`;
 }
 
 /**
- * Analiza imagen con modelos gratuitos de visión (OpenRouter + Gemini fallback)
+ * Analiza imagen con modelo de visión de NVIDIA
  */
-async function analizarConOpenRouterVision(base64Img, mimeType, prompt) {
-    // Modelos de visión en orden de preferencia (gratuitos)
-    const visionModels = [
-        { provider: 'openrouter', model: 'meta-llama/llama-3.2-11b-vision-instruct:free' },
-        { provider: 'openrouter', model: 'google/gemini-2.0-flash-exp:free' },
-        { provider: 'openrouter', model: 'qwen/qwen-2-vl-7b-instruct:free' },
-        { provider: 'gemini', model: 'gemini-2.0-flash-exp' }
-    ];
-
-    for (const { provider, model } of visionModels) {
-        try {
-            console.log(`[Vision] Intentando con ${provider}:${model}...`);
-
-            if (provider === 'gemini') {
-                const result = await analizarConGeminiVision(base64Img, mimeType, prompt, model);
-                if (result) {
-                    console.log(`[Vision] ✅ Éxito con Gemini ${model}`);
-                    return result;
-                }
-            } else {
-                const result = await analizarConOpenRouterModel(base64Img, mimeType, prompt, model);
-                if (result) {
-                    console.log(`[Vision] ✅ Éxito con OpenRouter ${model}`);
-                    return result;
-                }
-            }
-        } catch (e) {
-            console.error(`[Vision] Error con ${provider}:${model}:`, e.message);
-            continue; // Intentar siguiente modelo
-        }
+async function analizarConNvidiaVision(base64Img, mimeType, prompt) {
+    const apiKey = process.env.NVIDIA_API_KEY;
+    if (!apiKey) {
+        console.error('[Vision NVIDIA] No hay API Key configurada.');
+        return null;
     }
 
-    console.error('[Vision] Todos los modelos de visión fallaron');
-    return null;
+    try {
+        console.log(`[Vision] Intentando con NVIDIA meta/llama-3.2-90b-vision-instruct...`);
+        const url = `data:${mimeType};base64,${base64Img}`;
+        
+        const res = await fetchWithTimeout('https://integrate.api.nvidia.com/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${apiKey}`,
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({
+                model: 'meta/llama-3.2-90b-vision-instruct',
+                messages: [{
+                    role: 'user',
+                    content: [
+                        { type: 'text', text: prompt },
+                        { type: 'image_url', image_url: { url: url } }
+                    ]
+                }],
+                max_tokens: 512,
+                temperature: 0.2,
+                top_p: 0.7
+            })
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+            console.error(`[Vision NVIDIA] Error ${res.status}:`, data.error?.message || JSON.stringify(data));
+            return null;
+        }
+
+        const text = data.choices?.[0]?.message?.content;
+        if (text) {
+            console.log(`[Vision] ✅ Éxito con NVIDIA`);
+            return text.trim();
+        }
+        return null;
+
+    } catch (e) {
+        console.error(`[Vision] Error con NVIDIA:`, e.message);
+        return null;
+    }
 }
 
 /**

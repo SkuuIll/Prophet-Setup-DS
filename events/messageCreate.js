@@ -190,8 +190,10 @@ module.exports = {
                 .replace(/<@!?\d+>/g, '')
                 .trim();
 
-            if (!textoSinMencion) {
-                // Mencionaron al bot sin texto → respuesta rápida
+            const attachment = message.attachments.find(a => a.contentType?.startsWith('image/'));
+
+            if (!textoSinMencion && !attachment) {
+                // Mencionaron al bot sin texto y sin imagen → respuesta rápida
                 const respuestasRapidas = [
                     `¡Acá estoy, ${message.author.username}! 👋 ¿En qué te ayudo? Podés preguntarme lo que sea.`,
                     `¡Me llamaste? 🎮 ¿Qué necesitás?`,
@@ -202,13 +204,21 @@ module.exports = {
                 return message.reply(respuestasRapidas[Math.floor(Math.random() * respuestasRapidas.length)]);
             }
 
-            // Tiene texto → usar IA
+            // Tiene texto o imagen → usar IA
             try {
                 const typing = message.channel.sendTyping();
                 const contexto = `Servidor: ${message.guild.name}, usuario: ${message.author.username}`;
-                const respuesta = await preguntarAIA(message.channel.id, textoSinMencion, contexto);
+                
+                let respuesta;
+                if (attachment) {
+                    respuesta = await preguntarConVision(message.channel.id, textoSinMencion || '¿Qué opinás de esta imagen?', attachment.url, contexto);
+                    stmts.incrementAnalyticsMetric('ai_replies', 'vision_mention', 1);
+                } else {
+                    respuesta = await preguntarAIA(message.channel.id, textoSinMencion, contexto);
+                    stmts.incrementAnalyticsMetric('ai_replies', 'direct_mention', 1);
+                }
+                
                 await typing;
-                stmts.incrementAnalyticsMetric('ai_replies', 'direct_mention', 1);
                 return message.reply({ content: respuesta });
             } catch (e) {
                 stmts.incrementAnalyticsMetric('error_events', 'ai', 1);

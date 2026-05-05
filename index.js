@@ -413,20 +413,21 @@ client.once('clientReady', async () => {
     dbStmts.addLog('SYSTEM_BOOT', { version: '2.6.0', message: 'Prophet Bot iniciado correctamente' });
 
     // ── Resumen técnico diario automático (09:00 ARG = 12:00 UTC) ──
-    const { sendDailySummary } = require('./web/dashboardState');
-    schedule.scheduleJob('0 12 * * *', async () => {
-        try {
-            const result = await sendDailySummary(client);
-            if (result.success) {
-                console.log('📊 Resumen técnico diario enviado automáticamente');
-            } else {
-                console.warn('⚠️ No se pudo enviar resumen técnico diario:', result.error);
-            }
-        } catch (e) {
-            console.error('❌ Error enviando resumen técnico diario:', e.message);
-        }
-    });
-    console.log('📊 Resumen técnico diario programado: 09:00 Argentina (12:00 UTC)');
+    // DESACTIVADO POR PETICIÓN DEL USUARIO
+    // const { sendDailySummary } = require('./web/dashboardState');
+    // schedule.scheduleJob('0 12 * * *', async () => {
+    //     try {
+    //         const result = await sendDailySummary(client);
+    //         if (result.success) {
+    //             console.log('📊 Resumen técnico diario enviado automáticamente');
+    //         } else {
+    //             console.warn('⚠️ No se pudo enviar resumen técnico diario:', result.error);
+    //         }
+    //     } catch (e) {
+    //         console.error('❌ Error enviando resumen técnico diario:', e.message);
+    //     }
+    // });
+    // console.log('📊 Resumen técnico diario programado: 09:00 Argentina (12:00 UTC)');
 
     // ── Heartbeat periódico para monitoreo (cada 6 horas) ──
     startProtectedInterval('heartbeat', async () => {
