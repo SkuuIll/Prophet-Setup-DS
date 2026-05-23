@@ -50,12 +50,14 @@ module.exports = {
         if (config.ROLES.NUEVO) {
             const rolesProtegidos = [config.ROLES.PROPHET, config.ROLES.STAFF, config.ROLES.MODERADOR, config.ROLES.VIP, config.ROLES.BOTS].filter(Boolean);
             if (rolesProtegidos.includes(config.ROLES.NUEVO)) {
-                console.error(`⚠️ ALERTA DE SEGURIDAD: config.ROLES.NUEVO apunta a un rol protegido (${config.ROLES.NUEVO}). Ignorando asignación.`);
+                console.error(`⚠️ ALERTA DE SEGURIDAD: config.ROLES.NUEVO (${config.ROLES.NUEVO}) apunta a un rol protegido. Ignorando asignación.`);
             } else {
                 try {
                     await member.roles.add(config.ROLES.NUEVO, 'Nuevo miembro');
+                    const roleName = member.guild.roles.cache.get(config.ROLES.NUEVO)?.name || config.ROLES.NUEVO;
+                    console.log(`👤 Rol "${roleName}" asignado a nuevo miembro ${member.user.tag} (${member.id})`);
                 } catch (e) {
-                    console.error('Error asignando rol:', e.message);
+                    console.error(`Error asignando rol NUEVO (${config.ROLES.NUEVO}) a ${member.user.tag}:`, e.message);
                 }
             }
         }
@@ -96,24 +98,31 @@ module.exports = {
             welcomeChannel.send({ content: `${member}`, embeds: [embed], files: [attachment] });
 
             // Iniciar onboarding después de 30 segundos
-            setTimeout(async () => {
-                try {
-                    const { startOnboarding, sendOnboardingStep, getOnboardingProgress } = require('../modules/onboarding');
-                    const progress = getOnboardingProgress(member.id);
-
-                    if (!progress.completed) {
-                        const result = await sendOnboardingStep(member, 'welcome');
-                        if (result) {
-                            await member.send({
-                                embeds: [result.embed],
-                                components: result.components
-                            }).catch(() => { });
+            let onboarding;
+            try {
+                onboarding = require('../modules/onboarding');
+            } catch {
+                onboarding = null;
+            }
+            if (onboarding) {
+                setTimeout(async () => {
+                    try {
+                        if (!member.guild) return;
+                        const progress = onboarding.getOnboardingProgress(member.id);
+                        if (!progress.completed) {
+                            const result = await onboarding.sendOnboardingStep(member, 'welcome');
+                            if (result) {
+                                await member.send({
+                                    embeds: [result.embed],
+                                    components: result.components
+                                }).catch(() => { });
+                            }
                         }
+                    } catch (e) {
+                        console.debug('[Onboarding] No se pudo enviar DM:', e.message);
                     }
-                } catch (e) {
-                    console.debug('[Onboarding] No se pudo enviar DM:', e.message);
-                }
-            }, 30000);
+                }, 30000);
+            }
 
         } catch (error) {
             console.error('Error enviando tarjeta de bienvenida:', error);

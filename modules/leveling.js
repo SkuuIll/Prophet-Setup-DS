@@ -119,9 +119,31 @@ function procesarXPVoz(userId, minutos = 1) {
 
     // Guardar XP + minutos de voz en la DB
     stmts.addVoiceMinutes(userId, minutos, xpGanado);
-    stmts.upsertUser(user);
+    
+    // Obtener el registro fresco de la DB para evitar revertir voice_minutes con el caché local
+    const dbUser = stmts.getUser(userId);
+
+    if (user.level > (dbUser?.level || 0)) {
+        stmts.upsertUser({ 
+            user_id: userId, 
+            level: user.level, 
+            xp: user.xp, 
+            voice_minutes: dbUser?.voice_minutes ?? user.voice_minutes 
+        });
+    }
 
     return { subioNivel, nuevoNivel: user.level, xpGanado, rolNuevo };
 }
 
-module.exports = { procesarXP, procesarXPVoz, obtenerNivel, obtenerTop, xpParaNivel, barraProgreso };
+/**
+ * Calcular el nivel correspondiente a una cantidad de XP
+ */
+function calculateLevel(xp) {
+    let level = 0;
+    while (xp >= xpParaNivel(level + 1)) {
+        level++;
+    }
+    return { level };
+}
+
+module.exports = { procesarXP, procesarXPVoz, obtenerNivel, obtenerTop, xpParaNivel, barraProgreso, calculateLevel };

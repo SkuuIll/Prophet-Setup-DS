@@ -229,6 +229,7 @@ module.exports = {
                         updateDailyQuestProgress(interaction.user.id, 'daily_commands', 1);
                         stmts.recordCommandExecution(`ctx:${interaction.commandName}`, true, 0);
                     } catch (error) {
+                        stmts.recordCommandExecution(`ctx:${interaction.commandName}`, false, 0);
                         console.error(`Error en contexto ${interaction.commandName}:`, error.message);
                         await interaction.reply({ content: `❌ Error al ejecutar contexto: ${error.message}`, flags: 64 }).catch(() => { });
                     }

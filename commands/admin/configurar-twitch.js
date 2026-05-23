@@ -31,9 +31,12 @@ module.exports = {
         const sub = interaction.options.getSubcommand();
 
         if (sub === 'agregar') {
-            const streamer = interaction.options.getString('streamer').toLowerCase();
+            let streamer = interaction.options.getString('streamer').toLowerCase().trim();
             const canal = interaction.options.getChannel('canal');
             const rol = interaction.options.getRole('rol-ping');
+
+            // Extraer nombre de usuario si se pasó una URL completa
+            streamer = streamer.replace(/^https?:\/\/www\.twitch\.tv\//, '').replace(/^https?:\/\/twitch\.tv\//, '').replace(/\/$/, '');
 
             // Verificar duplicados
             const existentes = stmts.getTwitchSubs(interaction.guild.id);
@@ -58,7 +61,9 @@ module.exports = {
         }
 
         if (sub === 'quitar') {
-            const streamer = interaction.options.getString('streamer').toLowerCase();
+            let streamer = interaction.options.getString('streamer').toLowerCase().trim();
+            // Extraer nombre de usuario si se pasó una URL completa
+            streamer = streamer.replace(/^https?:\/\/www\.twitch\.tv\//, '').replace(/^https?:\/\/twitch\.tv\//, '').replace(/\/$/, '');
             const removed = stmts.removeTwitchSub(interaction.guild.id, streamer);
             return interaction.editReply({
                 content: removed ? `✅ Dejé de monitorear a **${streamer}**.` : `❌ No encontré a **${streamer}** en la lista.`

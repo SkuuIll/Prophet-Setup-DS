@@ -108,9 +108,9 @@ module.exports = {
             : LOSE_PHRASES[Math.floor(Math.random() * LOSE_PHRASES.length)];
 
         if (multiplier > 0) {
-            // Ganó: agregar ganancia neta
             stmts.addMoney(userId, netGain, 'balance');
-            const newBal = eco.balance + netGain;
+            const freshEco = stmts.getEconomy(userId);
+            const newBal = freshEco.balance;
 
             const embed = new EmbedBuilder()
                 .setColor(multiplier >= 3 ? 0xFFD700 : config.COLORES.SUCCESS || 0x69F0AE)
@@ -127,7 +127,8 @@ module.exports = {
             await interaction.editReply({ embeds: [embed] });
         } else {
             stmts.removeMoney(userId, amount, 'balance');
-            const newBal = Math.max(0, eco.balance - amount);
+            const freshEco = stmts.getEconomy(userId);
+            const newBal = Math.max(0, freshEco.balance);
 
             const embed = new EmbedBuilder()
                 .setColor(config.COLORES.ERROR || 0xEF5350)

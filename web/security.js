@@ -11,7 +11,12 @@ const { stmts, _db } = require('../database');
 
 const SECURITY_CONFIG = {
     // JWT
-    JWT_SECRET: process.env.JWT_SECRET || crypto.randomBytes(64).toString('hex'),
+    JWT_SECRET: process.env.JWT_SECRET || (() => {
+        const fallback = crypto.randomBytes(64).toString('hex');
+        console.error('⚠️  CRÍTICO: JWT_SECRET no está configurado en .env — las sesiones se perderán en cada reinicio.');
+        console.error('⚠️  Agregá JWT_SECRET=<valor_largo_aleatorio> a tu archivo .env.');
+        return fallback;
+    })(),
     JWT_EXPIRY: process.env.JWT_EXPIRY || '15m',
     REFRESH_TOKEN_EXPIRY: process.env.REFRESH_TOKEN_EXPIRY || '7d',
     

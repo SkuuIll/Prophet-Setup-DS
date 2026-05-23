@@ -349,7 +349,8 @@ module.exports = {
                 });
 
                 const rol = message.guild.roles.cache.find(r => r.name === resultado.rolNuevo);
-                if (rol && message.member) {
+                const rolesProtegidosIds = [config.ROLES.PROPHET, config.ROLES.STAFF, config.ROLES.MODERADOR, config.ROLES.VIP, config.ROLES.BOTS].filter(Boolean);
+                if (rol && message.member && !rolesProtegidosIds.includes(rol.id)) {
                     try {
                         await message.member.roles.add(rol, `Subió a nivel ${resultado.nuevoNivel}`);
                     } catch (e) {

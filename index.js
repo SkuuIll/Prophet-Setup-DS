@@ -128,6 +128,15 @@ async function resolverIDs(guild) {
         if (channel) config.CHANNELS[key] = channel.id;
     }
 
+    // ── Resolver aliases de canales después de tener todos los IDs primarios ──
+    if (config.CHANNEL_ALIASES) {
+        for (const [alias, primary] of Object.entries(config.CHANNEL_ALIASES)) {
+            if (config.CHANNELS[primary]) {
+                config.CHANNELS[alias] = config.CHANNELS[primary];
+            }
+        }
+    }
+
     for (const [key, value] of Object.entries({ ...config.ROLES })) {
         const role = resolverRol(value);
         if (role) config.ROLES[key] = role.id;
@@ -285,23 +294,22 @@ client.once('clientReady', async () => {
             const fecha = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
             const destPath = path.join(backupDir, `prophet_${fecha}.sqlite`);
 
-            // Usar el backup API de better-sqlite3 (copia segura sin corromper)
+            // better-sqlite3 .backup() es síncrono — no devuelve Promise
             const { _db } = require('./database');
-            _db.backup(destPath).then(() => {
-                console.log(`💾 Backup SQLite creado: ${destPath}`);
+            _db.backup(destPath);
+            console.log(`💾 Backup SQLite creado: ${destPath}`);
 
-                // Borrar backups de más de 7 días
-                const archivos = fs.readdirSync(backupDir).filter(f => f.startsWith('prophet_') && f.endsWith('.sqlite'));
-                const hace7dias = Date.now() - 7 * 24 * 60 * 60 * 1000;
-                for (const archivo of archivos) {
-                    const filePath = path.join(backupDir, archivo);
-                    const stat = fs.statSync(filePath);
-                    if (stat.mtimeMs < hace7dias) {
-                        fs.unlinkSync(filePath);
-                        console.log(`🗑️  Backup viejo eliminado: ${archivo}`);
-                    }
+            // Borrar backups de más de 7 días
+            const archivos = fs.readdirSync(backupDir).filter(f => f.startsWith('prophet_') && f.endsWith('.sqlite'));
+            const hace7dias = Date.now() - 7 * 24 * 60 * 60 * 1000;
+            for (const archivo of archivos) {
+                const filePath = path.join(backupDir, archivo);
+                const stat = fs.statSync(filePath);
+                if (stat.mtimeMs < hace7dias) {
+                    fs.unlinkSync(filePath);
+                    console.log(`🗑️  Backup viejo eliminado: ${archivo}`);
                 }
-            }).catch(e => console.error('❌ Error en backup SQLite:', e.message));
+            }
         } catch (e) {
             console.error('❌ Error en sistema de backup:', e.message);
         }

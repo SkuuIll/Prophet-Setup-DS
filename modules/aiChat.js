@@ -321,9 +321,8 @@ async function fallbackGemini(channelId, pregunta, systemExtra, maxTokens = 120)
             generationConfig: { maxOutputTokens: maxTokens, temperature: 0.9 }
         };
 
-        // TODO: Gemini 2.5 Flash se depreca el 17 de Junio de 2026.
-        //       Migrar a Gemini 3.x cuando haya una versión GA estable.
-        const res = await fetchWithTimeout(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+        // Gemini 2.5 Flash deprecado el 17/06/2026 — migrado a gemini-2.5-flash-latest
+        const res = await fetchWithTimeout(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-latest:generateContent?key=${apiKey}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body)
@@ -331,6 +330,10 @@ async function fallbackGemini(channelId, pregunta, systemExtra, maxTokens = 120)
 
         const data = await res.json();
         const respuesta = data.candidates?.[0]?.content?.parts?.[0]?.text;
+
+        if (respuesta) {
+            agregarAlContexto(channelId, 'assistant', respuesta);
+        }
 
         return respuesta || '❌ Ni Groq ni Gemini quisieron responder. GG.';
     } catch (err) {

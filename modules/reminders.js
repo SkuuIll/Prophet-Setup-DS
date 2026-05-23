@@ -73,6 +73,9 @@ async function dispatchReminder(client, reminderId) {
             status: 'ok',
             details: { reminderId }
         });
+        clearScheduledReminder(reminderId);
+        stmts.deleteReminder(reminderId);
+        return true;
     } catch (error) {
         stmts.incrementAnalyticsMetric('reminders_failed', 'global', 1);
         stmts.incrementAnalyticsMetric('error_events', 'reminders', 1);
@@ -83,12 +86,10 @@ async function dispatchReminder(client, reminderId) {
                 message: error.message,
             }
         });
-    } finally {
+        // No borrar el recordatorio de la DB tras fallo — se reintentará en el próximo ciclo
         clearScheduledReminder(reminderId);
-        stmts.deleteReminder(reminderId);
+        return false;
     }
-
-    return true;
 }
 
 function scheduleReminder(client, reminder) {

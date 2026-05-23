@@ -9,6 +9,9 @@ const config = require('../config');
 // Cache en memoria de requisitos por sorteo (evitar guardar JSON en DB)
 const giveawayRequirements = new Map();
 
+// Lock en memoria para prevenir finalización concurrente del mismo sorteo
+const finalizingLocks = new Set();
+
 /**
  * Crear un sorteo
  */
@@ -129,6 +132,10 @@ async function participarSorteo(interaction) {
  * Finalizar un sorteo
  */
 async function finalizarSorteo(client, giveaway) {
+    // Protección anti-doble-finalización
+    if (finalizingLocks.has(giveaway.message_id)) return;
+    finalizingLocks.add(giveaway.message_id);
+
     try {
         const channel = await client.channels.fetch(giveaway.channel_id);
         if (!channel) return;
@@ -179,6 +186,8 @@ async function finalizarSorteo(client, giveaway) {
         await channel.send(`🎉 ¡Felicitaciones ${ganadoresMenciones}! Ganaron **${giveaway.prize}**!`);
     } catch (err) {
         console.error('Error finalizando sorteo:', err.message);
+    } finally {
+        finalizingLocks.delete(giveaway.message_id);
     }
 }
 

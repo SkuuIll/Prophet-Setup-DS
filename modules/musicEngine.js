@@ -70,11 +70,12 @@ module.exports = async function inicializarMusica(client) {
         // discord-player v7 usa un registro global para onBeforeCreateStream
         const { onBeforeCreateStream } = require('discord-player');
 
-        onBeforeCreateStream(async (track, queryType, queue) => {
-            // Solo usar yt-dlp para URLs de YouTube
-            if (!track.url || !track.url.includes('youtube.com/watch')) {
-                return null; // dejar que el extractor por defecto maneje
-            }
+        if (!module.exports._hookRegistered) {
+            module.exports._hookRegistered = true;
+            onBeforeCreateStream(async (track, queryType, queue) => {
+                if (!track.url || !track.url.includes('youtube.com/watch')) {
+                    return null;
+                }
 
             try {
                 console.log(`🎵 [yt-dlp] Obteniendo stream para: ${track.title}`);
@@ -118,6 +119,7 @@ module.exports = async function inicializarMusica(client) {
                 return null; // fallback al extractor por defecto
             }
         });
+        }
 
         // ═══════════════════════════════════════════════════════════
         //  🎵 SISTEMA DE MÚSICA — PROPHET MUSIC ENGINE v3.0

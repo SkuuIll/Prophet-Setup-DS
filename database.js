@@ -512,7 +512,7 @@ const stmts = {
     },
     upsertUser(userData) {
         const userId = userData.user_id || userData.id;
-        const current = getOrCreateUser(userId);
+        const current = getOrCreateUser(userId) || {};
         const mergedUser = {
             xp: userData.xp ?? current.xp ?? 0,
             level: userData.level ?? current.level ?? 0,
@@ -524,9 +524,18 @@ const stmts = {
             last_xp: userData.last_xp ?? current.last_xp ?? 0,
             birthday: userData.birthday ?? current.birthday ?? null,
             voice_minutes: userData.voice_minutes ?? current.voice_minutes ?? 0,
+            reputation: userData.reputation ?? current.reputation ?? 0,
+            message_streak: userData.message_streak ?? current.message_streak ?? 0,
+            last_message_date: userData.last_message_date ?? current.last_message_date ?? null,
+            profile_color: userData.profile_color ?? current.profile_color ?? null,
+            profile_badge: userData.profile_badge ?? current.profile_badge ?? null,
+            timezone: userData.timezone ?? current.timezone ?? 'America/Argentina/Buenos_Aires',
+            language: userData.language ?? current.language ?? 'es',
+            ai_enabled: userData.ai_enabled ?? current.ai_enabled ?? 1,
+            notifications_enabled: userData.notifications_enabled ?? current.notifications_enabled ?? 1,
         };
 
-        db.prepare('UPDATE users SET xp = ?, level = ?, messages = ?, balance = ?, bank = ?, last_daily = ?, last_work = ?, last_xp = ?, birthday = ?, voice_minutes = ? WHERE id = ?').run(
+        db.prepare('UPDATE users SET xp = ?, level = ?, messages = ?, balance = ?, bank = ?, last_daily = ?, last_work = ?, last_xp = ?, birthday = ?, voice_minutes = ?, reputation = ?, message_streak = ?, last_message_date = ?, profile_color = ?, profile_badge = ?, timezone = ?, language = ?, ai_enabled = ?, notifications_enabled = ? WHERE id = ?').run(
             mergedUser.xp,
             mergedUser.level,
             mergedUser.messages,
@@ -537,6 +546,15 @@ const stmts = {
             mergedUser.last_xp,
             mergedUser.birthday,
             mergedUser.voice_minutes,
+            mergedUser.reputation,
+            mergedUser.message_streak,
+            mergedUser.last_message_date,
+            mergedUser.profile_color,
+            mergedUser.profile_badge,
+            mergedUser.timezone,
+            mergedUser.language,
+            mergedUser.ai_enabled,
+            mergedUser.notifications_enabled,
             userId
         );
     },

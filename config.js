@@ -209,6 +209,13 @@ const config = {
             KEY: process.env.TRACKER_API_KEY,
             BASE_URL: 'https://api.tracker.gg/api/v2',
             CACHE_TTL: 300000,      // 5 minutos
+        },
+        TWITCH: {
+            CLIENT_ID: process.env.TWITCH_CLIENT_ID,
+            CLIENT_SECRET: process.env.TWITCH_CLIENT_SECRET,
+            BASE_URL: 'https://api.twitch.tv/helix',
+            AUTH_URL: 'https://id.twitch.tv/oauth2/token',
+            CACHE_TTL: 300000,      // 5 minutos
         }
     },
 
@@ -220,10 +227,19 @@ const config = {
     }
 };
 
-config.CHANNELS.BIENVENIDA = config.CHANNELS.BIENVENIDOS;
-config.CHANNELS.GENERAL = config.CHANNELS.CHAT;
-config.CHANNELS.LOGS_MOD = config.CHANNELS.REPORTES;
 config.CANALES = config.CHANNELS;
+
+// Aliases — se resuelven por separado en resolverIDs() después de resolver los primarios
+config.CHANNEL_ALIASES = {
+    BIENVENIDA: 'BIENVENIDOS',
+    GENERAL: 'CHAT',
+    LOGS_MOD: 'REPORTES',
+};
+
+// Roles protegidos (no auto-asignables) — se evalúa después de resolverIDs
+config.getProtectedRoleIds = function () {
+    return [this.ROLES.PROPHET, this.ROLES.STAFF, this.ROLES.MODERADOR, this.ROLES.VIP, this.ROLES.BOTS].filter(Boolean);
+};
 
 config.validateConfig = function validateConfig() {
     const errors = [];

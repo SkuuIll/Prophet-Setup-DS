@@ -69,7 +69,8 @@ module.exports = {
                 });
 
                 const rol = guild.roles.cache.find(r => r.name === resultado.rolNuevo);
-                if (rol) {
+                const rolesProtegidosIds = [config.ROLES.PROPHET, config.ROLES.STAFF, config.ROLES.MODERADOR, config.ROLES.VIP, config.ROLES.BOTS].filter(Boolean);
+                if (rol && !rolesProtegidosIds.includes(rol.id)) {
                     try {
                         await member.roles.add(rol, `Subió a nivel ${resultado.nuevoNivel} (XP de Voz)`);
                     } catch (e) {

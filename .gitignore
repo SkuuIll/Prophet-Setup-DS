@@ -34,3 +34,6 @@ ProphetBot/node_modules/
 
 # Bot Runtime Data
 data/
+
+# Cache de herramientas de terminal
+.commandcode/
