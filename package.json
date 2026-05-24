@@ -5,7 +5,9 @@
     "main": "index.js",
     "scripts": {
         "start": "node index.js",
-        "dev": "node --watch index.js"
+        "dev": "node --watch index.js",
+        "server:audit": "node scripts/server_blueprint.js",
+        "server:apply-blueprint": "node scripts/server_blueprint.js --apply"
     },
     "dependencies": {
         "@discord-player/extractor": "^7.1.0",

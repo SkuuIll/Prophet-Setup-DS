@@ -16,6 +16,7 @@ const EDITABLE_CONFIG_FIELDS = [
     {
         key: 'SUGERENCIAS_CHANNEL',
         label: 'Canal de sugerencias',
+        group: 'Comunidad',
         description: 'Canal donde `/suggest` publica propuestas y votaciones.',
         expectedChannelTypes: [ChannelType.GuildText],
         expectedTypeLabel: 'Canal de texto',
@@ -24,6 +25,7 @@ const EDITABLE_CONFIG_FIELDS = [
     {
         key: 'CONFESIONES_CHANNEL',
         label: 'Canal de confesiones',
+        group: 'Comunidad',
         description: 'Destino de las confesiones anónimas enviadas por `/confesion`.',
         expectedChannelTypes: [ChannelType.GuildText],
         expectedTypeLabel: 'Canal de texto',
@@ -31,6 +33,7 @@ const EDITABLE_CONFIG_FIELDS = [
     {
         key: 'COUNTING_CHANNEL',
         label: 'Canal de counting',
+        group: 'Comunidad',
         description: 'Canal usado por el juego de contar. Al cambiarlo se reinicia la racha.',
         expectedChannelTypes: [ChannelType.GuildText],
         expectedTypeLabel: 'Canal de texto',
@@ -38,6 +41,7 @@ const EDITABLE_CONFIG_FIELDS = [
     {
         key: 'voice_generator_id',
         label: 'Generador de salas temporales',
+        group: 'Voz',
         description: 'Canal de voz que crea salas temporales al entrar.',
         expectedChannelTypes: [ChannelType.GuildVoice],
         expectedTypeLabel: 'Canal de voz',
@@ -45,6 +49,7 @@ const EDITABLE_CONFIG_FIELDS = [
     {
         key: 'voice_category_id',
         label: 'Categoría de salas temporales',
+        group: 'Voz',
         description: 'Categoría donde se crean y limpian las salas temporales.',
         expectedChannelTypes: [ChannelType.GuildCategory],
         expectedTypeLabel: 'Categoría',
@@ -52,6 +57,7 @@ const EDITABLE_CONFIG_FIELDS = [
     {
         key: 'LOGS',
         label: 'Canal de logs',
+        group: 'Operación',
         description: 'Destino principal de auditoría, moderación, AutoMod y transcripts de tickets.',
         expectedChannelTypes: [ChannelType.GuildText],
         expectedTypeLabel: 'Canal de texto',
@@ -60,6 +66,7 @@ const EDITABLE_CONFIG_FIELDS = [
     {
         key: 'COMANDOS_BOT',
         label: 'Canal de comandos',
+        group: 'Operación',
         description: 'Canal por defecto donde usuarios no staff pueden ejecutar slash commands.',
         expectedChannelTypes: [ChannelType.GuildText],
         expectedTypeLabel: 'Canal de texto',
@@ -68,6 +75,7 @@ const EDITABLE_CONFIG_FIELDS = [
     {
         key: 'REPORTES',
         label: 'Canal de reportes',
+        group: 'Operación',
         description: 'Canal preferido para recibir reportes privados enviados con `/reporte`.',
         expectedChannelTypes: [ChannelType.GuildText],
         expectedTypeLabel: 'Canal de texto',
@@ -76,6 +84,7 @@ const EDITABLE_CONFIG_FIELDS = [
     {
         key: 'STAFF',
         label: 'Canal de staff',
+        group: 'Operación',
         description: 'Canal alternativo para staff y fallback operativo cuando faltan otros destinos internos.',
         expectedChannelTypes: [ChannelType.GuildText],
         expectedTypeLabel: 'Canal de texto',
@@ -84,6 +93,7 @@ const EDITABLE_CONFIG_FIELDS = [
     {
         key: 'BIENVENIDOS',
         label: 'Canal de bienvenidas',
+        group: 'Onboarding',
         description: 'Canal donde se publican las tarjetas de bienvenida y anuncios de boosts.',
         expectedChannelTypes: [ChannelType.GuildText],
         expectedTypeLabel: 'Canal de texto',
@@ -92,6 +102,7 @@ const EDITABLE_CONFIG_FIELDS = [
     {
         key: 'ANUNCIOS',
         label: 'Canal de anuncios',
+        group: 'Onboarding',
         description: 'Canal alternativo para anuncios comunitarios y fallback de boosts.',
         expectedChannelTypes: [ChannelType.GuildText, ChannelType.GuildAnnouncement],
         expectedTypeLabel: 'Canal de texto o anuncios',
@@ -100,6 +111,7 @@ const EDITABLE_CONFIG_FIELDS = [
     {
         key: 'CHAT',
         label: 'Canal principal de chat',
+        group: 'Comunidad',
         description: 'Canal general donde el bot puede intervenir con IA y publicar cumpleaños.',
         expectedChannelTypes: [ChannelType.GuildText],
         expectedTypeLabel: 'Canal de texto',
@@ -108,6 +120,7 @@ const EDITABLE_CONFIG_FIELDS = [
     {
         key: 'REGLAS',
         label: 'Canal de reglas',
+        group: 'Onboarding',
         description: 'Referencia usada en mensajes de bienvenida y recursos de onboarding.',
         expectedChannelTypes: [ChannelType.GuildText],
         expectedTypeLabel: 'Canal de texto',
@@ -116,6 +129,7 @@ const EDITABLE_CONFIG_FIELDS = [
     {
         key: 'ROLES',
         label: 'Canal de roles',
+        group: 'Onboarding',
         description: 'Canal donde se publica el mensaje manual de roles y rangos del servidor.',
         expectedChannelTypes: [ChannelType.GuildText],
         expectedTypeLabel: 'Canal de texto',
@@ -188,6 +202,7 @@ function getEditableConfig() {
         return {
             key: field.key,
             label: field.label,
+            group: field.group || 'General',
             description: field.description,
             expectedTypeLabel: field.expectedTypeLabel,
             value: effectiveValue ?? '',

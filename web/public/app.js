@@ -1,5 +1,13 @@
 const AUTH_STORAGE_KEY = 'prophet_dashboard_auth';
 const LEGACY_TOKEN_STORAGE_KEY = 'prophet_dashboard_token';
+const CONFIG_DRAFT_STORAGE_KEY = 'prophet_dashboard_config_draft_v1';
+const CONFIG_STEP_DESCRIPTIONS = {
+    Comunidad: 'Canales visibles para la comunidad y experiencias de uso diario.',
+    Operación: 'Destinos operativos para moderación, comandos y soporte staff.',
+    Voz: 'Configuración de salas temporales y automatizaciones de voz.',
+    Onboarding: 'Puntos de entrada para bienvenida, reglas y anuncios.',
+    General: 'Configuración general disponible desde el dashboard.',
+};
 
 const state = {
     refreshTimer: null,
@@ -14,11 +22,18 @@ const state = {
     configDirty: false,
     configSaving: false,
     configDraft: {},
+    configFields: [],
+    configBaseline: {},
+    configStepIndex: 0,
+    configInvalidCount: 0,
+    configDraftRestored: false,
     configStatus: {
         text: 'Sin cambios pendientes.',
         variant: 'muted',
     },
     quickActionLoading: false,
+    actionFeedbackTimer: null,
+    confirmResolver: null,
 };
 
 function $(selector) {
@@ -40,6 +55,42 @@ function setConfigSaveStatus(text, variant = 'muted') {
     host.className = variant === 'muted' ? 'form-status muted' : `form-status status-${variant}`;
 }
 
+function setQuickActionsStatus(text, variant = 'muted') {
+    const host = $('#quick-actions-status');
+    if (!host) return;
+    host.textContent = text;
+    host.className = variant === 'muted' ? 'form-status muted' : `form-status status-${variant}`;
+}
+
+function hideActionFeedback() {
+    const host = $('#action-feedback');
+    if (!host) return;
+    host.classList.add('hidden');
+    if (state.actionFeedbackTimer) {
+        clearTimeout(state.actionFeedbackTimer);
+        state.actionFeedbackTimer = null;
+    }
+}
+
+function showActionFeedback({ title, message, variant = 'success', persist = false }) {
+    const host = $('#action-feedback');
+    if (!host) return;
+
+    $('#action-feedback-title').textContent = title;
+    $('#action-feedback-message').textContent = message;
+    host.className = `action-feedback action-feedback-${variant}`;
+    host.classList.remove('hidden');
+
+    if (state.actionFeedbackTimer) {
+        clearTimeout(state.actionFeedbackTimer);
+        state.actionFeedbackTimer = null;
+    }
+
+    if (!persist) {
+        state.actionFeedbackTimer = setTimeout(hideActionFeedback, 5500);
+    }
+}
+
 function getStoredAuth() {
     try {
         localStorage.removeItem(LEGACY_TOKEN_STORAGE_KEY);
@@ -56,6 +107,32 @@ function getStoredAuth() {
         sessionStorage.removeItem(AUTH_STORAGE_KEY);
         return null;
     }
+}
+
+function getStoredConfigDraft() {
+    const raw = localStorage.getItem(CONFIG_DRAFT_STORAGE_KEY);
+    if (!raw) return {};
+
+    try {
+        const parsed = JSON.parse(raw);
+        return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch {
+        localStorage.removeItem(CONFIG_DRAFT_STORAGE_KEY);
+        return {};
+    }
+}
+
+function persistConfigDraft() {
+    if (!state.configDirty || !Object.keys(state.configDraft).length) {
+        localStorage.removeItem(CONFIG_DRAFT_STORAGE_KEY);
+        return;
+    }
+
+    localStorage.setItem(CONFIG_DRAFT_STORAGE_KEY, JSON.stringify(state.configDraft));
+}
+
+function clearStoredConfigDraft() {
+    localStorage.removeItem(CONFIG_DRAFT_STORAGE_KEY);
 }
 
 function persistAuthState() {
@@ -225,6 +302,38 @@ function formatDurationMs(value) {
     return `${(value / 1000).toFixed(2)} s`;
 }
 
+function formatConfigValue(value) {
+    const normalized = String(value || '').trim();
+    return normalized || 'Vacío';
+}
+
+function getActionErrorMessage(error) {
+    if (!error) return 'Ocurrió un error inesperado.';
+    if (typeof error === 'string') return error;
+    if (typeof error.message === 'string' && error.message) return error.message;
+    if (typeof error.error === 'string' && error.error) return error.error;
+    return 'Ocurrió un error inesperado.';
+}
+
+function setButtonLoading(button, loading, loadingLabel = 'Procesando...') {
+    if (!button) return;
+
+    if (loading) {
+        if (!button.dataset.originalLabel) {
+            button.dataset.originalLabel = button.textContent;
+        }
+        button.disabled = true;
+        button.textContent = loadingLabel;
+        return;
+    }
+
+    if (button.dataset.originalLabel) {
+        button.textContent = button.dataset.originalLabel;
+        delete button.dataset.originalLabel;
+    }
+    button.disabled = false;
+}
+
 function renderKeyValueGrid(targetSelector, entries) {
     const host = $(targetSelector);
     if (!host) return;
@@ -304,6 +413,48 @@ function renderMonitorLists(monitors) {
     `).join('');
 }
 
+function closeConfirmModal(confirmed) {
+    const host = $('#confirm-modal');
+    if (!host) return;
+
+    host.classList.add('hidden');
+    document.body.classList.remove('modal-open');
+
+    const resolver = state.confirmResolver;
+    state.confirmResolver = null;
+    if (resolver) resolver(Boolean(confirmed));
+}
+
+function confirmAction({
+    title,
+    description,
+    impact,
+    confirmLabel = 'Confirmar',
+    confirmVariant = 'danger',
+}) {
+    const host = $('#confirm-modal');
+    if (!host) return Promise.resolve(true);
+
+    $('#confirm-modal-title').textContent = title;
+    $('#confirm-modal-description').textContent = description;
+    $('#confirm-modal-impact').textContent = impact;
+
+    const confirmButton = $('#confirm-modal-confirm');
+    if (confirmButton) {
+        confirmButton.textContent = confirmLabel;
+        confirmButton.className = confirmVariant === 'danger'
+            ? 'button button-danger'
+            : 'button';
+    }
+
+    host.classList.remove('hidden');
+    document.body.classList.add('modal-open');
+
+    return new Promise(resolve => {
+        state.confirmResolver = resolve;
+    });
+}
+
 function collectConfigDraftFromDom() {
     const form = $('#editable-config-form');
     if (!form) return {};
@@ -319,7 +470,7 @@ function getEditableField(key) {
 }
 
 function getOriginalConfigValue(key) {
-    return String(getEditableField(key)?.value || '').trim();
+    return String(state.configBaseline[key] || '').trim();
 }
 
 function getSourceLabel(source) {
@@ -336,29 +487,140 @@ function getResolvedLabel(field) {
     return `Sin resolver · ${field.value}`;
 }
 
+function buildConfigBaseline(fields) {
+    return (Array.isArray(fields) ? fields : []).reduce((acc, field) => {
+        acc[field.key] = String(field.value || '');
+        return acc;
+    }, {});
+}
+
+function groupEditableConfigFields(fields) {
+    const groups = [];
+    const byLabel = new Map();
+
+    (Array.isArray(fields) ? fields : []).forEach(field => {
+        const label = field.group || 'General';
+        if (!byLabel.has(label)) {
+            const group = {
+                label,
+                description: CONFIG_STEP_DESCRIPTIONS[label] || CONFIG_STEP_DESCRIPTIONS.General,
+                fields: [],
+            };
+            byLabel.set(label, group);
+            groups.push(group);
+        }
+
+        byLabel.get(label).fields.push(field);
+    });
+
+    return groups;
+}
+
+function getConfigInputError(field, value) {
+    const normalized = String(value || '').trim();
+    if (!normalized) return '';
+    if (!/^\d{17,20}$/.test(normalized)) {
+        return `${field?.label || 'Este campo'} debe contener un ID de Discord válido de 17 a 20 dígitos o quedar vacío.`;
+    }
+    return '';
+}
+
+function renderConfigReview(groups) {
+    const dirtyUpdates = collectDirtyConfigUpdates();
+    if (!dirtyUpdates.length) {
+        return `
+            <div class="empty-state">
+                Todavía no hay cambios para revisar. Avanzá paso a paso o descartá el borrador actual.
+            </div>
+        `;
+    }
+
+    const byKey = new Map();
+    groups.forEach(group => {
+        group.fields.forEach(field => byKey.set(field.key, field));
+    });
+
+    return `
+        <div class="review-list">
+            ${dirtyUpdates.map(update => {
+                const field = byKey.get(update.key);
+                return `
+                    <article class="review-item">
+                        <div>
+                            <strong>${escapeHtml(field?.label || update.key)}</strong>
+                            <p>${escapeHtml(field?.group || 'General')} · ${escapeHtml(field?.expectedTypeLabel || 'Valor')}</p>
+                        </div>
+                        <div class="review-values">
+                            <span>${escapeHtml(formatConfigValue(getOriginalConfigValue(update.key)))}</span>
+                            <span class="review-arrow">→</span>
+                            <span>${escapeHtml(formatConfigValue(update.value))}</span>
+                        </div>
+                    </article>
+                `;
+            }).join('')}
+        </div>
+    `;
+}
+
+function clampConfigStep(groups) {
+    const maxIndex = Array.isArray(groups) ? groups.length : 0;
+    state.configStepIndex = Math.min(Math.max(state.configStepIndex, 0), maxIndex);
+}
+
+function getConfigStepTitle(groups) {
+    const reviewIndex = groups.length;
+    if (state.configStepIndex >= reviewIndex) return 'Revisión final';
+    return groups[state.configStepIndex]?.label || 'Configuración';
+}
+
 function updateConfigDirtyState() {
     const form = $('#editable-config-form');
     if (!form) return;
 
     let dirtyCount = 0;
+    let invalidCount = 0;
     Array.from(form.querySelectorAll('[data-config-input]')).forEach(input => {
         const currentValue = String(input.value || '').trim();
         const originalValue = getOriginalConfigValue(input.name);
         const isDirty = currentValue !== originalValue;
+        const field = getEditableField(input.name);
+        const errorMessage = getConfigInputError(field, currentValue);
         const card = input.closest('[data-config-field]');
+        const feedback = card?.querySelector('[data-config-feedback]');
 
         if (card) card.classList.toggle('dirty', isDirty);
+        if (card) card.classList.toggle('invalid', Boolean(errorMessage));
+        input.dataset.invalid = errorMessage ? 'true' : 'false';
+        if (feedback) {
+            feedback.textContent = errorMessage || 'Vaciar el campo elimina el override guardado.';
+            feedback.className = errorMessage ? 'setting-feedback status-error' : 'setting-feedback muted';
+        }
         if (isDirty) dirtyCount += 1;
+        if (errorMessage) invalidCount += 1;
     });
 
     state.configDirty = dirtyCount > 0;
+    state.configInvalidCount = invalidCount;
+    state.configDraft = state.configDirty ? collectConfigDraftFromDom() : {};
+    persistConfigDraft();
 
     const saveButton = $('#config-save-button');
     const resetButton = $('#config-reset-button');
-    if (saveButton) saveButton.disabled = !state.configDirty || state.configSaving;
+    if (saveButton) saveButton.disabled = !state.configDirty || state.configSaving || invalidCount > 0;
     if (resetButton) resetButton.disabled = !state.configDirty || state.configSaving;
 
-    if (state.configDirty) {
+    const nextButton = $('#config-next-button');
+    if (nextButton) {
+        const currentStep = form.querySelector(`.config-step[data-step-index="${state.configStepIndex}"]`);
+        const hasStepError = currentStep
+            ? Array.from(currentStep.querySelectorAll('[data-config-input]')).some(input => input.dataset.invalid === 'true')
+            : false;
+        nextButton.disabled = hasStepError;
+    }
+
+    if (invalidCount > 0) {
+        setConfigSaveStatus(`Revisá ${invalidCount} campo(s) con formato inválido antes de continuar.`, 'error');
+    } else if (state.configDirty) {
         setConfigSaveStatus(`Hay ${dirtyCount} cambio(s) sin guardar.`, 'warn');
     } else if (state.configStatus.variant !== 'success') {
         setConfigSaveStatus('Sin cambios pendientes.', 'muted');
@@ -373,55 +635,138 @@ function renderEditableConfig(fields) {
         state.configDraft = collectConfigDraftFromDom();
     }
 
-    if (!Array.isArray(fields) || !fields.length) {
+    const formFields = state.configDirty && state.configFields.length ? state.configFields : fields;
+
+    if (!Array.isArray(formFields) || !formFields.length) {
         host.innerHTML = '<div class="empty-state">No hay claves editables configuradas todavía.</div>';
         state.configDirty = false;
+        state.configFields = [];
+        state.configBaseline = {};
         return;
     }
 
-    host.innerHTML = `
-        <div class="settings-grid">
-            ${fields.map(field => {
-                const value = Object.prototype.hasOwnProperty.call(state.configDraft, field.key)
-                    ? state.configDraft[field.key]
-                    : String(field.value || '');
+    if (!state.configDirty) {
+        state.configFields = formFields;
+        state.configBaseline = buildConfigBaseline(formFields);
+    }
 
-                return `
-                    <div class="setting-card" data-config-field="${escapeAttr(field.key)}">
-                        <label class="setting-label" for="cfg-${escapeAttr(field.key)}">${escapeHtml(field.label)}</label>
-                        <p class="setting-description">${escapeHtml(field.description)}</p>
-                        <input
-                            id="cfg-${escapeAttr(field.key)}"
-                            class="setting-input"
-                            type="text"
-                            name="${escapeAttr(field.key)}"
-                            value="${escapeAttr(value)}"
-                            inputmode="numeric"
-                            autocomplete="off"
-                            placeholder="ID de Discord o vacío"
-                            data-config-input
-                        >
-                        <div class="setting-meta">
-                            <span>${escapeHtml(field.expectedTypeLabel)}</span>
-                            <span>Origen: ${escapeHtml(getSourceLabel(field.source))}</span>
-                            <span>${escapeHtml(getResolvedLabel(field))}</span>
+    const groups = groupEditableConfigFields(formFields);
+    clampConfigStep(groups);
+    const reviewIndex = groups.length;
+    const totalSteps = groups.length + 1;
+    const currentStepNumber = Math.min(state.configStepIndex + 1, totalSteps);
+    const progressPercent = Math.round((currentStepNumber / totalSteps) * 100);
+
+    host.innerHTML = `
+        <div class="config-flow">
+            <div class="config-flow-head">
+                <div>
+                    <p class="eyebrow">Flujo guiado</p>
+                    <h3>${escapeHtml(getConfigStepTitle(groups))}</h3>
+                    <p class="muted">Paso ${currentStepNumber} de ${totalSteps}. El borrador se guarda en este navegador y no se pierde con la autoactualización del dashboard.</p>
+                </div>
+                <div class="config-progress">
+                    <div class="config-progress-copy">
+                        <strong>${progressPercent}% completado</strong>
+                        <span>${escapeHtml(getConfigStepTitle(groups))}</span>
+                    </div>
+                    <div class="config-progress-bar" aria-hidden="true">
+                        <span style="width: ${progressPercent}%"></span>
+                    </div>
+                </div>
+            </div>
+            <div class="config-stepper" role="tablist" aria-label="Pasos de configuración">
+                ${groups.map((group, index) => `
+                    <button
+                        class="config-step-chip ${index === state.configStepIndex ? 'active' : ''} ${index < state.configStepIndex ? 'done' : ''}"
+                        type="button"
+                        data-config-step-button="${index}"
+                    >
+                        <span>${index + 1}</span>
+                        ${escapeHtml(group.label)}
+                    </button>
+                `).join('')}
+                <button
+                    class="config-step-chip ${state.configStepIndex === reviewIndex ? 'active' : ''}"
+                    type="button"
+                    data-config-step-button="${reviewIndex}"
+                >
+                    <span>${reviewIndex + 1}</span>
+                    Revisión
+                </button>
+            </div>
+            ${groups.map((group, index) => `
+                <section class="config-step ${index === state.configStepIndex ? '' : 'hidden'}" data-step-index="${index}">
+                    <div class="config-step-head">
+                        <div>
+                            <h3>${escapeHtml(group.label)}</h3>
+                            <p class="muted">${escapeHtml(group.description)}</p>
                         </div>
                     </div>
-                `;
-            }).join('')}
+                    <div class="settings-grid">
+                        ${group.fields.map(field => {
+                            const value = Object.prototype.hasOwnProperty.call(state.configDraft, field.key)
+                                ? state.configDraft[field.key]
+                                : String(field.value || '');
+
+                            return `
+                                <div class="setting-card" data-config-field="${escapeAttr(field.key)}">
+                                    <label class="setting-label" for="cfg-${escapeAttr(field.key)}">${escapeHtml(field.label)}</label>
+                                    <p class="setting-description">${escapeHtml(field.description)}</p>
+                                    <input
+                                        id="cfg-${escapeAttr(field.key)}"
+                                        class="setting-input"
+                                        type="text"
+                                        name="${escapeAttr(field.key)}"
+                                        value="${escapeAttr(value)}"
+                                        inputmode="numeric"
+                                        autocomplete="off"
+                                        placeholder="ID de Discord o vacío"
+                                        data-config-input
+                                    >
+                                    <p class="setting-feedback muted" data-config-feedback>Vaciar el campo elimina el override guardado.</p>
+                                    <div class="setting-meta">
+                                        <span>${escapeHtml(field.expectedTypeLabel)}</span>
+                                        <span>Origen: ${escapeHtml(getSourceLabel(field.source))}</span>
+                                        <span>${escapeHtml(getResolvedLabel(field))}</span>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </section>
+            `).join('')}
+            <section class="config-step ${state.configStepIndex === reviewIndex ? '' : 'hidden'}" data-step-index="${reviewIndex}">
+                <div class="config-step-head">
+                    <div>
+                        <h3>Revisión final</h3>
+                        <p class="muted">Confirmá los cambios antes de persistirlos. La validación fuerte contra Discord ocurre al guardar.</p>
+                    </div>
+                </div>
+                ${renderConfigReview(groups)}
+            </section>
         </div>
-        <div class="settings-actions">
-            <button id="config-save-button" class="button" type="submit">Guardar cambios</button>
+        <div class="settings-actions config-flow-actions">
+            <button id="config-prev-button" class="button button-secondary" type="button" ${state.configStepIndex === 0 ? 'disabled' : ''}>Atrás</button>
+            ${state.configStepIndex < reviewIndex
+                ? '<button id="config-next-button" class="button" type="button">Siguiente</button>'
+                : '<button id="config-save-button" class="button button-large" type="submit">Guardar cambios</button>'}
             <button id="config-reset-button" class="button button-secondary" type="button">Descartar</button>
         </div>
     `;
 
     host.oninput = handleConfigInput;
     host.onsubmit = handleConfigSubmit;
-    const resetButton = $('#config-reset-button');
-    if (resetButton) resetButton.onclick = handleConfigReset;
+    host.onclick = handleConfigClick;
 
     updateConfigDirtyState();
+
+    if (state.configDraftRestored) {
+        if (state.configDirty) {
+            setConfigSaveStatus('Recuperamos tu borrador local. Revisalo y continuá desde donde habías quedado.', 'warn');
+        }
+        state.configDraftRestored = false;
+    }
 }
 
 function collectDirtyConfigUpdates() {
@@ -448,9 +793,48 @@ function handleConfigInput(event) {
     updateConfigDirtyState();
 }
 
+function handleConfigClick(event) {
+    const stepButton = event.target.closest('[data-config-step-button]');
+    if (stepButton) {
+        state.configStepIndex = Number(stepButton.dataset.configStepButton) || 0;
+        renderEditableConfig(state.latestSnapshot?.editableConfig || []);
+        return;
+    }
+
+    if (event.target.id === 'config-reset-button') {
+        handleConfigReset();
+        return;
+    }
+
+    if (event.target.id === 'config-prev-button') {
+        state.configStepIndex = Math.max(0, state.configStepIndex - 1);
+        renderEditableConfig(state.latestSnapshot?.editableConfig || []);
+        return;
+    }
+
+    if (event.target.id === 'config-next-button') {
+        const form = $('#editable-config-form');
+        const currentStep = form?.querySelector(`.config-step[data-step-index="${state.configStepIndex}"]`);
+        const hasStepError = currentStep
+            ? Array.from(currentStep.querySelectorAll('[data-config-input]')).some(input => input.dataset.invalid === 'true')
+            : false;
+
+        if (hasStepError) {
+            setConfigSaveStatus('Corregí el formato de los campos marcados antes de avanzar.', 'error');
+            return;
+        }
+
+        state.configStepIndex += 1;
+        renderEditableConfig(state.latestSnapshot?.editableConfig || []);
+    }
+}
+
 function handleConfigReset() {
     state.configDraft = {};
     state.configDirty = false;
+    state.configInvalidCount = 0;
+    state.configStepIndex = 0;
+    clearStoredConfigDraft();
     setConfigSaveStatus('Sin cambios pendientes.', 'muted');
     renderEditableConfig(state.latestSnapshot?.editableConfig || []);
 }
@@ -458,6 +842,10 @@ function handleConfigReset() {
 async function handleConfigSubmit(event) {
     event.preventDefault();
     if (state.configSaving) return;
+    if (state.configInvalidCount > 0) {
+        setConfigSaveStatus('Corregí los campos marcados antes de guardar.', 'error');
+        return;
+    }
 
     const updates = collectDirtyConfigUpdates();
     if (!updates.length) {
@@ -473,7 +861,14 @@ async function handleConfigSubmit(event) {
             method: 'POST',
             body: { updates },
         });
+        state.configDirty = false;
+        state.configInvalidCount = 0;
         state.configDraft = {};
+        state.configFields = [];
+        state.configBaseline = {};
+        state.configStepIndex = 0;
+        clearStoredConfigDraft();
+        state.configSaving = false;
         await loadDashboard();
         setConfigSaveStatus(`${updates.length} cambio(s) guardados correctamente.`, 'success');
     } catch (error) {
@@ -659,7 +1054,7 @@ function render(snapshot) {
         { label: 'Canal', render: row => `<#${row.channelId}>` },
         { label: 'Usuario', render: row => `<@${row.userId}>` },
         { label: 'Creado', render: row => formatTimestamp(row.createdAt) },
-        { label: 'Acción', allowHtml: true, render: row => `<button class="button button-secondary button-small" type="button" onclick="handleTicketClose('${row.channelId}')">Cerrar</button>` },
+        { label: 'Acción', allowHtml: true, render: row => `<button class="button button-secondary button-small" type="button" onclick="handleTicketClose('${row.channelId}', this)">Cerrar</button>` },
     ], snapshot.tickets || [], 'No hay tickets abiertos.');
 
     // Sorteos
@@ -668,7 +1063,7 @@ function render(snapshot) {
         { label: 'Participantes', render: row => formatNumber(row.entriesCount) },
         { label: 'Termina', render: row => row.isExpired ? 'EXPIRADO' : new Date(row.endTime).toLocaleString('es-AR') },
         { label: 'Host', render: row => `<@${row.hostId}>` },
-        { label: 'Acción', allowHtml: true, render: row => `<button class="button button-small" type="button" onclick="handleGiveawayEnd('${row.messageId}')" ${row.entriesCount === 0 ? 'disabled' : ''}>Sortear</button>` },
+        { label: 'Acción', allowHtml: true, render: row => `<button class="button button-small" type="button" onclick="handleGiveawayEnd('${row.messageId}', this)" ${row.entriesCount === 0 ? 'disabled' : ''}>Sortear</button>` },
     ], snapshot.giveaways?.active || [], 'No hay sorteos activos.');
 
     renderTable('#giveaways-ended-table', [
@@ -684,7 +1079,7 @@ function render(snapshot) {
         { label: 'Usuario', render: row => `<@${row.userId}>` },
         { label: 'Mensaje', render: row => row.message?.slice(0, 50) + (row.message?.length > 50 ? '…' : '') },
         { label: 'Recordar', render: row => new Date(row.remindAt).toLocaleString('es-AR') },
-        { label: 'Acción', allowHtml: true, render: row => `<button class="button button-secondary button-small" type="button" onclick="handleReminderDelete(${row.id})">Eliminar</button>` },
+        { label: 'Acción', allowHtml: true, render: row => `<button class="button button-secondary button-small" type="button" onclick="handleReminderDelete(${row.id}, this)">Eliminar</button>` },
     ], snapshot.reminders || [], 'No hay recordatorios pendientes.');
 
     // Reportes/Warns
@@ -694,7 +1089,7 @@ function render(snapshot) {
         { label: 'Moderador', render: row => `<@${row.modId}>` },
         { label: 'Razón', render: row => row.reason?.slice(0, 40) + (row.reason?.length > 40 ? '…' : '') },
         { label: 'Fecha', render: row => formatTimestamp(row.createdAt) },
-        { label: 'Acción', allowHtml: true, render: row => `<button class="button button-secondary button-small" type="button" onclick="handleWarnsClear('${row.userId}')">Limpiar</button>` },
+        { label: 'Acción', allowHtml: true, render: row => `<button class="button button-secondary button-small" type="button" onclick="handleWarnsClear('${row.userId}', this)">Limpiar</button>` },
     ], snapshot.reportes || [], 'No hay warns registrados.');
 
     // Hacer funciones accesibles globalmente para onclick
@@ -703,7 +1098,9 @@ function render(snapshot) {
     window.handleReminderDelete = handleReminderDelete;
     window.handleWarnsClear = handleWarnsClear;
 
-    renderEditableConfig(snapshot.editableConfig || []);
+    if (!state.configDirty && !state.configSaving) {
+        renderEditableConfig(snapshot.editableConfig || []);
+    }
     $('#static-config').textContent = JSON.stringify(snapshot.staticConfig, null, 2);
 
     renderTable('#runtime-config', [
@@ -867,13 +1264,13 @@ function setupTabs() {
     });
 }
 
-async function handleQuickAction(action, payload = {}) {
+async function handleQuickAction(action, payload = {}, triggerButton = null) {
     if (state.quickActionLoading) return;
 
-    const statusHost = $('#quick-actions-status');
     try {
         state.quickActionLoading = true;
-        if (statusHost) statusHost.textContent = 'Procesando...';
+        setButtonLoading(triggerButton, true);
+        setQuickActionsStatus('Procesando...', 'warn');
 
         let result;
         if (action === 'send-summary') {
@@ -881,85 +1278,181 @@ async function handleQuickAction(action, payload = {}) {
         }
 
         if (result?.ok) {
-            if (statusHost) statusHost.textContent = '✓ Acción completada';
+            setQuickActionsStatus('Resumen enviado correctamente.', 'success');
+            showActionFeedback({
+                title: 'Resumen técnico enviado',
+                message: 'La acción rápida se ejecutó correctamente y el dashboard quedó actualizado.',
+                variant: 'success',
+            });
             if (action === 'send-summary') {
                 await loadDashboard();
             }
         } else {
-            if (statusHost) statusHost.textContent = `Error: ${result?.error || 'Desconocido'}`;
+            throw new Error(getActionErrorMessage(result));
         }
     } catch (error) {
-        if (statusHost) statusHost.textContent = `Error: ${error.message}`;
+        const message = getActionErrorMessage(error);
+        setQuickActionsStatus(message, 'error');
+        showActionFeedback({
+            title: 'No se pudo completar la acción',
+            message,
+            variant: 'error',
+            persist: true,
+        });
     } finally {
         state.quickActionLoading = false;
+        setButtonLoading(triggerButton, false);
     }
 }
 
-async function handleTicketClose(channelId) {
-    if (!confirm('¿Cerrar este ticket? Esto eliminará el canal.')) return;
+async function handleTicketClose(channelId, triggerButton = null) {
+    const confirmed = await confirmAction({
+        title: 'Cerrar ticket',
+        description: 'Esta acción eliminará el canal del ticket y lo quitará del dashboard.',
+        impact: 'El canal se borra y el ticket deja de estar disponible para seguimiento.',
+        confirmLabel: 'Cerrar ticket',
+        confirmVariant: 'danger',
+    });
+    if (!confirmed) return;
 
     try {
+        setButtonLoading(triggerButton, true);
         const result = await apiFetch('/api/tickets/close', { method: 'POST', body: { channelId } });
         if (result.ok) {
+            showActionFeedback({
+                title: 'Ticket cerrado',
+                message: `El ticket ${channelId} se cerró correctamente.`,
+                variant: 'success',
+            });
             await loadDashboard();
         } else {
-            alert(`Error: ${result.error}`);
+            throw new Error(getActionErrorMessage(result));
         }
     } catch (error) {
-        alert(`Error: ${error.message}`);
+        showActionFeedback({
+            title: 'No se pudo cerrar el ticket',
+            message: getActionErrorMessage(error),
+            variant: 'error',
+            persist: true,
+        });
+    } finally {
+        setButtonLoading(triggerButton, false);
     }
 }
 
-async function handleGiveawayEnd(messageId) {
-    if (!confirm('¿Sortear este sorteo ahora? Se seleccionará un ganador aleatorio.')) return;
+async function handleGiveawayEnd(messageId, triggerButton = null) {
+    const confirmed = await confirmAction({
+        title: 'Forzar sorteo',
+        description: 'Se elegirá un ganador aleatorio ahora mismo y el sorteo se marcará como finalizado.',
+        impact: 'No se puede revertir desde el dashboard. El ganador se anunciará en el canal del sorteo.',
+        confirmLabel: 'Sortear ahora',
+        confirmVariant: 'danger',
+    });
+    if (!confirmed) return;
 
     try {
+        setButtonLoading(triggerButton, true);
         const result = await apiFetch('/api/giveaways/end', { method: 'POST', body: { messageId } });
         if (result.ok) {
-            alert(`¡Ganador: <@${result.winner}>!`);
+            showActionFeedback({
+                title: 'Sorteo finalizado',
+                message: `Se eligió como ganador a <@${result.winner}>.`,
+                variant: 'success',
+                persist: true,
+            });
             await loadDashboard();
         } else {
-            alert(`Error: ${result.error}`);
+            throw new Error(getActionErrorMessage(result));
         }
     } catch (error) {
-        alert(`Error: ${error.message}`);
+        showActionFeedback({
+            title: 'No se pudo finalizar el sorteo',
+            message: getActionErrorMessage(error),
+            variant: 'error',
+            persist: true,
+        });
+    } finally {
+        setButtonLoading(triggerButton, false);
     }
 }
 
-async function handleReminderDelete(reminderId) {
-    if (!confirm('¿Eliminar este recordatorio?')) return;
+async function handleReminderDelete(reminderId, triggerButton = null) {
+    const confirmed = await confirmAction({
+        title: 'Eliminar recordatorio',
+        description: 'Vas a borrar un recordatorio programado por un usuario.',
+        impact: 'El recordatorio se elimina y no volverá a enviarse.',
+        confirmLabel: 'Eliminar recordatorio',
+        confirmVariant: 'danger',
+    });
+    if (!confirmed) return;
 
     try {
+        setButtonLoading(triggerButton, true);
         const result = await apiFetch('/api/reminders/delete', { method: 'POST', body: { id: reminderId } });
         if (result.ok) {
+            showActionFeedback({
+                title: 'Recordatorio eliminado',
+                message: `El recordatorio #${reminderId} se eliminó correctamente.`,
+                variant: 'success',
+            });
             await loadDashboard();
         } else {
-            alert(`Error: ${result.error}`);
+            throw new Error(getActionErrorMessage(result));
         }
     } catch (error) {
-        alert(`Error: ${error.message}`);
+        showActionFeedback({
+            title: 'No se pudo eliminar el recordatorio',
+            message: getActionErrorMessage(error),
+            variant: 'error',
+            persist: true,
+        });
+    } finally {
+        setButtonLoading(triggerButton, false);
     }
 }
 
-async function handleWarnsClear(userId) {
-    if (!confirm(`¿Limpiar TODOS los warns de <@${userId}>?`)) return;
+async function handleWarnsClear(userId, triggerButton = null) {
+    const confirmed = await confirmAction({
+        title: 'Limpiar warns',
+        description: `Vas a limpiar todos los warns acumulados por <@${userId}>.`,
+        impact: 'Se borra el historial de advertencias persistido para ese usuario.',
+        confirmLabel: 'Limpiar warns',
+        confirmVariant: 'danger',
+    });
+    if (!confirmed) return;
 
     try {
+        setButtonLoading(triggerButton, true);
         const result = await apiFetch('/api/warns/clear', { method: 'POST', body: { userId } });
         if (result.ok) {
+            showActionFeedback({
+                title: 'Warns limpiados',
+                message: `Se eliminó el historial de advertencias de <@${userId}>.`,
+                variant: 'success',
+            });
             await loadDashboard();
         } else {
-            alert(`Error: ${result.error}`);
+            throw new Error(getActionErrorMessage(result));
         }
     } catch (error) {
-        alert(`Error: ${error.message}`);
+        showActionFeedback({
+            title: 'No se pudieron limpiar los warns',
+            message: getActionErrorMessage(error),
+            variant: 'error',
+            persist: true,
+        });
+    } finally {
+        setButtonLoading(triggerButton, false);
     }
 }
 
 function init() {
     applyAuthState(getStoredAuth() || {});
+    state.configDraft = getStoredConfigDraft();
+    state.configDraftRestored = Object.keys(state.configDraft).length > 0;
     state.authRequired = !state.accessToken && !state.refreshToken;
     setConfigSaveStatus(state.configStatus.text, state.configStatus.variant);
+    setQuickActionsStatus('Sin acciones recientes.', 'muted');
     setAuthStatus(
         state.authRequired
             ? 'Esperando autenticación.'
@@ -981,8 +1474,38 @@ function init() {
 
     const btnSummary = $('#btn-send-summary');
     if (btnSummary) {
-        btnSummary.addEventListener('click', () => handleQuickAction('send-summary'));
+        btnSummary.addEventListener('click', () => handleQuickAction('send-summary', {}, btnSummary));
     }
+
+    const feedbackDismiss = $('#action-feedback-dismiss');
+    if (feedbackDismiss) feedbackDismiss.addEventListener('click', hideActionFeedback);
+
+    const confirmCancel = $('#confirm-modal-cancel');
+    if (confirmCancel) confirmCancel.addEventListener('click', () => closeConfirmModal(false));
+
+    const confirmApprove = $('#confirm-modal-confirm');
+    if (confirmApprove) confirmApprove.addEventListener('click', () => closeConfirmModal(true));
+
+    const confirmBackdrop = $('#confirm-modal');
+    if (confirmBackdrop) {
+        confirmBackdrop.addEventListener('click', event => {
+            if (event.target === confirmBackdrop) {
+                closeConfirmModal(false);
+            }
+        });
+    }
+
+    window.addEventListener('keydown', event => {
+        if (event.key === 'Escape' && state.confirmResolver) {
+            closeConfirmModal(false);
+        }
+    });
+
+    window.addEventListener('beforeunload', event => {
+        if (!state.configDirty || state.configSaving) return;
+        event.preventDefault();
+        event.returnValue = '';
+    });
 }
 
 window.addEventListener('DOMContentLoaded', init);

@@ -241,7 +241,7 @@
                 <div class="section-head">
                     <div class="section-copy">
                         <h2>Configuración editable</h2>
-                        <p class="muted">Overrides persistidos para módulos internos. Usá IDs de Discord válidos o dejá vacío para limpiar el valor guardado.</p>
+                        <p class="muted">Overrides persistidos para módulos internos. El flujo guía por bloques, conserva borradores locales y evita perder cambios durante las recargas automáticas.</p>
                     </div>
                 </div>
                 <p id="config-save-status" class="form-status muted">Sin cambios pendientes.</p>
@@ -262,6 +262,30 @@
             <h2>Logs recientes</h2>
             <div id="logs-table" class="table-host"></div>
         </section>
+    </div>
+
+    <section id="action-feedback" class="action-feedback hidden" aria-live="polite" aria-atomic="true">
+        <div class="action-feedback-copy">
+            <strong id="action-feedback-title">Acción completada</strong>
+            <p id="action-feedback-message">Sin novedades.</p>
+        </div>
+        <button id="action-feedback-dismiss" class="button button-secondary button-small" type="button">Cerrar</button>
+    </section>
+
+    <div id="confirm-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="confirm-modal-title">
+        <div class="modal-card">
+            <p class="eyebrow">Confirmación</p>
+            <h2 id="confirm-modal-title">Confirmar acción</h2>
+            <p id="confirm-modal-description" class="modal-description">Revisá el impacto antes de continuar.</p>
+            <div class="modal-impact">
+                <span class="label">Impacto</span>
+                <strong id="confirm-modal-impact">Sin impacto informado.</strong>
+            </div>
+            <div class="settings-actions">
+                <button id="confirm-modal-cancel" class="button button-secondary" type="button">Cancelar</button>
+                <button id="confirm-modal-confirm" class="button button-danger" type="button">Confirmar</button>
+            </div>
+        </div>
     </div>
 
     <script src="/dashboard/app.js" defer></script>

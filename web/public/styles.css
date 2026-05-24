@@ -24,6 +24,10 @@ body {
     color: var(--text);
 }
 
+body.modal-open {
+    overflow: hidden;
+}
+
 .hidden {
     display: none !important;
 }
@@ -323,6 +327,11 @@ small,
     box-shadow: 0 0 0 1px rgba(255, 183, 77, 0.22) inset;
 }
 
+.setting-card.invalid {
+    border-color: rgba(239, 83, 80, 0.7);
+    box-shadow: 0 0 0 1px rgba(239, 83, 80, 0.22) inset;
+}
+
 .setting-label {
     font-weight: 700;
 }
@@ -350,12 +359,154 @@ small,
     box-shadow: 0 0 0 3px rgba(187, 134, 252, 0.14);
 }
 
+.setting-feedback {
+    margin: -2px 0 0;
+    font-size: 12px;
+    line-height: 1.45;
+}
+
 .setting-meta {
     display: flex;
     flex-direction: column;
     gap: 4px;
     color: var(--muted);
     font-size: 12px;
+}
+
+.config-flow {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.config-flow-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    align-items: flex-end;
+    padding: 16px 18px;
+    border-radius: 18px;
+    background:
+        linear-gradient(120deg, rgba(187, 134, 252, 0.18), rgba(105, 240, 174, 0.08)),
+        #10172f;
+    border: 1px solid rgba(187, 134, 252, 0.18);
+}
+
+.config-flow-head h3 {
+    margin-bottom: 6px;
+}
+
+.config-progress {
+    min-width: min(320px, 100%);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.config-progress-copy {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    font-size: 13px;
+}
+
+.config-progress-bar {
+    height: 10px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.08);
+    overflow: hidden;
+}
+
+.config-progress-bar span {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, #bb86fc, #69f0ae);
+}
+
+.config-stepper {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.config-step-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--muted);
+    padding: 8px 12px;
+    font: inherit;
+    cursor: pointer;
+}
+
+.config-step-chip span {
+    width: 24px;
+    height: 24px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text);
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.config-step-chip.active {
+    color: var(--text);
+    border-color: rgba(187, 134, 252, 0.45);
+    background: rgba(187, 134, 252, 0.16);
+}
+
+.config-step-chip.done {
+    border-color: rgba(105, 240, 174, 0.32);
+    color: var(--text);
+}
+
+.config-step-head {
+    margin-bottom: 14px;
+}
+
+.review-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.review-item {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 14px;
+    border-radius: 14px;
+    border: 1px solid var(--border);
+    background: var(--panel-alt);
+}
+
+.review-item p {
+    margin: 4px 0 0;
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.review-values {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+}
+
+.review-arrow {
+    color: var(--primary);
+    font-weight: 700;
+}
+
+.config-flow-actions {
+    align-items: center;
 }
 
 .settings-actions {
@@ -365,6 +516,9 @@ small,
 }
 
 .button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     border: 1px solid rgba(187, 134, 252, 0.45);
     background: rgba(187, 134, 252, 0.18);
     color: var(--text);
@@ -391,6 +545,21 @@ small,
     color: var(--muted);
 }
 
+.button-danger {
+    border-color: rgba(239, 83, 80, 0.45);
+    background: rgba(239, 83, 80, 0.18);
+}
+
+.button-danger:hover:not(:disabled) {
+    border-color: rgba(239, 83, 80, 0.72);
+    background: rgba(239, 83, 80, 0.28);
+}
+
+.button-large {
+    min-width: 180px;
+    justify-content: center;
+}
+
 .button-small {
     padding: 6px 10px;
     font-size: 12px;
@@ -401,6 +570,88 @@ small,
     gap: 10px;
     flex-wrap: wrap;
     margin-bottom: 12px;
+}
+
+.action-feedback {
+    position: fixed;
+    right: 20px;
+    bottom: 20px;
+    z-index: 60;
+    width: min(420px, calc(100% - 32px));
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 16px 18px;
+    border-radius: 18px;
+    border: 1px solid var(--border);
+    background: rgba(20, 27, 52, 0.96);
+    box-shadow: var(--shadow);
+    backdrop-filter: blur(14px);
+}
+
+.action-feedback-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.action-feedback-copy p {
+    margin: 0;
+    color: var(--muted);
+    line-height: 1.5;
+}
+
+.action-feedback-success {
+    border-color: rgba(105, 240, 174, 0.32);
+}
+
+.action-feedback-warn {
+    border-color: rgba(255, 183, 77, 0.36);
+}
+
+.action-feedback-error {
+    border-color: rgba(239, 83, 80, 0.36);
+}
+
+.modal-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 70;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: rgba(4, 8, 20, 0.72);
+    backdrop-filter: blur(6px);
+}
+
+.modal-card {
+    width: min(520px, 100%);
+    border-radius: 22px;
+    border: 1px solid var(--border);
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.02)),
+        #141b34;
+    box-shadow: var(--shadow);
+    padding: 24px;
+}
+
+.modal-description {
+    margin: 0 0 18px;
+    color: var(--muted);
+    line-height: 1.55;
+}
+
+.modal-impact {
+    margin-bottom: 20px;
+    padding: 14px 16px;
+    border-radius: 16px;
+    border: 1px solid rgba(255, 183, 77, 0.24);
+    background: rgba(255, 183, 77, 0.08);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
 }
 
 @media (max-width: 768px) {
@@ -415,5 +666,34 @@ small,
 
     .hero-meta {
         align-items: flex-start;
+    }
+
+    .config-flow-head,
+    .review-item,
+    .config-progress-copy {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .config-progress {
+        min-width: 0;
+    }
+
+    .config-flow-actions .button,
+    .config-step-chip {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .action-feedback {
+        left: 16px;
+        right: 16px;
+        bottom: 16px;
+        width: auto;
+        flex-direction: column;
+    }
+
+    .modal-card {
+        padding: 20px;
     }
 }
