@@ -15,6 +15,7 @@ const STAFF_CATEGORY = '⟬🛡️⟭ ═══ 𝗦𝗧𝗔𝗙𝗙 ═══';
 const TEMP_VOICE_CATEGORY = '⟬🔊⟭ ═══ 𝗦𝗔𝗟𝗔𝗦 𝗧𝗘𝗠𝗣𝗢𝗥𝗔𝗟𝗘𝗦 ═══';
 
 const STAFF_ROLE_NAMES = ['👑 Prophet', '🛡️ Staff', '⚔️ Moderador', 'Prophet Setup', '🤖 Bots'];
+const PROTECTED_ROLE_NAMES = ['👑 Prophet', '🛡️ Staff', '⚔️ Moderador', '💎 VIP', '🤖 Bots'];
 
 const CHANNEL_SPECS = [
     { name: '👋・bienvenidos', type: 'readonly', parent: INFO_CATEGORY, configKey: 'BIENVENIDOS' },
@@ -77,6 +78,31 @@ function summarizePermissionResult(channel, role, expected) {
         .map(([name, value]) => `${name}=${value ? 'Y' : 'n'}`);
 }
 
+function serializeOnboardingPrompt(prompt, protectedRoleIds = new Set()) {
+    return {
+        id: prompt.id,
+        title: prompt.title,
+        singleSelect: prompt.singleSelect,
+        required: prompt.required,
+        inOnboarding: prompt.inOnboarding,
+        type: prompt.type,
+        options: [...prompt.options.values()].map(option => ({
+            id: option.id,
+            title: option.title,
+            description: option.description,
+            emoji: option.emoji || null,
+            channels: [...option.channels.keys()],
+            roles: [...option.roles.keys()].filter(roleId => !protectedRoleIds.has(roleId)),
+        })),
+    };
+}
+
+function getSerializableDefaultChannelIds(onboarding) {
+    return [...onboarding.defaultChannels.values()]
+        .filter(Boolean)
+        .map(channel => channel.id);
+}
+
 async function main() {
     const mode = getMode();
     const client = new Client({ intents: [GatewayIntentBits.Guilds] });
@@ -89,6 +115,8 @@ async function main() {
 
         const everyone = guild.roles.everyone;
         const staffRoles = STAFF_ROLE_NAMES.map(name => guild.roles.cache.find(role => role.name === name)).filter(Boolean);
+        const protectedRoles = PROTECTED_ROLE_NAMES.map(name => guild.roles.cache.find(role => role.name === name)).filter(Boolean);
+        const protectedRoleIds = new Set(protectedRoles.map(role => role.id));
         const categoriesByName = new Map(
             guild.channels.cache
                 .filter(channel => channel.type === ChannelType.GuildCategory)
@@ -176,6 +204,43 @@ async function main() {
                     report.push(`${key}: guardado ${channel.id}`);
                 } else {
                     report.push(`${key}: esperado ${channel.id}, actual ${current || '<unset>'}`);
+                }
+            }
+        }
+
+        const onboarding = await guild.fetchOnboarding().catch(() => null);
+        if (onboarding) {
+            const prompts = [...onboarding.prompts.values()];
+            const protectedPromptRoles = [];
+
+            for (const prompt of prompts) {
+                for (const option of prompt.options.values()) {
+                    for (const role of option.roles.values()) {
+                        if (protectedRoleIds.has(role.id)) {
+                            protectedPromptRoles.push({
+                                promptTitle: prompt.title,
+                                optionTitle: option.title,
+                                roleName: role.name,
+                            });
+                        }
+                    }
+                }
+            }
+
+            if (protectedPromptRoles.length > 0) {
+                if (mode === MODE_APPLY) {
+                    await guild.editOnboarding({
+                        prompts: prompts.map(prompt => serializeOnboardingPrompt(prompt, protectedRoleIds)),
+                        defaultChannels: getSerializableDefaultChannelIds(onboarding),
+                        enabled: onboarding.enabled,
+                        mode: onboarding.mode,
+                        reason: 'Sanitizar onboarding: remover roles protegidos auto-asignables',
+                    });
+                    report.push(`Onboarding: removidos ${protectedPromptRoles.length} roles protegidos de prompts`);
+                } else {
+                    for (const item of protectedPromptRoles) {
+                        report.push(`Onboarding: "${item.promptTitle}" / "${item.optionTitle}" asigna rol protegido ${item.roleName}`);
+                    }
                 }
             }
         }
