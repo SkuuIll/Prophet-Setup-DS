@@ -611,6 +611,31 @@ module.exports = async function inicializarMusica(client) {
             actualizarNowPlaying(queue);
         });
 
+        // ─── Evento: Playlist agregada a la cola ───
+        client.player.events.on('audioTracksAdd', (queue, tracks) => {
+            if (!queue.metadata?.channel || !tracks.length) return;
+            const playlist = tracks[0].playlist;
+            const title = playlist?.title || 'Selección de música';
+            const embed = new EmbedBuilder()
+                .setColor(MUSIC_COLORS.QUEUE_ADD)
+                .setAuthor({ name: '✦  Playlist agregada a la cola' })
+                .setTitle(title)
+                .setURL(playlist?.url || tracks[0].url)
+                .setThumbnail(playlist?.thumbnail || tracks[0].thumbnail)
+                .setDescription(
+                    `🎶 **${tracks.length} temas** agregados\n` +
+                    `▶️ Primero: **${tracks[0].title}**\n\n` +
+                    `> Pedida por <@${tracks[0].requestedBy?.id || '0'}>`
+                )
+                .setFooter({ text: `Prophet Music · ${queue.tracks.size} temas en cola` })
+                .setTimestamp();
+
+            queue.metadata.channel.send({ embeds: [embed] }).then(msg => {
+                setTimeout(() => msg.delete().catch(() => { }), 15000);
+            }).catch(() => {});
+            actualizarNowPlaying(queue);
+        });
+
         // ─── Guardar historial cuando cambia de canción ───
         client.player.events.on('playerFinish', (queue, track) => {
             const guildId = queue.guild.id;

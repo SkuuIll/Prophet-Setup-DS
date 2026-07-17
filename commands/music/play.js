@@ -1,6 +1,6 @@
 // ═══ COMANDO: /play ═══ (Versión discord-player)
 const { SlashCommandBuilder } = require('discord.js');
-const { resolveMusicQuery } = require('../../utils/musicResolver');
+const { buildDiscordPlaylist, resolveMusicQuery } = require('../../utils/musicResolver');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -30,8 +30,11 @@ module.exports = {
             const { stmts } = require('../../database');
             const volDb = stmts.getGuildSettings(interaction.guildId).music_volume || 10;
             const resolved = await resolveMusicQuery(queryOriginal);
+            const playable = resolved.kind === 'playlist'
+                ? buildDiscordPlaylist(client.player, resolved, interaction.user)
+                : resolved.query;
 
-            const { track } = await client.player.play(voiceChannel, resolved.query, {
+            const { track } = await client.player.play(voiceChannel, playable, {
                 requestedBy: interaction.user,
                 nodeOptions: {
                     metadata: {
@@ -47,7 +50,8 @@ module.exports = {
 
             console.log(
                 `🎯 [MusicResolve] ${JSON.stringify(queryOriginal)} -> ` +
-                `${JSON.stringify(track.title)} (${resolved.videoId || resolved.source})`
+                `${JSON.stringify(track.title)} (${resolved.videoId || resolved.playlistId || resolved.source})` +
+                `${resolved.kind === 'playlist' ? ` [${resolved.tracks.length} temas]` : ''}`
             );
             await interaction.deleteReply().catch(() => { });
             return;
