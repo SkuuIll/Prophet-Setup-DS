@@ -19,40 +19,6 @@ module.exports = {
         ),
 
     async execute(interaction) {
-        const sub = interaction.options.getSubcommand();
-
-        if (sub === 'limpiar') {
-            limpiarContexto(interaction.channel.id);
-            return interaction.reply({ content: '🧹 Historial limpiado. Nueva conversación desde cero.', ephemeral: true });
-        }
-
-        // sub === 'preguntar'
-        await interaction.deferReply();
-
-        const pregunta = interaction.options.getString('mensaje');
-
-        // Contexto extra con info del servidor
-        const contextoServidor = `Servidor: ${interaction.guild.name}, ${interaction.guild.memberCount} miembros. Usuario que pregunta: ${interaction.user.username} (nivel ${interaction.client.guilds?.cache?.get(interaction.guild.id) ? '' : ''})`;
-
-        // Indicador de "escribiendo..."
-        const respuesta = await preguntarAIA(interaction.channel.id, pregunta, contextoServidor);
-
-        const embed = new EmbedBuilder()
-            .setColor(config.COLORES.PRINCIPAL)
-            .setAuthor({
-                name: '🤖  ProphetBot AI',
-                iconURL: interaction.client.user.displayAvatarURL()
-            })
-            .addFields(
-                { name: '❓ Pregunta', value: pregunta.slice(0, 1024) },
-                { name: '💬 Respuesta', value: respuesta.slice(0, 1024) }
-            )
-            .setFooter({
-                text: `${interaction.user.username}  ·  Groq (Llama 3.3)  ·  Usá /ai limpiar para nueva conversación`,
-                iconURL: interaction.user.displayAvatarURL()
-            })
-            .setTimestamp();
-
-        return interaction.editReply({ embeds: [embed] });
+        return interaction.reply({ content: '🤖 **La Inteligencia Artificial está temporalmente desactivada por mantenimiento.**', ephemeral: true });
     }
 };

@@ -228,6 +228,7 @@ INSTRUCCIONES:
 // ═══════════════════════════════════════════════════
 
 async function callAI(prompt, maxTokens = 300) {
+    throw new Error('La IA está desactivada temporalmente por mantenimiento.');
     const apiKey = process.env.GROQ_API_KEY;
 
     if (apiKey) {

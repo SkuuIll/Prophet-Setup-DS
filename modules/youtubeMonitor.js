@@ -18,6 +18,17 @@ async function sendNotification(client, channelId, embed, content) {
     if (channel) channel.send({ content: content || '', embeds: [embed] }).catch(() => { });
 }
 
+function decodeHtmlEntities(text) {
+    if (!text) return text;
+    return text
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'")
+        .replace(/&#039;/g, "'");
+}
+
 /**
  * Verifica si hay videos nuevos para todos los canales suscritos
  */
@@ -43,22 +54,26 @@ async function verificarYoutube(client) {
             // Nuevo video detectado
             const snippet = video.snippet;
             const ping = sub.role_ping ? `<@&${sub.role_ping}> ` : '';
+            
+            const title = decodeHtmlEntities(snippet.title);
+            const channelTitle = decodeHtmlEntities(snippet.channelTitle);
+            const description = decodeHtmlEntities(snippet.description);
 
             const embed = new EmbedBuilder()
                 .setColor(0xFF0000) // Rojo YouTube
                 .setAuthor({ name: '📺  Nuevo video de YouTube', iconURL: 'https://www.youtube.com/favicon.ico' })
-                .setTitle(snippet.title)
+                .setTitle(title)
                 .setURL(`https://www.youtube.com/watch?v=${videoId}`)
                 .setDescription(
-                    `> 📢 **Canal:** ${snippet.channelTitle}\n` +
+                    `> 📢 **Canal:** ${channelTitle}\n` +
                     `> 📅 Publicado: <t:${Math.floor(new Date(snippet.publishedAt).getTime() / 1000)}:R>\n\n` +
-                    (snippet.description ? `*${snippet.description.slice(0, 200)}...*` : '')
+                    (description ? `*${description.slice(0, 200)}...*` : '')
                 )
                 .setImage(`https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`)
                 .setFooter({ text: 'YouTube  ·  Prophet Streams' })
                 .setTimestamp();
 
-            await sendNotification(client, sub.discord_channel, embed, `${ping}📺 **${snippet.channelTitle}** subió un nuevo video!`);
+            await sendNotification(client, sub.discord_channel, embed, `${ping}📺 **${channelTitle}** subió un nuevo video!`);
             stmts.incrementAnalyticsMetric('monitor_alerts', 'youtube', 1);
             stmts.updateYoutubeSub(sub.id, videoId);
 

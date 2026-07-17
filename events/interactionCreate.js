@@ -193,7 +193,14 @@ module.exports = {
                     const role = guild.roles.cache.get(roleId);
                     if (!role) return interaction.reply({ content: '> ❌ Rol no encontrado.', flags: 64 });
                     const rolesProtegidos = [config.ROLES.PROPHET, config.ROLES.STAFF, config.ROLES.MODERADOR, config.ROLES.VIP, config.ROLES.BOTS].filter(Boolean);
-                    if (rolesProtegidos.includes(role.id) || rolesProtegidos.includes(role.name)) {
+                    const roleNameLower = role.name.toLowerCase();
+                    const isProtected = rolesProtegidos.includes(role.id) || 
+                                        rolesProtegidos.includes(role.name) ||
+                                        roleNameLower.includes('vip') ||
+                                        roleNameLower.includes('staff') ||
+                                        roleNameLower.includes('moderador') ||
+                                        roleNameLower.includes('admin');
+                    if (isProtected) {
                         return interaction.reply({ content: `> 🚫 **Acceso restringido** — El rol **${role.name}** no es auto-asignable.`, flags: 64 });
                     }
                     
@@ -337,7 +344,15 @@ module.exports = {
                         if (values.includes(key)) {
                             if (!member.roles.cache.has(rid)) {
                                 const rolesProtegidos = [config.ROLES.PROPHET, config.ROLES.STAFF, config.ROLES.MODERADOR, config.ROLES.VIP, config.ROLES.BOTS].filter(Boolean);
-                                if (rolesProtegidos.includes(rid)) {
+                                const roleObj = guild.roles.cache.get(rid);
+                                const roleNameLower = roleObj ? roleObj.name.toLowerCase() : '';
+                                const isProtected = rolesProtegidos.includes(rid) || 
+                                                    (roleObj && rolesProtegidos.includes(roleObj.name)) ||
+                                                    roleNameLower.includes('vip') ||
+                                                    roleNameLower.includes('staff') ||
+                                                    roleNameLower.includes('moderador') ||
+                                                    roleNameLower.includes('admin');
+                                if (isProtected) {
                                     console.error(`⚠️ ALERTA: Intento de auto-asignación bloqueado para rol protegido: ${rid}`);
                                     continue;
                                 }

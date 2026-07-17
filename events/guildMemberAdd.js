@@ -49,7 +49,16 @@ module.exports = {
         // Asignar rol Nuevo
         if (config.ROLES.NUEVO) {
             const rolesProtegidos = [config.ROLES.PROPHET, config.ROLES.STAFF, config.ROLES.MODERADOR, config.ROLES.VIP, config.ROLES.BOTS].filter(Boolean);
-            if (rolesProtegidos.includes(config.ROLES.NUEVO)) {
+            const roleObj = member.guild.roles.cache.get(config.ROLES.NUEVO);
+            const roleNameLower = roleObj ? roleObj.name.toLowerCase() : '';
+            const isProtected = rolesProtegidos.includes(config.ROLES.NUEVO) ||
+                                (roleObj && rolesProtegidos.includes(roleObj.name)) ||
+                                roleNameLower.includes('vip') ||
+                                roleNameLower.includes('staff') ||
+                                roleNameLower.includes('moderador') ||
+                                roleNameLower.includes('admin');
+                                
+            if (isProtected) {
                 console.error(`⚠️ ALERTA DE SEGURIDAD: config.ROLES.NUEVO (${config.ROLES.NUEVO}) apunta a un rol protegido. Ignorando asignación.`);
             } else {
                 try {
