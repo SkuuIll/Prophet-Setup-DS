@@ -6,9 +6,6 @@ const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('
 const { stmts } = require('../database');
 const config = require('../config');
 
-// Cache en memoria de requisitos por sorteo (evitar guardar JSON en DB)
-const giveawayRequirements = new Map();
-
 // Lock en memoria para prevenir finalización concurrente del mismo sorteo
 const finalizingLocks = new Set();
 
@@ -48,12 +45,7 @@ async function crearSorteo(channel, prize, duracionMs, hostId, winners = 1, requ
     );
 
     const msg = await channel.send({ embeds: [embed], components: [boton] });
-    stmts.addGiveaway(msg.id, channel.id, prize, endTime, hostId);
-
-    // Guardar requisitos en cache
-    if (Object.keys(requirements).length > 0) {
-        giveawayRequirements.set(msg.id, requirements);
-    }
+    stmts.addGiveaway(msg.id, channel.id, prize, endTime, hostId, winners, requirements);
 
     return msg;
 }
@@ -106,8 +98,8 @@ async function participarSorteo(interaction) {
     }
 
     // Verificar requisitos si existen
-    const requirements = giveawayRequirements.get(messageId);
-    if (requirements) {
+    const requirements = giveaway.requirements || {};
+    if (Object.keys(requirements).length > 0) {
         const errors = await verificarRequisitos(interaction, requirements);
         if (errors.length > 0) {
             return interaction.reply({
@@ -133,22 +125,17 @@ async function participarSorteo(interaction) {
  */
 async function finalizarSorteo(client, giveaway) {
     // Protección anti-doble-finalización
-    if (finalizingLocks.has(giveaway.message_id)) return;
+    if (finalizingLocks.has(giveaway.message_id)) return { ended: false, winners: [] };
     finalizingLocks.add(giveaway.message_id);
 
     try {
         const channel = await client.channels.fetch(giveaway.channel_id);
-        if (!channel) return;
+        if (!channel) throw new Error(`Canal ${giveaway.channel_id} no disponible`);
 
         const message = await channel.messages.fetch(giveaway.message_id).catch(() => null);
         const entries = stmts.getGiveawayEntries(giveaway.message_id);
 
-        // Extraer cantidad de ganadores del embed (fallback: 1)
-        let winnersCount = 1;
-        if (message && message.embeds[0]) {
-            const match = message.embeds[0].description?.match(/Ganadores:\*\* `(\d+)`/);
-            if (match) winnersCount = parseInt(match[1]);
-        }
+        const winnersCount = Math.max(1, Number.parseInt(giveaway.winners, 10) || 1);
 
         if (entries.length === 0) {
             const embed = new EmbedBuilder()
@@ -158,9 +145,7 @@ async function finalizarSorteo(client, giveaway) {
                 .setTimestamp();
             if (message) await message.edit({ embeds: [embed], components: [] });
             stmts.endGiveaway(giveaway.message_id);
-            // Limpiar cache
-            giveawayRequirements.delete(giveaway.message_id);
-            return;
+            return { ended: true, winners: [] };
         }
 
         // Seleccionar ganadores sin repetir (shuffle + slice)
@@ -182,10 +167,11 @@ async function finalizarSorteo(client, giveaway) {
 
         if (message) await message.edit({ embeds: [embed], components: [] });
         stmts.endGiveaway(giveaway.message_id);
-        giveawayRequirements.delete(giveaway.message_id);
         await channel.send(`🎉 ¡Felicitaciones ${ganadoresMenciones}! Ganaron **${giveaway.prize}**!`);
+        return { ended: true, winners: ganadores.map(item => item.user_id) };
     } catch (err) {
         console.error('Error finalizando sorteo:', err.message);
+        return { ended: false, winners: [], error: err.message };
     } finally {
         finalizingLocks.delete(giveaway.message_id);
     }
@@ -194,15 +180,11 @@ async function finalizarSorteo(client, giveaway) {
 /**
  * Verificar sorteos activos (llamar periódicamente)
  */
-function verificarSorteos(client) {
+async function verificarSorteos(client) {
     const activos = stmts.getActiveGiveaways();
     const ahora = Date.now();
-
-    for (const sorteo of activos) {
-        if (ahora >= sorteo.end_time) {
-            finalizarSorteo(client, sorteo);
-        }
-    }
+    const vencidos = activos.filter(sorteo => ahora >= sorteo.end_time);
+    await Promise.all(vencidos.map(sorteo => finalizarSorteo(client, sorteo)));
 }
 
 module.exports = { crearSorteo, participarSorteo, finalizarSorteo, verificarSorteos };

@@ -112,6 +112,8 @@ module.exports = {
                         durationMs,
                     });
                 } catch (error) {
+                    const durationMs = Date.now() - startedAt;
+                    stmts.recordCommandExecution(interaction.commandName, false, durationMs);
                     console.error(`Error en /${interaction.commandName}:`, error.message);
                     const errorEmbed = new EmbedBuilder()
                         .setColor(config.COLORES.ERROR || 0xEF5350)

@@ -2,6 +2,7 @@
 
 const { EmbedBuilder, WebhookClient } = require('discord.js');
 const { stmts } = require('../database');
+const { fetchWithTimeout } = require('../utils/fetchWithTimeout');
 
 const GITHUB_HEADERS = {
     'Accept': 'application/vnd.github+json',
@@ -32,7 +33,7 @@ async function verificarGithub(client) {
         try {
             // ── Commits ─────────────────────────────────────────────
             if (sub.track_commits) {
-                const res = await fetch(`https://api.github.com/repos/${sub.repo}/commits?per_page=1`, { headers: GITHUB_HEADERS });
+                const res = await fetchWithTimeout(`https://api.github.com/repos/${sub.repo}/commits?per_page=1`, { headers: GITHUB_HEADERS });
                 if (res.ok) {
                     const data = await res.json();
                     if (data.length > 0) {
@@ -67,7 +68,7 @@ async function verificarGithub(client) {
 
             // ── Releases ─────────────────────────────────────────────
             if (sub.track_releases) {
-                const res = await fetch(`https://api.github.com/repos/${sub.repo}/releases/latest`, { headers: GITHUB_HEADERS });
+                const res = await fetchWithTimeout(`https://api.github.com/repos/${sub.repo}/releases/latest`, { headers: GITHUB_HEADERS });
                 if (res.ok) {
                     const release = await res.json();
                     if (release.tag_name && release.tag_name !== sub.last_release_tag) {

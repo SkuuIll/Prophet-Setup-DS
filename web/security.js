@@ -3,7 +3,34 @@
 // ═══════════════════════════════════════════════════
 
 const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
 const { stmts, _db } = require('../database');
+
+function loadOrCreateSecret(name, bytes) {
+    const configured = String(process.env[name] || '').trim();
+    if (configured) return configured;
+
+    const secretsDir = path.join(__dirname, '..', 'data', 'secrets');
+    const secretPath = path.join(secretsDir, name.toLowerCase());
+    fs.mkdirSync(secretsDir, { recursive: true, mode: 0o700 });
+
+    try {
+        const persisted = fs.readFileSync(secretPath, 'utf8').trim();
+        if (persisted) return persisted;
+    } catch (error) {
+        if (error.code !== 'ENOENT') throw error;
+    }
+
+    const generated = crypto.randomBytes(bytes).toString('hex');
+    try {
+        fs.writeFileSync(secretPath, generated, { encoding: 'utf8', mode: 0o600, flag: 'wx' });
+        return generated;
+    } catch (error) {
+        if (error.code !== 'EEXIST') throw error;
+        return fs.readFileSync(secretPath, 'utf8').trim();
+    }
+}
 
 // ═══════════════════════════════════════════════════
 //  CONFIGURACIÓN DE SEGURIDAD
@@ -11,12 +38,7 @@ const { stmts, _db } = require('../database');
 
 const SECURITY_CONFIG = {
     // JWT
-    JWT_SECRET: process.env.JWT_SECRET || (() => {
-        const fallback = crypto.randomBytes(64).toString('hex');
-        console.error('⚠️  CRÍTICO: JWT_SECRET no está configurado en .env — las sesiones se perderán en cada reinicio.');
-        console.error('⚠️  Agregá JWT_SECRET=<valor_largo_aleatorio> a tu archivo .env.');
-        return fallback;
-    })(),
+    JWT_SECRET: loadOrCreateSecret('JWT_SECRET', 64),
     JWT_EXPIRY: process.env.JWT_EXPIRY || '15m',
     REFRESH_TOKEN_EXPIRY: process.env.REFRESH_TOKEN_EXPIRY || '7d',
     
@@ -44,7 +66,7 @@ const SECURITY_CONFIG = {
     TWO_FACTOR_ISSUER: process.env.TWO_FACTOR_ISSUER || 'ProphetBot Dashboard',
     
     // Encryption
-    ENCRYPTION_KEY: process.env.ENCRYPTION_KEY || crypto.randomBytes(32).toString('hex'),
+    ENCRYPTION_KEY: loadOrCreateSecret('ENCRYPTION_KEY', 32),
     ENCRYPTION_ALGORITHM: 'aes-256-gcm',
     
     // CORS
@@ -53,7 +75,7 @@ const SECURITY_CONFIG = {
     // Content Security Policy
     CSP_DIRECTIVES: {
         "default-src": ["'self'"],
-        "script-src": ["'self'", "'unsafe-inline'"],
+        "script-src": ["'self'"],
         "style-src": ["'self'", "'unsafe-inline'"],
         "img-src": ["'self'", "data:", "https:"],
         "font-src": ["'self'"],

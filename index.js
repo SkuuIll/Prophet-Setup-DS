@@ -36,27 +36,6 @@ client.cooldowns = new Collection();
 client.snipes = new Collection();
 client.afk = new Collection();
 
-// ═══ SISTEMA ANTI-RAID ═══
-const { AntiRaidManager } = require('discord-antiraid');
-client.antiraid = new AntiRaidManager(client, {
-    rateLimit: 5,        // Uniones permitidas en el tiempo
-    time: 10000,         // Tiempo en milisegundos (10 segundos)
-    ban: true,           // Banear si hay raid
-    kick: false,
-    unrank: false,
-    exemptMembers: [],
-    exemptRoles: [],
-    exemptEvent: [],
-    reason: "Prophet: Auto-Ban por Raid"
-});
-
-client.antiraid.on("punish", (member, reason, sanction) => {
-    const logCh = member.guild.channels.cache.get(config.CHANNELS.LOGS);
-    if (logCh) {
-        logCh.send(`🚨 **Sistema Anti-Raid Activado**\n> Usuario: \`${member.user.tag}\` (${member.id})\n> Acción: \`${sanction}\`\n> Razón: \`${reason}\``);
-    }
-});
-
 // ═══ CARGAR COMANDOS ═══
 function cargarComandos() {
     const carpetas = fs.readdirSync(path.join(__dirname, 'commands'));
@@ -285,31 +264,17 @@ client.once('clientReady', async () => {
     setInterval(actualizarYtdlp, 7 * 24 * 60 * 60 * 1000); // cada semana
 
     // ── Backup diario de SQLite (04:00 UTC = 01:00 ARG) ──
-    schedule.scheduleJob('0 4 * * *', () => {
+    schedule.scheduleJob('0 4 * * *', async () => {
         try {
-            const srcPath = path.join(__dirname, 'data', 'prophet.sqlite');
             const backupDir = path.join(__dirname, 'data', 'backups');
-            if (!fs.existsSync(backupDir)) fs.mkdirSync(backupDir, { recursive: true });
-
             const fecha = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
             const destPath = path.join(backupDir, `prophet_${fecha}.sqlite`);
-
-            // better-sqlite3 .backup() es síncrono — no devuelve Promise
             const { _db } = require('./database');
-            _db.backup(destPath);
-            console.log(`💾 Backup SQLite creado: ${destPath}`);
-
-            // Borrar backups de más de 7 días
-            const archivos = fs.readdirSync(backupDir).filter(f => f.startsWith('prophet_') && f.endsWith('.sqlite'));
-            const hace7dias = Date.now() - 7 * 24 * 60 * 60 * 1000;
-            for (const archivo of archivos) {
-                const filePath = path.join(backupDir, archivo);
-                const stat = fs.statSync(filePath);
-                if (stat.mtimeMs < hace7dias) {
-                    fs.unlinkSync(filePath);
-                    console.log(`🗑️  Backup viejo eliminado: ${archivo}`);
-                }
-            }
+            const { createVerifiedBackup, pruneBackups } = require('./utils/databaseBackup');
+            await createVerifiedBackup(_db, destPath);
+            const removed = pruneBackups(backupDir, 7 * 24 * 60 * 60 * 1000);
+            console.log(`💾 Backup SQLite creado y verificado: ${destPath}`);
+            if (removed.length) console.log(`🗑️  ${removed.length} backups viejos eliminados`);
         } catch (e) {
             console.error('❌ Error en sistema de backup:', e.message);
         }
@@ -337,32 +302,44 @@ client.once('clientReady', async () => {
         for (const tb of expired) {
             try {
                 const targetGuild = client.guilds.cache.get(tb.guild_id);
-                if (targetGuild) {
-                    await targetGuild.members.unban(tb.user_id, 'Tempban expirado - desbaneo automático');
-                    console.log(`🔓 Tempban expirado: ${tb.user_id}`);
+                if (!targetGuild) throw new Error(`Servidor ${tb.guild_id} no disponible`);
 
-                    dbStmts.addLog('SYSTEM_UNBAN', { userId: tb.user_id, guildId: tb.guild_id });
+                await targetGuild.members.unban(tb.user_id, 'Tempban expirado - desbaneo automático');
+                console.log(`🔓 Tempban expirado: ${tb.user_id}`);
 
-                    const logCh = targetGuild.channels.cache.get(config.CHANNELS.LOGS);
-                    if (logCh) {
-                        const { EmbedBuilder: EB } = require('discord.js');
-                        const unbanEmbed = new EB()
-                            .setColor(0x69F0AE)
-                            .setAuthor({ name: '🔓  Desbaneo automático' })
-                            .setDescription(
-                                `> **Usuario:** <@${tb.user_id}> (\`${tb.user_id}\`)\n` +
-                                `> **Ban original:** ${tb.reason || 'Sin razón'}\n` +
-                                `> **Moderador original:** <@${tb.mod_id || 'Desconocido'}>`
-                            )
-                            .setFooter({ text: 'Prophet  ·  Tempban expirado' })
-                            .setTimestamp();
-                        logCh.send({ embeds: [unbanEmbed] });
-                    }
+                dbStmts.addLog('SYSTEM_UNBAN', { userId: tb.user_id, guildId: tb.guild_id });
+
+                const logCh = targetGuild.channels.cache.get(config.CHANNELS.LOGS);
+                if (logCh) {
+                    const { EmbedBuilder: EB } = require('discord.js');
+                    const unbanEmbed = new EB()
+                        .setColor(0x69F0AE)
+                        .setAuthor({ name: '🔓  Desbaneo automático' })
+                        .setDescription(
+                            `> **Usuario:** <@${tb.user_id}> (\`${tb.user_id}\`)\n` +
+                            `> **Ban original:** ${tb.reason || 'Sin razón'}\n` +
+                            `> **Moderador original:** <@${tb.mod_id || 'Desconocido'}>`
+                        )
+                        .setFooter({ text: 'Prophet  ·  Tempban expirado' })
+                        .setTimestamp();
+                    await logCh.send({ embeds: [unbanEmbed] }).catch(() => {});
                 }
                 dbStmts.removeTempban(tb.guild_id, tb.user_id);
             } catch (e) {
                 console.error(`❌ Error desbaneando ${tb.user_id}:`, e.message);
-                dbStmts.removeTempban(tb.guild_id, tb.user_id);
+                if (e.code === 10026) {
+                    // Discord confirma que ya no existe el ban: el trabajo terminó.
+                    dbStmts.removeTempban(tb.guild_id, tb.user_id);
+                } else {
+                    const attempts = (tb.attempts || 0) + 1;
+                    const retryDelay = Math.min(60 * 60 * 1000, 60 * 1000 * (2 ** Math.min(attempts - 1, 6)));
+                    dbStmts.markTempbanFailure(
+                        tb.guild_id,
+                        tb.user_id,
+                        e.message,
+                        Date.now() + retryDelay
+                    );
+                }
             }
         }
     }, 60000);

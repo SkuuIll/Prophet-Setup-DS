@@ -77,6 +77,9 @@ async function dispatchReminder(client, reminderId) {
         stmts.deleteReminder(reminderId);
         return true;
     } catch (error) {
+        const attempts = (reminder.attempts || 0) + 1;
+        const retryDelay = Math.min(60 * 60 * 1000, 60 * 1000 * (2 ** Math.min(attempts - 1, 6)));
+        const nextAttemptAt = Date.now() + retryDelay;
         stmts.incrementAnalyticsMetric('reminders_failed', 'global', 1);
         stmts.incrementAnalyticsMetric('error_events', 'reminders', 1);
         stmts.setHealthCheck('reminders:dispatcher', {
@@ -86,8 +89,13 @@ async function dispatchReminder(client, reminderId) {
                 message: error.message,
             }
         });
-        // No borrar el recordatorio de la DB tras fallo — se reintentará en el próximo ciclo
         clearScheduledReminder(reminderId);
+        stmts.markReminderFailure(reminderId, error.message, nextAttemptAt);
+        scheduleReminder(client, {
+            ...reminder,
+            attempts,
+            next_attempt_at: nextAttemptAt,
+        });
         return false;
     }
 }
@@ -96,7 +104,8 @@ function scheduleReminder(client, reminder) {
     if (!client || !reminder) return;
 
     clearScheduledReminder(reminder.id);
-    const delay = Math.max(reminder.remind_at - Date.now(), 0);
+    const scheduledAt = reminder.next_attempt_at || reminder.remind_at;
+    const delay = Math.max(scheduledAt - Date.now(), 0);
 
     const timer = setTimeout(() => {
         dispatchReminder(client, reminder.id).catch(err => {

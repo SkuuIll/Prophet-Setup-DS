@@ -14,7 +14,8 @@ const { URL } = require('url');
  */
 function getClientInfo(req) {
     const forwarded = req.headers['x-forwarded-for'];
-    const ipAddress = forwarded 
+    const trustProxy = process.env.TRUST_PROXY === 'true';
+    const ipAddress = trustProxy && forwarded
         ? forwarded.split(',')[0].trim() 
         : req.socket.remoteAddress || 'unknown';
     
@@ -29,27 +30,6 @@ function getClientInfo(req) {
  */
 function authenticate(req, res, next) {
     const { ipAddress, userAgent } = getClientInfo(req);
-    
-    // Detectar amenazas antes de procesar
-    const threats = security.detectThreats(ipAddress, userAgent);
-    if (threats.some(t => t.severity === 'critical')) {
-        res.writeHead(403, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'Acceso denegado', code: 'IP_BLOCKED' }));
-        return;
-    }
-    
-    // Verificar rate limit
-    const rateLimit = security.checkRateLimit(ipAddress);
-    if (!rateLimit.allowed) {
-        res.setHeader('Retry-After', rateLimit.retryAfter);
-        res.setHeader('X-RateLimit-Reset', rateLimit.resetAt);
-        res.writeHead(429, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ 
-            error: 'Demasiadas solicitudes', 
-            retryAfter: rateLimit.retryAfter 
-        }));
-        return;
-    }
     
     // Extraer token
     const authHeader = req.headers.authorization || '';
@@ -94,6 +74,32 @@ function authenticate(req, res, next) {
     };
     req.clientInfo = { ipAddress, userAgent };
     
+    next();
+}
+
+function requestGuard(req, res, next) {
+    const { ipAddress, userAgent } = getClientInfo(req);
+    const threats = security.detectThreats(ipAddress, userAgent);
+    if (threats.some(threat => threat.severity === 'critical')) {
+        res.writeHead(403, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Acceso denegado', code: 'IP_BLOCKED' }));
+        return;
+    }
+
+    const isLogin = req.url?.startsWith('/api/auth/login');
+    const maxRequests = isLogin
+        ? security.SECURITY_CONFIG.LOGIN_RATE_LIMIT_MAX
+        : security.SECURITY_CONFIG.RATE_LIMIT_MAX_REQUESTS;
+    const rateLimit = security.checkRateLimit(`${ipAddress}:${isLogin ? 'login' : 'api'}`, maxRequests);
+    if (!rateLimit.allowed) {
+        res.setHeader('Retry-After', rateLimit.retryAfter);
+        res.setHeader('X-RateLimit-Reset', rateLimit.resetAt);
+        res.writeHead(429, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Demasiadas solicitudes', retryAfter: rateLimit.retryAfter }));
+        return;
+    }
+
+    req.clientInfo = { ipAddress, userAgent };
     next();
 }
 
@@ -468,6 +474,7 @@ function apiSecurity(req, res, next) {
     const middlewares = [
         securityHeaders,
         cors,
+        requestGuard,
         requestLogger,
         parseJsonBody(),
         sanitizeBody()

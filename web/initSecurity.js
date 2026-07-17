@@ -19,7 +19,8 @@ async function initializeSecurity() {
         if (!existingSuperAdmin) {
             // Crear superadmin por defecto
             const defaultUsername = process.env.DASHBOARD_ADMIN_USER || 'admin';
-            const defaultPassword = process.env.DASHBOARD_ADMIN_PASS || crypto.randomBytes(12).toString('base64');
+            const defaultPassword = process.env.DASHBOARD_ADMIN_PASS
+                || `A!a1${crypto.randomBytes(12).toString('base64url')}`;
             
             await security.createDashboardUser({
                 username: defaultUsername,
@@ -33,7 +34,7 @@ async function initializeSecurity() {
             console.log('⚠️  CREDENCIALES DEL DASHBOARD (GUARDAR EN LUGAR SEGURO)');
             console.log('═══════════════════════════════════════════════════════════');
             console.log(`   Usuario: ${defaultUsername}`);
-            console.log(`   Contraseña: ${defaultPassword}`);
+            console.log('   Contraseña guardada en data/.dashboard_credentials.txt (modo 0600)');
             console.log('═══════════════════════════════════════════════════════════');
             console.log('   ⚠️  CAMBIA LA CONTRASEÑA INMEDIATAMENTE DESPUÉS DEL PRIMER LOGIN');
             console.log('═══════════════════════════════════════════════════════════');
@@ -44,12 +45,13 @@ async function initializeSecurity() {
             const path = require('path');
             const credPath = path.join(__dirname, '..', 'data', '.dashboard_credentials.txt');
             
-            fs.writeFileSync(credPath, 
+            fs.writeFileSync(credPath,
                 `Dashboard Admin Credentials\n` +
                 `Generated: ${new Date().toISOString()}\n` +
                 `Username: ${defaultUsername}\n` +
                 `Password: ${defaultPassword}\n\n` +
-                `⚠️ DELETE THIS FILE AFTER FIRST LOGIN\n`
+                `⚠️ DELETE THIS FILE AFTER FIRST LOGIN\n`,
+                { encoding: 'utf8', mode: 0o600 }
             );
             
             // Hacer el archivo solo legible por el propietario
@@ -90,18 +92,11 @@ function verifySecurityConfig() {
     const errors = [];
     
     // Verificar JWT_SECRET
-    if (!process.env.JWT_SECRET) {
-        warnings.push('JWT_SECRET no está configurado. Se usará un valor aleatorio que cambiará al reiniciar.');
-    }
-    
-    // Verificar ENCRYPTION_KEY
-    if (!process.env.ENCRYPTION_KEY) {
-        warnings.push('ENCRYPTION_KEY no está configurado. Los datos encriptados no serán recuperables después de reiniciar.');
-    }
-    
     // Verificar configuración de HTTPS
     if (process.env.NODE_ENV === 'production') {
-        if (!process.env.HTTPS_ENABLED && process.env.DASHBOARD_HOST !== '127.0.0.1') {
+        const httpsEnabled = process.env.HTTPS_ENABLED === 'true';
+        const dashboardHost = process.env.DASHBOARD_HOST || '127.0.0.1';
+        if (!httpsEnabled && !['127.0.0.1', 'localhost', '::1'].includes(dashboardHost)) {
             errors.push('En producción, el dashboard debería usar HTTPS o estar limitado a localhost.');
         }
     }

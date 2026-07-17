@@ -4,7 +4,7 @@
 // ════════════════════════════════════════════════════════════════
 
 const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
-const { Parser } = require('expr-eval');
+const { evaluateMathExpression } = require('../../utils/mathExpression');
 
 const historiales = new Map();
 const HISTORIAL_MAX = 20;
@@ -21,41 +21,6 @@ const CONVERSIONS = {
     mb: { gb: value => value / 1024 },
     m: { ft: value => value * 3.28084 },
     ft: { m: value => value * 0.3048 }
-};
-
-const parser = new Parser({
-    operators: {
-        add: true,
-        subtract: true,
-        multiply: true,
-        divide: true,
-        power: true,
-        remainder: true,
-        factorial: false,
-        concatenate: false,
-        conditional: false,
-        logical: false,
-        comparison: false,
-        assignment: false,
-        in: false,
-    },
-});
-
-const EVALUATION_CONTEXT = {
-    pi: Math.PI,
-    e: Math.E,
-    sqrt: Math.sqrt,
-    cbrt: Math.cbrt,
-    abs: Math.abs,
-    sin: Math.sin,
-    cos: Math.cos,
-    tan: Math.tan,
-    log: Math.log10,
-    ln: Math.log,
-    exp: Math.exp,
-    floor: Math.floor,
-    ceil: Math.ceil,
-    round: Math.round,
 };
 
 setInterval(() => {
@@ -148,8 +113,7 @@ module.exports = {
                 resultMode = 'conversor';
             } else {
                 validateMathExpression(normalized);
-                const parsed = parser.parse(normalized);
-                resultado = parsed.evaluate(EVALUATION_CONTEXT);
+                resultado = evaluateMathExpression(normalized);
             }
 
             if (typeof resultado !== 'number' || !Number.isFinite(resultado)) {

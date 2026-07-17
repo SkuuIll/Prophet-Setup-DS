@@ -2,6 +2,7 @@
 
 const { EmbedBuilder, WebhookClient } = require('discord.js');
 const { stmts } = require('../database');
+const { fetchWithTimeout } = require('../utils/fetchWithTimeout');
 
 let twitchToken = null;
 let tokenExpiry = 0;
@@ -17,7 +18,7 @@ async function obtenerToken() {
     if (!clientId || !clientSecret) return null;
 
     try {
-        const res = await fetch(`https://id.twitch.tv/oauth2/token`, {
+        const res = await fetchWithTimeout('https://id.twitch.tv/oauth2/token', {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body: new URLSearchParams({
@@ -26,6 +27,7 @@ async function obtenerToken() {
                 grant_type: 'client_credentials'
             })
         });
+        if (!res.ok) throw new Error(`Twitch OAuth respondió HTTP ${res.status}`);
         const data = await res.json();
         if (data.access_token) {
             twitchToken = data.access_token;
@@ -76,12 +78,13 @@ async function verificarTwitch(client) {
 
     let streams = [];
     try {
-        const res = await fetch(`https://api.twitch.tv/helix/streams?${query}`, {
+        const res = await fetchWithTimeout(`https://api.twitch.tv/helix/streams?${query}`, {
             headers: {
                 'Client-ID': clientId,
                 'Authorization': `Bearer ${token}`
             }
         });
+        if (!res.ok) throw new Error(`Twitch API respondió HTTP ${res.status}`);
         const data = await res.json();
         streams = data.data || [];
     } catch (e) {

@@ -2,7 +2,8 @@
 //  PROPHET BOT — Configuración
 // ═══════════════════════════════════════════════════
 
-require('dotenv').config();
+// .env es la fuente de verdad del runtime; evita que PM2 conserve secretos rotados.
+require('dotenv').config({ override: true });
 
 const config = {
     // Token del bot (usar variable de entorno en producción)

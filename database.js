@@ -73,7 +73,9 @@ db.exec(`
         prize TEXT,
         end_time INTEGER,
         ended INTEGER DEFAULT 0,
-        host_id TEXT
+        host_id TEXT,
+        winners INTEGER NOT NULL DEFAULT 1,
+        requirements TEXT
     );
 
     CREATE TABLE IF NOT EXISTS giveaway_entries (
@@ -94,6 +96,9 @@ db.exec(`
         mod_id TEXT,
         reason TEXT,
         unban_at INTEGER,
+        attempts INTEGER NOT NULL DEFAULT 0,
+        last_error TEXT,
+        next_retry_at INTEGER,
         PRIMARY KEY (guild_id, user_id)
     );
 
@@ -258,7 +263,10 @@ db.exec(`
         guild_id TEXT,
         message TEXT NOT NULL,
         remind_at INTEGER NOT NULL,
-        created_at INTEGER NOT NULL
+        created_at INTEGER NOT NULL,
+        attempts INTEGER NOT NULL DEFAULT 0,
+        last_error TEXT,
+        next_attempt_at INTEGER
     );
 
     CREATE TABLE IF NOT EXISTS analytics_daily (
@@ -386,19 +394,40 @@ db.exec(`
 `);
 
 // ─── COLUMN MIGRATIONS (safe, idempotent) ───
-try { db.exec(`ALTER TABLE users ADD COLUMN last_xp INTEGER DEFAULT 0`); } catch (e) { /* ya existe */ }
-try { db.exec(`ALTER TABLE users ADD COLUMN birthday TEXT`); } catch (e) { /* ya existe */ }
-try { db.exec(`ALTER TABLE users ADD COLUMN voice_minutes INTEGER DEFAULT 0`); } catch (e) { /* ya existe */ }
-try { db.exec(`ALTER TABLE users ADD COLUMN reputation INTEGER DEFAULT 0`); } catch (e) { /* ya existe */ }
-try { db.exec(`ALTER TABLE users ADD COLUMN message_streak INTEGER DEFAULT 0`); } catch (e) { /* ya existe */ }
-try { db.exec(`ALTER TABLE users ADD COLUMN last_message_date TEXT`); } catch (e) { /* ya existe */ }
-try { db.exec(`ALTER TABLE users ADD COLUMN profile_color TEXT`); } catch (e) { /* ya existe */ }
-try { db.exec(`ALTER TABLE users ADD COLUMN profile_badge TEXT`); } catch (e) { /* ya existe */ }
-try { db.exec(`ALTER TABLE users ADD COLUMN timezone TEXT DEFAULT 'America/Argentina/Buenos_Aires'`); } catch (e) { /* ya existe */ }
-try { db.exec(`ALTER TABLE users ADD COLUMN language TEXT DEFAULT 'es'`); } catch (e) { /* ya existe */ }
-try { db.exec(`ALTER TABLE users ADD COLUMN ai_enabled INTEGER DEFAULT 1`); } catch (e) { /* ya existe */ }
-try { db.exec(`ALTER TABLE users ADD COLUMN notifications_enabled INTEGER DEFAULT 1`); } catch (e) { /* ya existe */ }
-try { db.exec(`ALTER TABLE user_preferences ADD COLUMN last_rep_given INTEGER DEFAULT 0`); } catch (e) { /* ya existe */ }
+function ensureColumn(table, column, definition) {
+    const columns = db.prepare(`PRAGMA table_info(${table})`).all();
+    if (!columns.some(item => item.name === column)) {
+        db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+    }
+}
+
+const migrations = [
+    ['users', 'last_xp', 'INTEGER DEFAULT 0'],
+    ['users', 'birthday', 'TEXT'],
+    ['users', 'voice_minutes', 'INTEGER DEFAULT 0'],
+    ['users', 'reputation', 'INTEGER DEFAULT 0'],
+    ['users', 'message_streak', 'INTEGER DEFAULT 0'],
+    ['users', 'last_message_date', 'TEXT'],
+    ['users', 'profile_color', 'TEXT'],
+    ['users', 'profile_badge', 'TEXT'],
+    ['users', 'timezone', "TEXT DEFAULT 'America/Argentina/Buenos_Aires'"],
+    ['users', 'language', "TEXT DEFAULT 'es'"],
+    ['users', 'ai_enabled', 'INTEGER DEFAULT 1'],
+    ['users', 'notifications_enabled', 'INTEGER DEFAULT 1'],
+    ['user_preferences', 'last_rep_given', 'INTEGER DEFAULT 0'],
+    ['giveaways', 'winners', 'INTEGER NOT NULL DEFAULT 1'],
+    ['giveaways', 'requirements', 'TEXT'],
+    ['tempbans', 'attempts', 'INTEGER NOT NULL DEFAULT 0'],
+    ['tempbans', 'last_error', 'TEXT'],
+    ['tempbans', 'next_retry_at', 'INTEGER'],
+    ['reminders', 'attempts', 'INTEGER NOT NULL DEFAULT 0'],
+    ['reminders', 'last_error', 'TEXT'],
+    ['reminders', 'next_attempt_at', 'INTEGER'],
+];
+
+db.transaction(() => {
+    for (const migration of migrations) ensureColumn(...migration);
+})();
 
 // ─── MIGRATION ───
 // Check if we need to migrate from prophet.json (only once)
@@ -665,16 +694,34 @@ const stmts = {
     },
 
     // ── Sorteos ──
-    addGiveaway(messageId, channelId, prize, endTime, hostId) {
-        db.prepare('INSERT OR REPLACE INTO giveaways (message_id, channel_id, prize, end_time, ended, host_id) VALUES (?, ?, ?, ?, 0, ?)').run(
-            messageId, channelId, prize, endTime, hostId
+    addGiveaway(messageId, channelId, prize, endTime, hostId, winners = 1, requirements = {}) {
+        db.prepare(`
+            INSERT OR REPLACE INTO giveaways
+                (message_id, channel_id, prize, end_time, ended, host_id, winners, requirements)
+            VALUES (?, ?, ?, ?, 0, ?, ?, ?)
+        `).run(
+            messageId,
+            channelId,
+            prize,
+            endTime,
+            hostId,
+            Math.max(1, Number.parseInt(winners, 10) || 1),
+            JSON.stringify(requirements || {})
         );
     },
     getGiveaway(messageId) {
-        return db.prepare('SELECT * FROM giveaways WHERE message_id = ?').get(messageId) || null;
+        const giveaway = db.prepare('SELECT * FROM giveaways WHERE message_id = ?').get(messageId);
+        if (!giveaway) return null;
+        try { giveaway.requirements = JSON.parse(giveaway.requirements || '{}'); }
+        catch { giveaway.requirements = {}; }
+        return giveaway;
     },
     getActiveGiveaways() {
-        return db.prepare('SELECT * FROM giveaways WHERE ended = 0').all();
+        return db.prepare('SELECT * FROM giveaways WHERE ended = 0').all().map(giveaway => {
+            try { giveaway.requirements = JSON.parse(giveaway.requirements || '{}'); }
+            catch { giveaway.requirements = {}; }
+            return giveaway;
+        });
     },
     endGiveaway(messageId) {
         db.prepare('UPDATE giveaways SET ended = 1 WHERE message_id = ?').run(messageId);
@@ -703,10 +750,26 @@ const stmts = {
 
     // ── Tempbans ──
     addTempban(guildId, userId, modId, reason, unbanAt) {
-        db.prepare('INSERT OR REPLACE INTO tempbans (guild_id, user_id, mod_id, reason, unban_at) VALUES (?, ?, ?, ?, ?)').run(guildId, userId, modId, reason, unbanAt);
+        db.prepare(`
+            INSERT OR REPLACE INTO tempbans
+                (guild_id, user_id, mod_id, reason, unban_at, attempts, last_error, next_retry_at)
+            VALUES (?, ?, ?, ?, ?, 0, NULL, NULL)
+        `).run(guildId, userId, modId, reason, unbanAt);
     },
     getActiveTempbans() {
-        return db.prepare('SELECT * FROM tempbans WHERE unban_at <= ?').all(Date.now());
+        const now = Date.now();
+        return db.prepare(`
+            SELECT * FROM tempbans
+            WHERE unban_at <= ? AND (next_retry_at IS NULL OR next_retry_at <= ?)
+            ORDER BY unban_at ASC
+        `).all(now, now);
+    },
+    markTempbanFailure(guildId, userId, error, nextRetryAt) {
+        db.prepare(`
+            UPDATE tempbans
+            SET attempts = attempts + 1, last_error = ?, next_retry_at = ?
+            WHERE guild_id = ? AND user_id = ?
+        `).run(String(error).slice(0, 1000), nextRetryAt, guildId, userId);
     },
     removeTempban(guildId, userId) {
         db.prepare('DELETE FROM tempbans WHERE guild_id = ? AND user_id = ?').run(guildId, userId);
@@ -968,7 +1031,14 @@ const stmts = {
         return db.prepare('SELECT * FROM reminders WHERE user_id = ? ORDER BY remind_at ASC').all(userId);
     },
     getPendingReminders() {
-        return db.prepare('SELECT * FROM reminders ORDER BY remind_at ASC').all();
+        return db.prepare('SELECT * FROM reminders ORDER BY COALESCE(next_attempt_at, remind_at) ASC').all();
+    },
+    markReminderFailure(reminderId, error, nextAttemptAt) {
+        db.prepare(`
+            UPDATE reminders
+            SET attempts = attempts + 1, last_error = ?, next_attempt_at = ?
+            WHERE id = ?
+        `).run(String(error).slice(0, 1000), nextAttemptAt, reminderId);
     },
     deleteReminder(reminderId, userId = null) {
         const result = userId

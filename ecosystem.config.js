@@ -27,8 +27,28 @@ module.exports = {
         out_file: '/root/ProphetBot/logs/output.log',
         merge_logs: true,
         log_type: 'json',
+        umask: '0077',
 
         // ── Entorno ──
+        env: {
+            NODE_ENV: 'production',
+        },
+    }, {
+        name: 'ProphetLavalink',
+        script: './scripts/start_lavalink.js',
+        cwd: '/root/ProphetBot',
+        autorestart: true,
+        watch: false,
+        max_restarts: 10,
+        min_uptime: '10s',
+        restart_delay: 5000,
+        kill_timeout: 15000,
+        time: true,
+        log_date_format: 'YYYY-MM-DD HH:mm:ss',
+        error_file: '/root/ProphetBot/logs/lavalink-error.log',
+        out_file: '/root/ProphetBot/logs/lavalink-output.log',
+        merge_logs: true,
+        umask: '0077',
         env: {
             NODE_ENV: 'production',
         },

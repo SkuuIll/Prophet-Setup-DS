@@ -2,6 +2,7 @@
 
 const { EmbedBuilder, WebhookClient } = require('discord.js');
 const { stmts } = require('../database');
+const { fetchWithTimeout } = require('../utils/fetchWithTimeout');
 
 async function sendNotification(client, channelId, embed, content) {
     const storedWebhook = stmts.getDiscordWebhook(channelId);
@@ -42,7 +43,8 @@ async function verificarYoutube(client) {
     for (const sub of subs) {
         try {
             const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&channelId=${sub.yt_channel_id}&type=video&order=date&maxResults=1&key=${apiKey}`;
-            const res = await fetch(url);
+            const res = await fetchWithTimeout(url);
+            if (!res.ok) throw new Error(`YouTube API respondió HTTP ${res.status}`);
             const data = await res.json();
 
             if (!data.items || data.items.length === 0) continue;

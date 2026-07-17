@@ -181,30 +181,21 @@ async function handleGiveawayEnd(req, res, client) {
         if (!giveaway) throw new Error('Sorteo no encontrado');
         if (giveaway.ended) throw new Error('El sorteo ya terminó');
 
-        const entries = stmts.getGiveawayEntries(messageId);
-        if (entries.length === 0) throw new Error('No hay participantes');
+        const { finalizarSorteo } = require('../modules/giveaways');
+        const result = await finalizarSorteo(client, giveaway);
+        if (!result.ended) throw new Error(result.error || 'El sorteo ya se está finalizando');
 
-        const winner = entries[Math.floor(Math.random() * entries.length)];
-        stmts.endGiveaway(messageId);
-
-        const guild = client.guilds.cache.get(config.GUILD_ID) || client.guilds.cache.first();
-        const channel = guild?.channels?.cache?.get(giveaway.channel_id);
-
-        if (channel) {
-            await channel.send(`🎉 ¡El sorteo de **${giveaway.prize}** ha terminado!\n🎁 Ganador: <@${winner.user_id}>`);
-        }
-
-        stmts.addLog('giveaway_ended', { messageId, winner: winner.user_id, prize: giveaway.prize, fromDashboard: true });
+        stmts.addLog('giveaway_ended', { messageId, winners: result.winners, prize: giveaway.prize, fromDashboard: true });
         
         security.auditLog('giveaway_ended', {
             userId: req.user?.id,
             ipAddress: req.clientInfo?.ipAddress,
             resource: 'giveaway',
             resourceId: messageId,
-            details: { winner: winner.user_id, prize: giveaway.prize }
+            details: { winners: result.winners, prize: giveaway.prize }
         });
 
-        sendJson(res, 200, { ok: true, winner: winner.user_id });
+        sendJson(res, 200, { ok: true, winners: result.winners });
     } catch (error) {
         sendJson(res, 400, { ok: false, error: error.message });
     }
@@ -402,7 +393,7 @@ async function startDashboardServer(client) {
     if (securityVerification.errors.length > 0) {
         console.error('❌ Errores de configuración de seguridad:');
         securityVerification.errors.forEach(err => console.error(`   - ${err}`));
-        return null;
+        throw new Error('La configuración de seguridad del dashboard no es válida.');
     }
     
     if (securityVerification.warnings.length > 0) {
@@ -411,10 +402,14 @@ async function startDashboardServer(client) {
     }
     
     // Inicializar seguridad (crear tablas, usuario admin, etc.)
-    await initializeSecurity();
+    const securityReady = await initializeSecurity();
+    if (!securityReady) {
+        throw new Error('Falló la inicialización de seguridad del dashboard.');
+    }
     
     // Crear servidor HTTP o HTTPS
     const useHttps = process.env.HTTPS_ENABLED === 'true';
+    let servingHttps = useHttps;
     let server;
     
     if (useHttps) {
@@ -429,7 +424,12 @@ async function startDashboardServer(client) {
             server = https.createServer(httpsOptions, createRequestHandler(client));
         } catch (error) {
             console.error('❌ Error cargando certificados SSL:', error.message);
-            console.log('⚠️  Usando HTTP en lugar de HTTPS');
+            const localOnly = ['127.0.0.1', 'localhost', '::1'].includes(config.DASHBOARD.HOST);
+            if (!localOnly) {
+                throw new Error('No se permite fallback a HTTP para un dashboard expuesto externamente.');
+            }
+            console.log('⚠️  Usando HTTP local en lugar de HTTPS');
+            servingHttps = false;
             server = http.createServer(createRequestHandler(client));
         }
     } else {
@@ -446,7 +446,7 @@ async function startDashboardServer(client) {
     const port = config.DASHBOARD.PORT;
     
     server.listen(port, host, () => {
-        const protocol = useHttps ? 'https' : 'http';
+        const protocol = servingHttps ? 'https' : 'http';
         const authMode = 'autenticación JWT + RBAC';
         
         console.log('');
@@ -455,11 +455,11 @@ async function startDashboardServer(client) {
         console.log('═══════════════════════════════════════════════════════════');
         console.log(`   URL: ${protocol}://${host}:${port}/dashboard`);
         console.log(`   Modo: ${authMode}`);
-        console.log(`   HTTPS: ${useHttps ? 'Habilitado' : 'Deshabilitado'}`);
+        console.log(`   HTTPS: ${servingHttps ? 'Habilitado' : 'Deshabilitado'}`);
         console.log('═══════════════════════════════════════════════════════════');
         console.log('');
         
-        if (!useHttps && host !== '127.0.0.1' && host !== 'localhost') {
+        if (!servingHttps && !['127.0.0.1', 'localhost', '::1'].includes(host)) {
             console.warn('⚠️  ADVERTENCIA: El dashboard está accesible externamente sin HTTPS.');
             console.warn('   Se recomienda usar HTTPS en producción.');
         }

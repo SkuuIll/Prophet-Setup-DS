@@ -1,18 +1,17 @@
 server:
   port: 2333
-  address: 0.0.0.0
+  address: ${LAVALINK_BIND_ADDRESS:127.0.0.1}
+
 lavalink:
   plugins:
-    # YouTube Source plugin
     - dependency: "dev.lavalink.youtube:youtube-plugin:1.18.0"
       repository: "https://maven.lavalink.dev/releases"
-    # Spotify Source plugin
     - dependency: "com.github.topi314.lavasrc:lavasrc-plugin:4.8.1"
       repository: "https://maven.lavalink.dev/releases"
   server:
-    password: "ProphetLava_2026_A7mQ!4sK9x"
+    password: ${LAVALINK_SERVER_PASSWORD}
     sources:
-      youtube: false # We use the plugin instead
+      youtube: false
       bandcamp: true
       soundcloud: true
       twitch: true
@@ -25,6 +24,7 @@ lavalink:
     youtubeSearchEnabled: true
     soundcloudSearchEnabled: true
     gc-warnings: true
+
 plugins:
   youtube:
     enabled: true
@@ -38,17 +38,18 @@ plugins:
       - IOS
   lavasrc:
     providers:
-      - "ytsearch:\"%ISRC%\"" 
-      - "ytsearch:%QUERY%" 
+      - "ytsearch:\"%ISRC%\""
+      - "ytsearch:%QUERY%"
     sources:
-      spotify: true
+      spotify: ${SPOTIFY_ENABLED:false}
       applemusic: true
       deezer: false
       yandexmusic: false
     spotify:
-      clientId: "c730c72d421c4011a9687a13098a52d4"
-      clientSecret: "ee92bb60ae00469da5eb9b1f3a456564"
+      clientId: ${SPOTIFY_CLIENT_ID:}
+      clientSecret: ${SPOTIFY_CLIENT_SECRET:}
       countryCode: "US"
+
 logging:
   file:
     path: ./logs/
