@@ -1,0 +1,45 @@
+# 🤖 Reglas e Instrucciones para la Inteligencia Artificial (ProphetBot)
+
+Este archivo define las reglas estrictas de arquitectura y convenciones de código para cualquier IA o asistente de programación que lea o modifique este repositorio.
+
+## 📌 1. Información General del Proyecto
+- **Nombre:** ProphetBot
+- **Descripción:** Bot privado y modular para la comunidad Prophet Gaming.
+- **Tecnologías Core:** Node.js (v18+), Discord.js (v14), SQLite3 (`better-sqlite3`), Express (Dashboard web).
+
+## 📁 2. Arquitectura de Directorios
+- `commands/`: Contiene los *Slash Commands* divididos por categorías (`admin/`, `economy/`, `fun/`, `music/`, etc.). 
+- `events/`: Handlers para eventos de Discord (ej. `interactionCreate.js`, `messageCreate.js`, `guildMemberAdd.js`).
+- `modules/`: La lógica pesada y los sistemas (ej. `musicEngine.js`, `onboarding.js`, `leveling.js`, integraciones de APIs).
+- `web/`: Panel de control web en Express (`server.js`, `authRoutes.js`, `security.js`).
+- `database.js`: Módulo de conexión y declaraciones preparadas (Prepared Statements) para SQLite.
+- `config.js`: Archivo central de configuración (Mapea canales, roles, colores y tiempos). **Los IDs reales se resuelven en tiempo de ejecución**.
+
+## 🛠️ 3. Reglas Estrictas de Código
+1. **Discord.js v14 SIEMPRE:**
+   - Usar `EmbedBuilder`, `ActionRowBuilder`, `ButtonBuilder`, `StringSelectMenuBuilder`. 
+   - NUNCA usar `MessageEmbed` o sintaxis de v13.
+2. **Interacciones y Tiempos de Respuesta:**
+   - Para cualquier comando o botón que requiera llamadas a base de datos, API externas o procesamiento que tarde más de 2 segundos, usar **SIEMPRE** `await interaction.deferReply()`.
+   - Luego, usar `await interaction.editReply()` (o `deleteReply`).
+3. **Seguridad y Base de Datos:**
+   - **Cero Inyección SQL:** Todas las consultas a la base de datos deben pasar por `database.js` usando `better-sqlite3` con sentencias preparadas (`prepare(...).run(...)` o `.get(...)`). ¡Nunca interpolar strings directamente en consultas SQL!
+4. **Roles y Canales (El sistema de Resolución):**
+   - No quemar (hardcodear) IDs de canales o roles en el código.
+   - Usar `config.CHANNELS.NOMBRE_DEL_CANAL` o `config.ROLES.NOMBRE_DEL_ROL`.
+   - **Aviso:** `config.js` usa strings con nombres (ej. `'💎 VIP'`) que la función `resolverIDs()` en `index.js` transforma automáticamente a IDs numéricos (Snowflakes) al arrancar. Para proteger roles sensibles, comparar los nombres de forma difusa (ej. `.includes('vip')`) si es necesario, o buscar por sus IDs pre-resueltos en el objeto `config`.
+5. **Errores:**
+   - Todos los eventos grandes (`messageCreate`, `interactionCreate`) y funciones de red (APIs externas de Twitch, YouTube, PUBG, etc.) deben tener un bloque `try/catch`. 
+   - No se permite que el bot se caiga (crash) por un error no capturado.
+
+## 🔒 4. Privacidad y Seguridad (¡IMPORTANTE!)
+- **NO INCLUIR NI EXPONER CLAVES:** Nunca escribir contraseñas, tokens de Discord, tokens de Mercado Pago, Client Secrets de Twitch ni URLs de base de datos en código abierto.
+- Todo dato sensible debe consumirse de `process.env.*` (configurado mediante un `.env`).
+- **Dashboard Seguro:** El panel web tiene mitigaciones CSRF, JWT (con `jsonwebtoken`) firmado por secretos dinámicos, Rate Limiting y contraseñas hasheadas (usando PBKDF2). No deshabilitar estas capas bajo ninguna circunstancia.
+
+## 🎵 5. Manejo de Música
+- Para música, el proyecto usa integraciones robustas que incluyen `discord-player` y en algunos casos `Shoukaku`/Lavalink para escabilidad, además de `yt-dlp` a través de streams personalizados para evitar bloqueos por YouTube.
+- Si vas a tocar código de música, revisa `musicEngine.js` y respeta la inyección asíncrona de `onBeforeCreateStream`.
+
+## ✅ Resumen para la IA
+"Escribe código moderno (ES6+), mantén el estándar v14 de Discord.js, sé defensivo con el manejo de errores (try/catch), blinda la base de datos contra inyecciones y jamás expongas credenciales o secretos en el código fuente."
