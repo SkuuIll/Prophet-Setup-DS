@@ -1,45 +1,6 @@
 // ═══ COMANDO: /play ═══ (Versión discord-player)
 const { SlashCommandBuilder } = require('discord.js');
-
-// ─── Limpiar URL de YouTube ───
-// Remueve parámetros de playlist/mix/radio que causan errores
-// Ejemplo: https://youtube.com/watch?v=abc123&list=RDxyz&index=3
-//       → https://youtube.com/watch?v=abc123
-function limpiarQuery(query) {
-    try {
-        const url = new URL(query);
-        const esYouTube = url.hostname.includes('youtube.com') || url.hostname.includes('youtu.be');
-
-        if (!esYouTube) return query;
-
-        // Si es un link youtu.be, retornar como URL limpia de youtube.com
-        if (url.hostname.includes('youtu.be')) {
-            const videoId = url.pathname.slice(1);
-            return videoId ? `https://www.youtube.com/watch?v=${videoId}` : query;
-        }
-
-        // Si es un /watch con video ID, limpiar parámetros extra
-        if (url.pathname === '/watch' && url.searchParams.has('v')) {
-            let cleanUrl = `https://www.youtube.com/watch?v=${url.searchParams.get('v')}`;
-            // Mantener listas que sean reales (PL = playlist, OL = album). Bloquear 'RD' (Mixes infinitos)
-            const listId = url.searchParams.get('list');
-            if (listId && !listId.startsWith('RD')) {
-                cleanUrl += `&list=${listId}`;
-            }
-            return cleanUrl;
-        }
-
-        // Si es una playlist pura (/playlist?list=PLxxx), dejar tal cual
-        if (url.pathname === '/playlist' && url.searchParams.has('list')) {
-            return query;
-        }
-
-        return query;
-    } catch {
-        // No es una URL, es una búsqueda por texto
-        return query;
-    }
-}
+const { resolveMusicQuery } = require('../../utils/musicResolver');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -64,13 +25,13 @@ module.exports = {
 
         await interaction.deferReply();
         const queryOriginal = interaction.options.getString('cancion');
-        const query = limpiarQuery(queryOriginal);
 
         try {
             const { stmts } = require('../../database');
             const volDb = stmts.getGuildSettings(interaction.guildId).music_volume || 10;
+            const resolved = await resolveMusicQuery(queryOriginal);
 
-            const { track } = await client.player.play(voiceChannel, query, {
+            const { track } = await client.player.play(voiceChannel, resolved.query, {
                 requestedBy: interaction.user,
                 nodeOptions: {
                     metadata: {
@@ -84,44 +45,19 @@ module.exports = {
                 }
             });
 
+            console.log(
+                `🎯 [MusicResolve] ${JSON.stringify(queryOriginal)} -> ` +
+                `${JSON.stringify(track.title)} (${resolved.videoId || resolved.source})`
+            );
             await interaction.deleteReply().catch(() => { });
             return;
 
-        } catch (firstError) {
-            // Si falla con URL, intentar buscar por nombre del video
-            if (query !== queryOriginal || query.startsWith('http')) {
-                try {
-                    const { stmts } = require('../../database');
-                    const volDb = stmts.getGuildSettings(interaction.guildId).music_volume || 10;
-                    
-                    // Extraer un término de búsqueda de la URL o usar el query original
-                    const searchQuery = queryOriginal.startsWith('http')
-                        ? query.replace(/https?:\/\/(www\.)?youtube\.com\/watch\?v=/, '').replace(/[&?].*/, '')
-                        : queryOriginal;
-
-                    const { track } = await client.player.play(voiceChannel, searchQuery, {
-                        requestedBy: interaction.user,
-                        searchEngine: 'youtube',
-                        nodeOptions: {
-                            metadata: { channel: interaction.channel },
-                            volume: volDb,
-                            leaveOnEmpty: false,
-                            leaveOnEmptyCooldown: 30000,
-                            leaveOnEnd: true,
-                            leaveOnEndCooldown: 60000,
-                        }
-                    });
-
-                    await interaction.deleteReply().catch(() => { });
-                    return;
-                } catch (secondError) {
-                    console.error('Play fallback error:', secondError.message);
-                }
-            }
-
-            console.error('Play error:', firstError.message);
+        } catch (error) {
+            console.error(`Play error para ${JSON.stringify(queryOriginal)}:`, error.message);
             const extractorCount = client.player?.extractors?.store?.size || 0;
-            let errorMsg = `❌ No se pudo encontrar ni reproducir: \`${queryOriginal}\`\nDetalle: ${firstError.message}`;
+            const safeQuery = queryOriginal.replace(/`/g, 'ˋ').slice(0, 300);
+            const safeDetail = String(error.message || 'Error desconocido').replace(/`/g, 'ˋ').slice(0, 900);
+            let errorMsg = `❌ No se pudo encontrar ni reproducir: \`${safeQuery}\`\nDetalle: ${safeDetail}`;
             if (extractorCount === 0) {
                 errorMsg += `\n⚠️ **No hay extractores de música cargados.** Reiniciá el bot con \`./install.sh\` en la VPS.`;
             }
