@@ -254,7 +254,18 @@ function buildFunEmbed() {
         .setDescription('Mini-juegos y herramientas sociales para pasarla bien.\n')
         .addFields(
             {
-                name: '🕹️ Mini-juegos',
+                name: '🌐 Prophet Games Hub (Web & Activities)',
+                value:
+                    '`/jugar [juego]` — Abre el portal de juegos web en tiempo real:\n' +
+                    '> • **🕹️ Tycoon de Servidores** (Idle & Ganancias offline)\n' +
+                    '> • **🎰 Casino Web** (Crash Aviator, Ruleta, Cajas CS2)\n' +
+                    '> • **🎨 Trivia Party** (Salas tipo Kahoot y premios)\n' +
+                    '> • **🃏 Truco Argentino & Blackjack 21** (Mazo de 40 y Dealer)\n' +
+                    '> • **👾 Prophet Survivor 2D** (Arcade Roguelite a 60 FPS)',
+                inline: false
+            },
+            {
+                name: '🕹️ Mini-juegos Clásicos',
                 value:
                     '`/tictactoe <usuario>` — Ta-Te-Ti contra otro jugador\n' +
                     '`/blackjack <apuesta>` — Blackjack 21 interactivo\n' +

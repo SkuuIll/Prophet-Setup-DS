@@ -111,6 +111,23 @@ Un ecosistema financiero completo con animaciones y feedback visual:
 
 ---
 
+### 🎮 Prophet Games Hub & Discord Activities *(v3.0)*
+
+Portal de juegos web multijugador en tiempo real integrado a la economía de monedas de Discord:
+
+* **Acceso desde Discord:** `/jugar` con selector de juego y enlaces de sesión seguros.
+* **Servidor Dedicado:** `ProphetGames` corriendo en puerto `3850` vía WebSockets.
+
+| Juego | Modo | Características Destacadas |
+|---|---|---|
+| 🕹️ **Tycoon de Servidores** | Idle / Clicker | Racks de servidores con LEDs, administradores automatizados y ganancias offline de hasta 12 horas. |
+| 🎰 **Casino Web Prophet** | Apuestas Virtuales | **Crash** (curva exponencial Provably Fair), **Ruleta Europea** (37 números) y **Cajas CS2** con carrete animado. |
+| 🎨 **Trivia Party Game** | Multijugador en Vivo | Salas privadas estilo Kahoot (código PIN), 4 colores, temporizador 15s y podio con premios en monedas. |
+| 🃏 **Truco & Blackjack** | Cartas Multijugador | **Truco Argentino** tradicional (40 cartas, Envido, Truco) y **Blackjack 21** multijugador contra el Dealer. |
+| 👾 **Prophet Survivor 2D** | Roguelite Canvas | Bucle a 60 FPS, auto-aim, gemas de XP, cartas de nivelación, hordas de drones/jefes y tabla de récords. |
+
+---
+
 ### 📈 Sistema de Niveles y XP
 
 | Comando | Descripción |

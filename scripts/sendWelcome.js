@@ -1,6 +1,6 @@
 const { Client, GatewayIntentBits, EmbedBuilder } = require('discord.js');
-const config = require('./config');
-const { getChannel } = require('./utils/runtimeConfig');
+const config = require('../config');
+const { getChannel } = require('../utils/runtimeConfig');
 require('dotenv').config();
 
 const client = new Client({

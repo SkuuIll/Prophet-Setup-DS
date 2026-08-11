@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tycoon de Servidores — Prophet Gaming</title>
+    <link rel="stylesheet" href="../common/theme.css">
+    <link rel="stylesheet" href="tycoon.css">
+</head>
+<body>
+    <!-- Navbar -->
+    <header class="prophet-nav">
+        <a href="../hub/" class="prophet-brand">
+            <span style="font-size: 1.2rem;">◀</span>
+            <div class="prophet-logo-glow" style="background: url('/assets/logo.png') center/cover;"></div>
+            <span class="prophet-title">TYCOON DE SERVIDORES</span>
+        </a>
+        <div class="prophet-user-badge">
+            <div class="prophet-balance-pill">
+                <span>🪙</span>
+                <span id="tycoon-coins">0</span>
+            </div>
+            <button id="btn-sound" class="btn-sound-toggle" title="Alternar Sonido">🔊</button>
+        </div>
+    </header>
+
+    <!-- Game Layout -->
+    <div class="tycoon-layout">
+        <!-- Main Action Zone (Left) -->
+        <main class="console-section">
+            <!-- Rate Counter Header -->
+            <div class="rate-card">
+                <div class="rate-stat">
+                    <span class="rate-label">PRODUCCIÓN PASIVA</span>
+                    <span class="rate-value text-green" id="prod-per-sec">+0 /s</span>
+                </div>
+                <div class="rate-divider"></div>
+                <div class="rate-stat">
+                    <span class="rate-label">STAFF AUTO-CLICK</span>
+                    <span class="rate-value text-purple" id="clicks-per-sec">0 /s</span>
+                </div>
+            </div>
+
+            <!-- Server Rack Visualizer -->
+            <div class="datacenter-rack">
+                <div class="rack-header">
+                    <span class="rack-status-dot"></span>
+                    <span>DATACENTER PROPHET · RACK #01</span>
+                </div>
+                <div class="rack-servers-container" id="rack-servers-display">
+                    <!-- Servidores animados con LEDs dinámicos -->
+                    <div class="server-unit unit-active">
+                        <div class="unit-leds">
+                            <span class="led led-green"></span>
+                            <span class="led led-blue"></span>
+                            <span class="led led-blink"></span>
+                        </div>
+                        <div class="unit-info">CS2 COMPETITIVE NODE · 128 TICK</div>
+                        <div class="unit-fan"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Big Clicker Button -->
+            <div class="clicker-container">
+                <button id="btn-main-click" class="big-click-btn">
+                    <div class="btn-inner-glow"></div>
+                    <span class="btn-icon">⚡</span>
+                    <span class="btn-text">REINICIAR SERVIDOR</span>
+                    <span class="btn-subtext">Click para generar monedas manuales</span>
+                </button>
+            </div>
+        </main>
+
+        <!-- Upgrades / Store Sidebar (Right) -->
+        <aside class="store-section">
+            <div class="store-tabs">
+                <button class="store-tab active" data-tab="servers">🖥️ Servidores</button>
+                <button class="store-tab" data-tab="admins">🛡️ Staff & Admins</button>
+            </div>
+
+            <!-- Tab 1: Servidores -->
+            <div class="tab-content active" id="tab-servers">
+                <div class="items-list" id="servers-list">
+                    <!-- Cargado dinámicamente -->
+                </div>
+            </div>
+
+            <!-- Tab 2: Staff & Admins -->
+            <div class="tab-content" id="tab-admins">
+                <div class="items-list" id="admins-list">
+                    <!-- Cargado dinámicamente -->
+                </div>
+            </div>
+        </aside>
+    </div>
+
+    <!-- Modal de Ganancias Offline -->
+    <div class="modal-overlay" id="offline-modal">
+        <div class="modal-content">
+            <div style="font-size: 3.5rem; margin-bottom: 12px;">💰</div>
+            <h2 style="font-size: 1.6rem; font-weight: 800; margin-bottom: 8px;">¡BIENVENIDO DE VUELTA!</h2>
+            <p style="color: var(--text-muted); font-size: 1rem; margin-bottom: 20px;">
+                Tus servidores estuvieron trabajando mientras estabas ausente durante <strong id="offline-time" style="color: #FFF;">--</strong>.
+            </p>
+            <div class="offline-reward-box">
+                <span style="font-size: 1.1rem; color: var(--text-muted);">Generaste:</span>
+                <span class="offline-coins" id="offline-coins-val">+0 🪙</span>
+            </div>
+            <button class="btn-prophet" id="btn-claim-offline" style="width: 100%; justify-content: center; margin-top: 24px;">
+                RECLAMAR GANANCIAS
+            </button>
+        </div>
+    </div>
+
+    <script src="../common/utils.js"></script>
+    <script src="../common/api.js"></script>
+    <script src="tycoon.js"></script>
+</body>
+</html>

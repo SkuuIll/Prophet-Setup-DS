@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Casino Web Prophet — Crash, Ruleta & Cajas CS2</title>
+    <link rel="stylesheet" href="../common/theme.css">
+    <link rel="stylesheet" href="casino.css">
+</head>
+<body>
+    <!-- Navbar -->
+    <header class="prophet-nav">
+        <a href="../hub/" class="prophet-brand">
+            <span style="font-size: 1.2rem;">◀</span>
+            <div class="prophet-logo-glow" style="background: url('/assets/logo.png') center/cover;"></div>
+            <span class="prophet-title">CASINO PROPHET</span>
+        </a>
+        <div class="prophet-user-badge">
+            <div class="prophet-balance-pill">
+                <span>💰</span>
+                <span id="casino-balance">0</span>
+            </div>
+            <button id="btn-sound" class="btn-sound-toggle" title="Alternar Sonido">🔊</button>
+        </div>
+    </header>
+
+    <!-- Casino Main Navigation Tabs -->
+    <nav class="casino-mode-tabs">
+        <button class="mode-tab active" data-mode="crash">
+            <span class="mode-icon">🚀</span>
+            <span>CRASH (AVIATOR)</span>
+        </button>
+        <button class="mode-tab" data-mode="roulette">
+            <span class="mode-icon">🎡</span>
+            <span>RULETA EUROPEA</span>
+        </button>
+        <button class="mode-tab" data-mode="cases">
+            <span class="mode-icon">📦</span>
+            <span>CAJAS CS2</span>
+        </button>
+    </nav>
+
+    <div class="casino-container">
+        <!-- ══════════════ 1. MODO CRASH ══════════════ -->
+        <section class="game-view active" id="view-crash">
+            <!-- Multiplier History Badges -->
+            <div class="crash-history-bar" id="crash-history">
+                <!-- Se llena dinámicamente -->
+            </div>
+
+            <div class="crash-main-layout">
+                <!-- Canvas Stage -->
+                <div class="crash-stage-wrapper">
+                    <canvas id="crash-canvas" width="800" height="420"></canvas>
+                    <div class="crash-overlay" id="crash-overlay">
+                        <div class="crash-status-label" id="crash-status-text">ESPERANDO APUESTAS</div>
+                        <div class="crash-multiplier-text" id="crash-multiplier">1.00x</div>
+                    </div>
+                    <div class="provably-fair-badge" id="btn-show-fairness">
+                        🔒 Provably Fair: <span id="crash-hash-short">hash...</span>
+                    </div>
+                </div>
+
+                <!-- Bet Controls & Live Players -->
+                <div class="crash-sidebar">
+                    <div class="bet-control-card">
+                        <div class="input-group">
+                            <label>MONTO DE APUESTA (🪙)</label>
+                            <div class="input-with-actions">
+                                <input type="number" id="crash-bet-input" value="100" min="10" step="10">
+                                <button class="btn-quick" onclick="adjustCrashBet(0.5)">½</button>
+                                <button class="btn-quick" onclick="adjustCrashBet(2)">2X</button>
+                                <button class="btn-quick" onclick="adjustCrashBet('max')">MAX</button>
+                            </div>
+                        </div>
+
+                        <div class="input-group">
+                            <label>AUTO RETIRO (OPCIONAL)</label>
+                            <input type="number" id="crash-autoco-input" placeholder="Ej: 2.00" min="1.01" step="0.1">
+                        </div>
+
+                        <button id="btn-crash-action" class="btn-casino-action btn-bet">
+                            APOSTAR 🪙 100
+                        </button>
+                    </div>
+
+                    <!-- Live Bets Feed -->
+                    <div class="live-bets-card">
+                        <div class="live-bets-header">
+                            <span>JUGADORES EN ESTA RONDA</span>
+                            <span id="crash-players-count">0</span>
+                        </div>
+                        <div class="live-bets-list" id="crash-bets-list">
+                            <!-- Inyectado en tiempo real -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ══════════════ 2. MODO RULETA EUROPEA ══════════════ -->
+        <section class="game-view" id="view-roulette">
+            <div class="roulette-layout">
+                <!-- Wheel Stage -->
+                <div class="wheel-stage-card">
+                    <canvas id="roulette-wheel-canvas" width="380" height="380"></canvas>
+                    <div class="wheel-result-banner" id="roulette-result-banner">
+                        <span>GIRÁ LA RULETA</span>
+                    </div>
+                </div>
+
+                <!-- Betting Board & Controls -->
+                <div class="roulette-board-wrapper">
+                    <!-- Chip Selector -->
+                    <div class="chips-bar">
+                        <span class="chips-title">VALOR DE FICHA:</span>
+                        <div class="chips-row">
+                            <button class="chip chip-10 active" data-chip="10">10</button>
+                            <button class="chip chip-50" data-chip="50">50</button>
+                            <button class="chip chip-100" data-chip="100">100</button>
+                            <button class="chip chip-500" data-chip="500">500</button>
+                            <button class="chip chip-1000" data-chip="1000">1K</button>
+                        </div>
+                    </div>
+
+                    <!-- The European Grid (Table) -->
+                    <div class="roulette-table-grid" id="roulette-table">
+                        <!-- Generado por JS -->
+                    </div>
+
+                    <!-- Actions -->
+                    <div class="roulette-actions-row">
+                        <div class="bet-summary-pill">
+                            <span>APUESTA TOTAL:</span>
+                            <strong id="roulette-total-bet">🪙 0</strong>
+                        </div>
+                        <button class="btn-secondary" id="btn-roulette-clear">LIMPIAR</button>
+                        <button class="btn-casino-action btn-spin" id="btn-roulette-spin">GIRAR RULETA 🎡</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ══════════════ 3. MODO CAJAS CS2 ══════════════ -->
+        <section class="game-view" id="view-cases">
+            <!-- Case Selector Grid -->
+            <div class="cases-selector-row" id="cases-selector">
+                <!-- Inyectado por JS -->
+            </div>
+
+            <!-- Case Unbox Stage -->
+            <div class="unbox-stage-card">
+                <div class="case-header-info">
+                    <h2 class="active-case-name" id="active-case-name">Caja Comunitaria Prophet</h2>
+                    <span class="active-case-price" id="active-case-price">🪙 250</span>
+                </div>
+
+                <!-- The Horizontal Reel Carousel -->
+                <div class="case-reel-viewport">
+                    <div class="reel-needle-center"></div>
+                    <div class="case-reel-track" id="case-reel-track">
+                        <!-- 45 Items inyectados -->
+                    </div>
+                </div>
+
+                <!-- Unbox Trigger Button -->
+                <div class="unbox-action-bar">
+                    <button class="btn-casino-action btn-unbox" id="btn-open-case">
+                        ABRIR CAJA POR 🪙 250
+                    </button>
+                </div>
+            </div>
+
+            <!-- Showcase of items inside case -->
+            <div class="case-items-showcase">
+                <h3 class="showcase-title">CONTENIDO DE LA CAJA</h3>
+                <div class="showcase-grid" id="case-showcase-grid">
+                    <!-- Items de la caja -->
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <!-- Modal Provably Fair Verification -->
+    <div class="modal-overlay" id="fairness-modal">
+        <div class="modal-content">
+            <h3 style="font-size: 1.4rem; font-weight: 800; margin-bottom: 12px;">🔒 VERIFICACIÓN PROVABLY FAIR</h3>
+            <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 16px;">
+                El resultado de cada ronda está predeterminado criptográficamente antes de que empiece la jugada.
+            </p>
+            <div style="text-align: left; background: rgba(0,0,0,0.5); padding: 12px; border-radius: 8px; font-family: monospace; font-size: 0.8rem; margin-bottom: 16px; word-break: break-all;">
+                <div><strong>Hash SHA-256 (Público):</strong></div>
+                <div id="fair-hash-val" style="color: var(--color-secondary); margin-bottom: 8px;">--</div>
+                <div><strong>Server Seed (Revelado post-ronda):</strong></div>
+                <div id="fair-seed-val" style="color: var(--color-gold); margin-bottom: 8px;">--</div>
+            </div>
+            <button class="btn-prophet" onclick="document.getElementById('fairness-modal').classList.remove('active')">CERRAR</button>
+        </div>
+    </div>
+
+    <script src="../common/utils.js"></script>
+    <script src="../common/api.js"></script>
+    <script src="casino.css"></script>
+    <script src="crash.js"></script>
+    <script src="roulette.js"></script>
+    <script src="cases.js"></script>
+</body>
+</html>

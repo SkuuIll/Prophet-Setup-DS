@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prophet Trivia Party — Multijugador en Tiempo Real</title>
+    <link rel="stylesheet" href="../common/theme.css">
+    <link rel="stylesheet" href="trivia.css">
+</head>
+<body>
+    <!-- Navbar -->
+    <header class="prophet-nav">
+        <a href="../hub/" class="prophet-brand">
+            <span style="font-size: 1.2rem;">◀</span>
+            <div class="prophet-logo-glow" style="background: url('/assets/logo.png') center/cover;"></div>
+            <span class="prophet-title">TRIVIA PARTY GAME</span>
+        </a>
+        <div class="prophet-user-badge">
+            <div class="prophet-balance-pill">
+                <span>💰</span>
+                <span id="trivia-balance">0</span>
+            </div>
+            <button id="btn-sound" class="btn-sound-toggle" title="Alternar Sonido">🔊</button>
+        </div>
+    </header>
+
+    <div class="trivia-container">
+        <!-- ══════════════ 1. PANTALLA: SELECTOR / LOBBY ══════════════ -->
+        <section class="trivia-view active" id="view-lobby">
+            <div class="lobby-card">
+                <!-- Modo Crear / Unirse -->
+                <div class="lobby-setup-panel" id="lobby-setup-panel">
+                    <h1 class="lobby-title">🎨 PROPHET TRIVIA PARTY</h1>
+                    <p class="lobby-subtitle">Competí en vivo con los miembros del servidor. ¡El más rápido y certero se lleva el pozo de monedas!</p>
+
+                    <div class="lobby-actions-box">
+                        <button class="btn-prophet btn-create-room" id="btn-create-room">
+                            ➕ CREAR SALA NUEVA
+                        </button>
+                        <div class="or-divider">O UNITE CON UN CÓDIGO</div>
+                        <div class="join-room-row">
+                            <input type="text" id="input-room-code" placeholder="Código (ej: PRP-742)" maxlength="8">
+                            <button class="btn-secondary" id="btn-join-room">UNIRSE ➔</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sala Creada / Esperando Jugadores -->
+                <div class="lobby-room-waiting" id="lobby-room-waiting" style="display: none;">
+                    <div class="room-pin-banner">
+                        <span class="pin-label">CÓDIGO DE LA SALA</span>
+                        <h2 class="room-pin-code" id="display-room-code">PRP-000</h2>
+                        <span class="pin-hint">Compartí este código en Discord para que se unan tus amigos</span>
+                    </div>
+
+                    <div class="players-waiting-box">
+                        <div class="waiting-header">
+                            <span>JUGADORES EN LA SALA</span>
+                            <span id="waiting-players-count">0</span>
+                        </div>
+                        <div class="waiting-players-grid" id="waiting-players-list">
+                            <!-- Inyectado por JS -->
+                        </div>
+                    </div>
+
+                    <div class="host-start-bar" id="host-start-bar">
+                        <button class="btn-casino-action btn-start-game" id="btn-start-game">
+                            🚀 COMENZAR PARTIDA AHORA
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ══════════════ 2. PANTALLA: PREGUNTA ACTIVA ══════════════ -->
+        <section class="trivia-view" id="view-question">
+            <!-- Header de Pregunta -->
+            <div class="question-header-bar">
+                <span class="q-progress-badge" id="q-progress-text">Pregunta 1 de 7</span>
+                <span class="q-category-badge" id="q-category-text">🎮 CS2 & Shoot</span>
+            </div>
+
+            <!-- Timer Bar -->
+            <div class="timer-bar-wrapper">
+                <div class="timer-bar-fill" id="timer-bar-fill"></div>
+                <div class="timer-seconds-badge" id="timer-seconds-text">15s</div>
+            </div>
+
+            <!-- Question Card -->
+            <div class="question-card">
+                <h2 class="question-title" id="question-text">¿Cargando pregunta?</h2>
+            </div>
+
+            <!-- 4 Kahoot-Style Answers Grid -->
+            <div class="answers-grid" id="answers-grid">
+                <button class="answer-card ans-red" data-index="0">
+                    <span class="ans-shape">▲</span>
+                    <span class="ans-text" id="ans-text-0">Opción 1</span>
+                </button>
+                <button class="answer-card ans-blue" data-index="1">
+                    <span class="ans-shape">◆</span>
+                    <span class="ans-text" id="ans-text-1">Opción 2</span>
+                </button>
+                <button class="answer-card ans-yellow" data-index="2">
+                    <span class="ans-shape">●</span>
+                    <span class="ans-text" id="ans-text-2">Opción 3</span>
+                </button>
+                <button class="answer-card ans-green" data-index="3">
+                    <span class="ans-shape">■</span>
+                    <span class="ans-text" id="ans-text-3">Opción 4</span>
+                </button>
+            </div>
+        </section>
+
+        <!-- ══════════════ 3. PANTALLA: REVELACIÓN & SCOREBOARD ══════════════ -->
+        <section class="trivia-view" id="view-reveal">
+            <div class="reveal-card">
+                <div class="reveal-feedback" id="reveal-feedback">
+                    <span class="feedback-icon" id="feedback-icon">✅</span>
+                    <h2 class="feedback-title" id="feedback-title">¡CORRECTO!</h2>
+                    <span class="feedback-points" id="feedback-points">+850 PTS</span>
+                </div>
+
+                <div class="scoreboard-box">
+                    <h3 class="scoreboard-title">🏆 TABLA DE POSICIONES</h3>
+                    <div class="scoreboard-list" id="scoreboard-list">
+                        <!-- Inyectado por JS -->
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ══════════════ 4. PANTALLA: PODIO FINAL ══════════════ -->
+        <section class="trivia-view" id="view-podium">
+            <div class="podium-card">
+                <h1 class="podium-title">🎉 ¡FINAL DE LA TRIVIA!</h1>
+                <p class="podium-subtitle">Los 3 mejores se llevan sus premios de monedas a su cuenta de Discord</p>
+
+                <div class="podium-stage">
+                    <!-- 2do Puesto -->
+                    <div class="podium-place place-silver" id="place-2">
+                        <div class="place-crown">🥈</div>
+                        <div class="place-name" id="place-2-name">Jugador 2</div>
+                        <div class="place-score" id="place-2-score">3,200 pts</div>
+                        <div class="place-prize">+🪙 1,000</div>
+                        <div class="podium-pedestal pedestal-silver">2</div>
+                    </div>
+
+                    <!-- 1er Puesto (Centro) -->
+                    <div class="podium-place place-gold" id="place-1">
+                        <div class="place-crown">👑</div>
+                        <div class="place-name" id="place-1-name">Campeón</div>
+                        <div class="place-score" id="place-1-score">5,400 pts</div>
+                        <div class="place-prize">+🪙 2,500</div>
+                        <div class="podium-pedestal pedestal-gold">1</div>
+                    </div>
+
+                    <!-- 3er Puesto -->
+                    <div class="podium-place place-bronze" id="place-3">
+                        <div class="place-crown">🥉</div>
+                        <div class="place-name" id="place-3-name">Jugador 3</div>
+                        <div class="place-score" id="place-3-score">2,100 pts</div>
+                        <div class="place-prize">+🪙 500</div>
+                        <div class="podium-pedestal pedestal-bronze">3</div>
+                    </div>
+                </div>
+
+                <button class="btn-prophet btn-back-lobby" id="btn-restart-trivia" style="margin-top: 32px;">
+                    🔄 VOLVER AL LOBBY
+                </button>
+            </div>
+        </section>
+    </div>
+
+    <script src="../common/utils.js"></script>
+    <script src="../common/api.js"></script>
+    <script src="trivia.js"></script>
+</body>
+</html>

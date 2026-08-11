@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prophet Cards — Truco Argentino & Blackjack</title>
+    <link rel="stylesheet" href="../common/theme.css">
+    <link rel="stylesheet" href="cards.css">
+</head>
+<body>
+    <!-- Navbar -->
+    <header class="prophet-nav">
+        <a href="../hub/" class="prophet-brand">
+            <span style="font-size: 1.2rem;">◀</span>
+            <div class="prophet-logo-glow" style="background: url('/assets/logo.png') center/cover;"></div>
+            <span class="prophet-title">PROPHET CARDS</span>
+        </a>
+        <div class="prophet-user-badge">
+            <div class="prophet-balance-pill">
+                <span>💰</span>
+                <span id="cards-balance">0</span>
+            </div>
+            <button id="btn-sound" class="btn-sound-toggle" title="Alternar Sonido">🔊</button>
+        </div>
+    </header>
+
+    <!-- Cards Mode Tabs -->
+    <nav class="cards-mode-tabs">
+        <button class="mode-tab active" data-mode="truco">
+            <span class="mode-icon">⚔️</span>
+            <span>TRUCO ARGENTINO</span>
+        </button>
+        <button class="mode-tab" data-mode="blackjack">
+            <span class="mode-icon">🎰</span>
+            <span>BLACKJACK 21</span>
+        </button>
+    </nav>
+
+    <div class="cards-container">
+        <!-- ══════════════ 1. MODO TRUCO ARGENTINO ══════════════ -->
+        <section class="game-view active" id="view-truco">
+            <!-- Truco Lobby (Crear / Unirse) -->
+            <div class="cards-lobby-panel" id="truco-lobby-panel">
+                <h2 class="lobby-title">⚔️ TRUCO ARGENTINO TRADICIONAL</h2>
+                <p class="lobby-subtitle">Jugá 1v1 con mazo español, cantos de Envido, Truco y pozo de monedas.</p>
+
+                <div class="truco-setup-card">
+                    <div class="input-group">
+                        <label>POZO DE APUESTA POR JUGADOR (🪙)</label>
+                        <input type="number" id="truco-bet-input" value="100" min="0" step="50">
+                    </div>
+                    <div class="input-group">
+                        <label>PUNTAJE OBJETIVO</label>
+                        <select id="truco-target-select">
+                            <option value="15" selected>Partida a 15 Tantos (Rápida)</option>
+                            <option value="30">Partida a 30 Tantos (Completa)</option>
+                        </select>
+                    </div>
+                    <button class="btn-prophet" id="btn-create-truco" style="width: 100%; justify-content: center; margin-top: 10px;">
+                        ➕ CREAR MESA DE TRUCO
+                    </button>
+
+                    <div class="or-divider" style="margin: 16px 0;">O INGRESÁ A UNA MESA EXISTENTE</div>
+                    <div class="join-room-row">
+                        <input type="text" id="truco-room-code-input" placeholder="Código (ej: TRU-842)" maxlength="8">
+                        <button class="btn-secondary" id="btn-join-truco">UNIRSE ➔</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Truco Active Table -->
+            <div class="truco-table-stage" id="truco-table-stage" style="display: none;">
+                <!-- Tanteador Superior -->
+                <div class="tanteador-bar">
+                    <div class="tanteador-team" id="team-nos">
+                        <span class="team-label" id="label-p0">Nosotros</span>
+                        <span class="team-score" id="score-p0">0</span>
+                    </div>
+                    <div class="tanteador-center">
+                        <span class="tanteador-table-id" id="display-truco-table">TRU-000</span>
+                        <span class="tanteador-pot" id="display-truco-pot">Pozo: 🪙 200</span>
+                    </div>
+                    <div class="tanteador-team" id="team-ellos">
+                        <span class="team-label" id="label-p1">Ellos</span>
+                        <span class="team-score" id="score-p1">0</span>
+                    </div>
+                </div>
+
+                <!-- Paño Verde de Truco -->
+                <div class="truco-felt-table">
+                    <!-- Rival Zone -->
+                    <div class="rival-zone">
+                        <div class="rival-info" id="rival-info">Esperando rival...</div>
+                        <div class="rival-cards-back" id="rival-cards-back">
+                            <div class="card-back"></div>
+                            <div class="card-back"></div>
+                            <div class="card-back"></div>
+                        </div>
+                    </div>
+
+                    <!-- Center Table (Cartas Jugadas en las 3 Vueltas) -->
+                    <div class="table-center-felt">
+                        <div class="trick-column" id="trick-col-0">
+                            <span class="trick-label">1ª VUELTA</span>
+                            <div class="trick-cards-slot" id="slot-trick-0"></div>
+                        </div>
+                        <div class="trick-column" id="trick-col-1">
+                            <span class="trick-label">2ª VUELTA</span>
+                            <div class="trick-cards-slot" id="slot-trick-1"></div>
+                        </div>
+                        <div class="trick-column" id="trick-col-2">
+                            <span class="trick-label">3ª VUELTA</span>
+                            <div class="trick-cards-slot" id="slot-trick-2"></div>
+                        </div>
+                    </div>
+
+                    <!-- Player Zone -->
+                    <div class="player-zone">
+                        <div class="player-hand-fan" id="player-hand-fan">
+                            <!-- 3 Cartas del Jugador -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Cantos & Actions Bar -->
+                <div class="truco-actions-bar" id="truco-actions-bar">
+                    <button class="btn-action-truco" id="btn-canto-envido">📢 ENVIDO</button>
+                    <button class="btn-action-truco" id="btn-canto-real">⚡ REAL ENVIDO</button>
+                    <button class="btn-action-truco btn-gold" id="btn-canto-truco">⚔️ TRUCO</button>
+                    <button class="btn-action-truco btn-danger" id="btn-canto-mazo">🏳️ AL MAZO</button>
+                </div>
+
+                <!-- Canto Response Overlay (Modal flotante) -->
+                <div class="canto-response-overlay" id="canto-modal" style="display: none;">
+                    <div class="canto-modal-box">
+                        <h3 class="canto-modal-title" id="canto-modal-text">¡El rival cantó TRUCO!</h3>
+                        <div class="canto-modal-buttons">
+                            <button class="btn-casino-action btn-bet" id="btn-canto-quiero">QUIERO 👍</button>
+                            <button class="btn-casino-action btn-secondary" id="btn-canto-noquiero">NO QUIERO 👎</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ══════════════ 2. MODO BLACKJACK 21 ══════════════ -->
+        <section class="game-view" id="view-blackjack">
+            <div class="bj-stage-card">
+                <!-- Dealer Area -->
+                <div class="bj-zone">
+                    <div class="bj-header">
+                        <span class="bj-label">DEALER (LA BANCA)</span>
+                        <span class="bj-score-pill" id="bj-dealer-score">--</span>
+                    </div>
+                    <div class="bj-cards-row" id="bj-dealer-cards">
+                        <div class="card-bj card-back"></div>
+                        <div class="card-bj card-back"></div>
+                    </div>
+                </div>
+
+                <!-- Center Result Banner -->
+                <div class="bj-result-banner" id="bj-result-banner">
+                    HACÉ TU APUESTA PARA JUGAR
+                </div>
+
+                <!-- Player Area -->
+                <div class="bj-zone">
+                    <div class="bj-header">
+                        <span class="bj-label">TU MANO</span>
+                        <span class="bj-score-pill" id="bj-player-score">0</span>
+                    </div>
+                    <div class="bj-cards-row" id="bj-player-cards">
+                        <!-- Cartas del jugador -->
+                    </div>
+                </div>
+
+                <!-- Controls & Betting -->
+                <div class="bj-controls-bar">
+                    <div class="bj-bet-controls" id="bj-bet-panel">
+                        <div class="input-with-actions" style="max-width: 320px;">
+                            <input type="number" id="bj-bet-input" value="100" min="10" step="50">
+                            <button class="btn-quick" onclick="document.getElementById('bj-bet-input').value = Math.max(10, Math.floor(document.getElementById('bj-bet-input').value * 2))">2X</button>
+                        </div>
+                        <button class="btn-casino-action btn-spin" id="btn-bj-deal">REPARTIR (🪙 100)</button>
+                    </div>
+
+                    <div class="bj-action-buttons" id="bj-actions-panel" style="display: none;">
+                        <button class="btn-action-bj btn-hit" id="btn-bj-hit">🃏 PEDIR CARTA (HIT)</button>
+                        <button class="btn-action-bj btn-stand" id="btn-bj-stand">✋ PLANTARSE (STAND)</button>
+                        <button class="btn-action-bj btn-double" id="btn-bj-double">💰 DOBLAR (2X)</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <script src="../common/utils.js"></script>
+    <script src="../common/api.js"></script>
+    <script src="cards.css"></script>
+    <script src="cardsUI.js"></script>
+    <script src="trucoClient.js"></script>
+    <script src="blackjackClient.js"></script>
+</body>
+</html>

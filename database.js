@@ -120,6 +120,44 @@ db.exec(`
         timestamp TEXT
     );
 
+    CREATE TABLE IF NOT EXISTS game_sessions (
+        token TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        expires_at INTEGER NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS tycoon_saves (
+        user_id TEXT PRIMARY KEY,
+        local_coins REAL DEFAULT 0,
+        servers_data TEXT DEFAULT '{}',
+        admins_data TEXT DEFAULT '{}',
+        prestige INTEGER DEFAULT 0,
+        last_active INTEGER DEFAULT 0,
+        updated_at INTEGER DEFAULT 0
+    );
+
+    CREATE TABLE IF NOT EXISTS game_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id TEXT,
+        game TEXT,
+        action TEXT,
+        amount INTEGER DEFAULT 0,
+        details TEXT,
+        timestamp INTEGER
+    );
+
+    CREATE TABLE IF NOT EXISTS survivor_scores (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id TEXT NOT NULL,
+        username TEXT,
+        score INTEGER DEFAULT 0,
+        kills INTEGER DEFAULT 0,
+        survival_seconds INTEGER DEFAULT 0,
+        coins_earned INTEGER DEFAULT 0,
+        timestamp INTEGER
+    );
+
     CREATE TABLE IF NOT EXISTS badge_definitions (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
@@ -1553,6 +1591,99 @@ const stmts = {
     },
     removeTrollNickData(userId) {
         return db.prepare('DELETE FROM troll_nicknames WHERE user_id = ?').run(userId);
+    },
+
+    // ─── PROPHET GAMES HUB & SESSIONS ───
+    createGameSession(token, userId, ttlMs = 3600000) {
+        const now = Date.now();
+        const expiresAt = now + ttlMs;
+        db.prepare('INSERT INTO game_sessions (token, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)').run(token, userId, now, expiresAt);
+        return { token, userId, expiresAt };
+    },
+    getGameSession(token) {
+        const now = Date.now();
+        const session = db.prepare('SELECT * FROM game_sessions WHERE token = ? AND expires_at > ?').get(token, now);
+        return session || null;
+    },
+    deleteGameSession(token) {
+        return db.prepare('DELETE FROM game_sessions WHERE token = ?').run(token);
+    },
+    cleanupExpiredGameSessions() {
+        return db.prepare('DELETE FROM game_sessions WHERE expires_at <= ?').run(Date.now());
+    },
+
+    // ─── TYCOON DE SERVIDORES ───
+    getTycoonSave(userId) {
+        let save = db.prepare('SELECT * FROM tycoon_saves WHERE user_id = ?').get(userId);
+        if (!save) {
+            const now = Date.now();
+            db.prepare(`
+                INSERT INTO tycoon_saves (user_id, local_coins, servers_data, admins_data, prestige, last_active, updated_at)
+                VALUES (?, 0, '{}', '{}', 0, ?, ?)
+            `).run(userId, now, now);
+            save = { user_id: userId, local_coins: 0, servers_data: '{}', admins_data: '{}', prestige: 0, last_active: now, updated_at: now };
+        }
+        return {
+            ...save,
+            servers: JSON.parse(save.servers_data || '{}'),
+            admins: JSON.parse(save.admins_data || '{}')
+        };
+    },
+    saveTycoonSave(userId, localCoins, servers, admins, prestige = 0, lastActive = Date.now()) {
+        const serversJson = typeof servers === 'string' ? servers : JSON.stringify(servers || {});
+        const adminsJson = typeof admins === 'string' ? admins : JSON.stringify(admins || {});
+        const now = Date.now();
+        return db.prepare(`
+            INSERT INTO tycoon_saves (user_id, local_coins, servers_data, admins_data, prestige, last_active, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(user_id) DO UPDATE SET
+                local_coins = excluded.local_coins,
+                servers_data = excluded.servers_data,
+                admins_data = excluded.admins_data,
+                prestige = excluded.prestige,
+                last_active = excluded.last_active,
+                updated_at = excluded.updated_at
+        `).run(userId, localCoins, serversJson, adminsJson, prestige, lastActive, now);
+    },
+
+    // ─── ECONOMÍA ATÓMICA DE JUEGOS ───
+    atomicModifyBalance(userId, deltaAmount, game = 'casino', action = 'bet', details = '') {
+        let user = stmts.getUser(userId);
+        if (!user) {
+            db.prepare('INSERT INTO users (id, balance) VALUES (?, 0)').run(userId);
+            user = { id: userId, balance: 0, bank: 0 };
+        }
+
+        if (deltaAmount < 0 && (user.balance + deltaAmount) < 0) {
+            return { success: false, error: 'Saldo insuficiente', balance: user.balance };
+        }
+
+        const newBalance = Math.max(0, user.balance + deltaAmount);
+        db.prepare('UPDATE users SET balance = ? WHERE id = ?').run(newBalance, userId);
+
+        if (deltaAmount !== 0) {
+            db.prepare('INSERT INTO game_logs (user_id, game, action, amount, details, timestamp) VALUES (?, ?, ?, ?, ?, ?)')
+                .run(userId, game, action, deltaAmount, String(details || ''), Date.now());
+        }
+
+        return { success: true, balance: newBalance, previousBalance: user.balance, delta: deltaAmount };
+    },
+
+    saveSurvivorScore: (userId, username, score, kills, survivalSeconds, coinsEarned) => {
+        return db.prepare(`
+            INSERT INTO survivor_scores (user_id, username, score, kills, survival_seconds, coins_earned, timestamp)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        `).run(userId, username || 'Survivor', score, kills, survivalSeconds, coinsEarned, Date.now());
+    },
+
+    getSurvivorLeaderboard: (limit = 10) => {
+        return db.prepare(`
+            SELECT user_id, username, MAX(score) as high_score, MAX(kills) as max_kills, MAX(survival_seconds) as max_time, SUM(coins_earned) as total_coins
+            FROM survivor_scores
+            GROUP BY user_id
+            ORDER BY high_score DESC
+            LIMIT ?
+        `).all(limit);
     }
 };
 

@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Prophet Survivor — Arcade 2D Roguelite</title>
+    <link rel="stylesheet" href="../common/theme.css">
+    <link rel="stylesheet" href="survivor.css">
+</head>
+<body>
+    <!-- Game Container & Canvas -->
+    <div class="survivor-wrapper">
+        <canvas id="survivor-canvas"></canvas>
+
+        <!-- Top HUD Overlay -->
+        <div class="survivor-hud">
+            <!-- XP Progress Bar -->
+            <div class="xp-bar-container">
+                <div class="level-badge" id="hud-level">LVL 1</div>
+                <div class="xp-bar-track">
+                    <div class="xp-bar-fill" id="hud-xp-fill"></div>
+                </div>
+            </div>
+
+            <!-- Stats Bar -->
+            <div class="hud-stats-row">
+                <div class="hud-stat-pill">
+                    <span>⏱️</span>
+                    <span id="hud-time">00:00</span>
+                </div>
+                <div class="hud-stat-pill">
+                    <span>💀</span>
+                    <span id="hud-kills">0</span>
+                </div>
+                <div class="hud-stat-pill">
+                    <span>🪙</span>
+                    <span id="hud-coins">0</span>
+                </div>
+                <a href="../hub/" class="btn-quit-game" title="Salir al Hub">✕</a>
+            </div>
+
+            <!-- HP Bar (Bottom of HUD) -->
+            <div class="hp-bar-container">
+                <div class="hp-bar-fill" id="hud-hp-fill"></div>
+                <span class="hp-text" id="hud-hp-text">100 / 100 HP</span>
+            </div>
+        </div>
+
+        <!-- Virtual Joystick for Touch / Mobile / Discord -->
+        <div class="touch-joystick-zone" id="joystick-zone">
+            <div class="joystick-base" id="joystick-base">
+                <div class="joystick-stick" id="joystick-stick"></div>
+            </div>
+        </div>
+
+        <!-- ══════════════ MODAL: LEVEL UP (3 CARDS) ══════════════ -->
+        <div class="survivor-modal-overlay" id="modal-levelup" style="display: none;">
+            <div class="levelup-card-box">
+                <h2 class="levelup-title">✨ ¡SUBISTE DE NIVEL!</h2>
+                <p class="levelup-subtitle">Elegí una mejora para tu equipamiento</p>
+                <div class="upgrade-cards-grid" id="upgrade-cards-container">
+                    <!-- 3 Cartas inyectadas por JS -->
+                </div>
+            </div>
+        </div>
+
+        <!-- ══════════════ MODAL: GAME OVER ══════════════ -->
+        <div class="survivor-modal-overlay" id="modal-gameover" style="display: none;">
+            <div class="gameover-card-box">
+                <h1 class="gameover-title">💀 FIN DE LA PARTIDA</h1>
+                <p class="gameover-subtitle">Tu héroe cayó ante la horda cibernética</p>
+
+                <div class="gameover-stats-grid">
+                    <div class="go-stat-item">
+                        <span class="go-stat-label">TIEMPO</span>
+                        <span class="go-stat-val" id="go-time">00:00</span>
+                    </div>
+                    <div class="go-stat-item">
+                        <span class="go-stat-label">ENEMIGOS</span>
+                        <span class="go-stat-val" id="go-kills">0</span>
+                    </div>
+                    <div class="go-stat-item">
+                        <span class="go-stat-label">NIVEL</span>
+                        <span class="go-stat-val" id="go-level">1</span>
+                    </div>
+                    <div class="go-stat-item">
+                        <span class="go-stat-label">PUNTAJE</span>
+                        <span class="go-stat-val" id="go-score">0</span>
+                    </div>
+                </div>
+
+                <div class="go-reward-banner">
+                    <span>RECOMPENSA DE MONEDAS ACREDITADA:</span>
+                    <h2 class="go-coins-won" id="go-coins">+🪙 0</h2>
+                </div>
+
+                <div class="gameover-actions">
+                    <button class="btn-prophet" id="btn-replay" style="flex: 1; justify-content: center;">
+                        🔄 JUGAR DE NUEVO
+                    </button>
+                    <button class="btn-secondary" id="btn-show-lb" style="flex: 1;">
+                        🏆 RÉCORDS
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ══════════════ MODAL: LEADERBOARD ══════════════ -->
+        <div class="survivor-modal-overlay" id="modal-leaderboard" style="display: none;">
+            <div class="leaderboard-card-box">
+                <div class="lb-header">
+                    <h2>🏆 SALÓN DE LA FAMA — SURVIVOR</h2>
+                    <button class="btn-close-modal" id="btn-close-lb">✕</button>
+                </div>
+                <div class="lb-list-table" id="lb-table-body">
+                    <!-- Inyectado por JS -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="../common/utils.js"></script>
+    <script src="../common/api.js"></script>
+    <script src="weapons.js"></script>
+    <script src="survivor.js"></script>
+</body>
+</html>

@@ -68,8 +68,25 @@ module.exports = {
         out_file: '/root/ProphetBot/logs/music-output.log',
         merge_logs: true,
         umask: '0077',
+    }, {
+        name: 'ProphetGames',
+        script: './games_server.js',
+        cwd: '/root/ProphetBot',
+        autorestart: true,
+        watch: false,
+        max_restarts: 10,
+        min_uptime: '10s',
+        restart_delay: 5000,
+        kill_timeout: 5000,
+        time: true,
+        log_date_format: 'YYYY-MM-DD HH:mm:ss',
+        error_file: '/root/ProphetBot/logs/games-error.log',
+        out_file: '/root/ProphetBot/logs/games-output.log',
+        merge_logs: true,
+        umask: '0077',
         env: {
             NODE_ENV: 'production',
+            GAMES_PORT: 3850
         },
     }]
 };
