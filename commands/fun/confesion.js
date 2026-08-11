@@ -1,67 +1,115 @@
-const { SlashCommandBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, EmbedBuilder } = require('discord.js');
-const { stmts } = require('../../database');
+const { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits } = require('discord.js');
+const {
+    joinVoiceChannel,
+    createAudioPlayer,
+    createAudioResource,
+    AudioPlayerStatus,
+    entersState,
+    VoiceConnectionStatus
+} = require('@discordjs/voice');
 const config = require('../../config');
+
+/**
+ * Obtener URL de TTS de Google en español latino/argentino
+ */
+function getTtsUrl(text) {
+    return `https://translate.google.com/translate_tts?ie=UTF-8&tl=es-US&client=tw-ob&q=${encodeURIComponent(text)}`;
+}
 
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('confesion')
-        .setDescription('🤫 Envía una confesión anónima al servidor'),
+        .setDescription('🕵️ Entra a tu sala de voz y cuenta una confesión anónima (TTS)')
+        .addStringOption(opt =>
+            opt.setName('mensaje')
+                .setDescription('Lo que quieres que diga el bot (se dirá con voz robótica anónima)')
+                .setRequired(true)
+                .setMaxLength(200)
+        ),
 
     async execute(interaction) {
-        // Verificar si hay canal configurado
-        const channelConfig = stmts.getConfig('CONFESIONES_CHANNEL');
-        if (!channelConfig || !channelConfig.value) {
-            return interaction.reply({ content: '❌ El sistema de confesiones no está configurado. Un admin debe usar `/setup-confesiones`.', ephemeral: true });
+        const texto = interaction.options.getString('mensaje');
+
+        const voiceChannel = interaction.member.voice?.channel;
+        if (!voiceChannel) {
+            return interaction.reply({
+                content: `❌ **Tenés que estar en un canal de voz** para que el bot entre a decir tu confesión.`,
+                ephemeral: true
+            });
         }
 
-        // Crear el Modal (Formulario emergente)
-        const modal = new ModalBuilder()
-            .setCustomId('modal_confesion')
-            .setTitle('Tu Confesión Anónima');
-
-        const input = new TextInputBuilder()
-            .setCustomId('confesion_texto')
-            .setLabel("¿Qué quieres confesar?")
-            .setStyle(TextInputStyle.Paragraph)
-            .setPlaceholder("Escribe aquí tu secreto... nadie sabrá que fuiste tú.")
-            .setMaxLength(1000)
-            .setRequired(true);
-
-        const row = new ActionRowBuilder().addComponents(input);
-        modal.addComponents(row);
-
-        await interaction.showModal(modal);
-    },
-
-    // Esta función se llamará desde interactionCreate.js cuando se envíe el modal
-    async handleModal(interaction) {
-        const texto = interaction.fields.getTextInputValue('confesion_texto');
-        const channelId = stmts.getConfig('CONFESIONES_CHANNEL')?.value;
-
-        if (!channelId) {
-            return interaction.reply({ content: '❌ El sistema de confesiones ya no está configurado.', ephemeral: true });
+        // Permisos del bot para unirse al canal de voz
+        const botMember = interaction.guild.members.me;
+        const perms = voiceChannel.permissionsFor(botMember);
+        if (!perms.has(PermissionFlagsBits.Connect) || !perms.has(PermissionFlagsBits.Speak)) {
+            return interaction.reply({
+                content: `❌ No tengo permisos para conectarme y hablar en el canal <#${voiceChannel.id}>.`,
+                ephemeral: true
+            });
         }
 
-        const channel = interaction.guild.channels.cache.get(channelId);
-
-        if (!channel) {
-            return interaction.reply({ content: '❌ El canal de confesiones fue borrado o no existe.', ephemeral: true });
-        }
-
-        // Crear Embed Anónimo
-        const embed = new EmbedBuilder()
-            .setColor('#2f3136') // Color oscuro/discreto
-            .setTitle('🕵️‍♂️ Nueva Confesión')
-            .setDescription(`"${texto}"`)
-            .setFooter({ text: 'Confesión Anónima | Prophet Gaming' })
-            .setTimestamp();
+        await interaction.deferReply({ ephemeral: true });
 
         try {
-            await channel.send({ embeds: [embed] });
-            await interaction.reply({ content: '✅ Tu confesión ha sido enviada anónimamente.', ephemeral: true });
-        } catch (e) {
-            console.error(e);
-            await interaction.reply({ content: '❌ Hubo un error al enviar la confesión.', ephemeral: true });
+            console.log(`[Confesión] Conectando a canal "${voiceChannel.name}" para hablar.`);
+
+            const connection = joinVoiceChannel({
+                channelId: voiceChannel.id,
+                guildId: interaction.guild.id,
+                adapterCreator: interaction.guild.voiceAdapterCreator,
+                selfDeaf: false
+            });
+
+            await entersState(connection, VoiceConnectionStatus.Ready, 5000);
+
+            const player = createAudioPlayer();
+            
+            // TTS para confesión directo (sin intro)
+            const resource = createAudioResource(getTtsUrl(texto));
+
+            player.play(resource);
+            connection.subscribe(player);
+
+            // Calcular un timeout máximo basado en la cantidad de caracteres
+            // Google TTS habla aprox a 15 caracteres por segundo
+            const estDurationMs = (texto.length / 10) * 1000 + 3000;
+            const maxDuration = Math.min(estDurationMs + 5000, 30000); // max 30 segs
+            
+            const safetyTimeout = setTimeout(() => {
+                try {
+                    connection.destroy();
+                } catch (_) {}
+            }, maxDuration);
+
+            player.on(AudioPlayerStatus.Idle, () => {
+                clearTimeout(safetyTimeout);
+                setTimeout(() => {
+                    try {
+                        connection.destroy();
+                    } catch (_) {}
+                }, 500);
+            });
+
+            player.on('error', (err) => {
+                console.warn('[Confesión] Error en reproductor TTS:', err.message);
+                try {
+                    connection.destroy();
+                } catch (_) {}
+            });
+
+            const embed = new EmbedBuilder()
+                .setColor(0x9C27B0) // Violeta para confesiones
+                .setTitle('🕵️ ¡Confesión Anónima Entregada!')
+                .setDescription(`> 🔊 El bot entró a **<#${voiceChannel.id}>** y dijo tu mensaje.`)
+                .setFooter({ text: 'Nadie más sabe que fuiste vos 👀' })
+                .setTimestamp();
+
+            return interaction.editReply({ embeds: [embed] });
+        } catch (err) {
+            console.error('[Confesión] Error ejecutando comando:', err);
+            return interaction.editReply({
+                content: `❌ Ocurrió un error al intentar conectarse a la sala de voz: ${err.message}`
+            });
         }
     }
 };

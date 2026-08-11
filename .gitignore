@@ -37,3 +37,9 @@ data/
 
 # Cache de herramientas de terminal
 .commandcode/
+
+# Herramientas de IA y grafos (Graphify, Engram, etc.)
+graphify-out/
+.engram/
+engram.db
+.gemini/

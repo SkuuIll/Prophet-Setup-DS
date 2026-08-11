@@ -354,40 +354,117 @@ module.exports = {
             }
         }
 
-        // ─── LOGS ───
-        const logChannelId = config.CHANNELS.LOGS;
-        const logChannel = newState.guild.channels.cache.get(logChannelId);
-        if (!logChannel) return;
+        // ─── LOGS SIMPLIFICADOS (Un solo mensaje al desconectarse) ───
+        if (!member.client.globalVoiceSessions) member.client.globalVoiceSessions = new Map();
 
-        const embed = new EmbedBuilder()
-            .setAuthor({ name: '🎙️ Actividad de Voz', iconURL: newState.member.user.displayAvatarURL() })
-            .setFooter({ text: 'Prophet · Log de Voz' })
-            .setTimestamp();
+        const joiningVoiceLog = !oldState.channelId && newState.channelId;
+        const leavingVoiceLog = oldState.channelId && !newState.channelId;
+        const movingVoiceLog = oldState.channelId && newState.channelId && oldState.channelId !== newState.channelId;
 
-        // Join
-        if (!oldState.channelId && newState.channelId) {
+        if (joiningVoiceLog) {
             stmts.incrementAnalyticsMetric('voice_joins', 'global', 1);
             stmts.incrementAnalyticsMetric('voice_channels', newState.channelId, 1);
-            embed.setColor(config.COLORES.SUCCESS || 0x69F0AE);
-            embed.setDescription(`> 📥 ${newState.member} **entró** al canal de voz <#${newState.channelId}>`);
-        }
-        // Leave
-        else if (oldState.channelId && !newState.channelId) {
+            
+            const logChannel = newState.guild.channels.cache.get(config.CHANNELS.LOGS);
+            if (logChannel) {
+                const timeEntrada = Math.floor(Date.now() / 1000);
+                const embed = new EmbedBuilder()
+                    .setAuthor({ name: '🎙️ Actividad de Voz', iconURL: newState.member.user.displayAvatarURL() })
+                    .setColor(config.COLORES.SUCCESS || 0x69F0AE)
+                    .setDescription(
+                        `> **Usuario:** ${newState.member} (\`${userId}\`)\n` +
+                        `> **Estado:** 🟢 Conectado\n` +
+                        `> **Canal:** <#${newState.channelId}>\n` +
+                        `> **Conectó:** <t:${timeEntrada}:T>`
+                    )
+                    .setFooter({ text: 'Prophet · Log de Voz' })
+                    .setTimestamp();
+                
+                const msg = await logChannel.send({ embeds: [embed] }).catch(() => null);
+                member.client.globalVoiceSessions.set(userId, {
+                    joinedAt: Date.now(),
+                    messageId: msg ? msg.id : null,
+                    history: [`<#${newState.channelId}>`]
+                });
+            } else {
+                member.client.globalVoiceSessions.set(userId, { joinedAt: Date.now(), history: [`<#${newState.channelId}>`] });
+            }
+
+        } else if (leavingVoiceLog) {
             stmts.incrementAnalyticsMetric('voice_leaves', 'global', 1);
-            embed.setColor(config.COLORES.ERROR || 0xEF5350);
-            embed.setDescription(`> 📤 ${newState.member} **salió** del canal de voz <#${oldState.channelId}>`);
-        }
-        // Move
-        else if (oldState.channelId && newState.channelId && oldState.channelId !== newState.channelId) {
+            
+            const session = member.client.globalVoiceSessions.get(userId) || { joinedAt: Date.now(), history: [] };
+            member.client.globalVoiceSessions.delete(userId);
+
+            const durationMs = Date.now() - session.joinedAt;
+            const durationMins = Math.floor(durationMs / 60000);
+            const durationSecs = Math.floor((durationMs % 60000) / 1000);
+            
+            const timeEntrada = Math.floor(session.joinedAt / 1000);
+            const timeSalida = Math.floor(Date.now() / 1000);
+
+            const logChannel = newState.guild.channels.cache.get(config.CHANNELS.LOGS);
+            if (logChannel) {
+                let msg = null;
+                if (session.messageId) {
+                    msg = await logChannel.messages.fetch(session.messageId).catch(() => null);
+                }
+
+                const desc = `> **Usuario:** ${newState.member} (\`${userId}\`)\n` +
+                    `> **Estado:** 🔴 Desconectado\n` +
+                    `> **Último Canal:** <#${oldState.channelId}>\n` +
+                    (session.history && session.history.length > 1 ? `> **Movimientos:** ${session.history.join(' ➔ ')}\n` : '') +
+                    `> **Conectó:** <t:${timeEntrada}:T>\n` +
+                    `> **Desconectó:** <t:${timeSalida}:T>\n` +
+                    `> **Duración:** ${durationMins} min, ${durationSecs} seg`;
+
+                if (msg) {
+                    const embed = EmbedBuilder.from(msg.embeds[0])
+                        .setColor(config.COLORES.INFO || 0x42A5F5)
+                        .setDescription(desc);
+                    await msg.edit({ embeds: [embed] }).catch(() => {});
+                } else {
+                    const embed = new EmbedBuilder()
+                        .setAuthor({ name: '🎙️ Actividad de Voz', iconURL: newState.member.user.displayAvatarURL() })
+                        .setColor(config.COLORES.INFO || 0x42A5F5)
+                        .setDescription(desc)
+                        .setFooter({ text: 'Prophet · Log de Voz' })
+                        .setTimestamp();
+                    await logChannel.send({ embeds: [embed] }).catch(() => {});
+                }
+            }
+
+        } else if (movingVoiceLog) {
             stmts.incrementAnalyticsMetric('voice_moves', 'global', 1);
             stmts.incrementAnalyticsMetric('voice_channels', newState.channelId, 1);
-            embed.setColor(config.COLORES.INFO || 0x42A5F5);
-            embed.setDescription(`> 🔀 ${newState.member} **se movió** de canal de voz\n> De: <#${oldState.channelId}>\n> A: <#${newState.channelId}>`);
-        } else {
-            return; // Muteds, deafens, streams etc.
-        }
+            
+            const session = member.client.globalVoiceSessions.get(userId);
+            if (session) {
+                if (!session.history) session.history = [];
+                session.history.push(`<#${newState.channelId}>`);
+                if (session.history.length > 6) session.history = session.history.slice(-6); // Mantener últimos 6
 
-        logChannel.send({ embeds: [embed] }).catch(() => { });
+                if (session.messageId) {
+                    const logChannel = newState.guild.channels.cache.get(config.CHANNELS.LOGS);
+                    if (logChannel) {
+                        const msg = await logChannel.messages.fetch(session.messageId).catch(() => null);
+                        if (msg) {
+                            const timeEntrada = Math.floor(session.joinedAt / 1000);
+                            const embed = EmbedBuilder.from(msg.embeds[0])
+                                .setColor(config.COLORES.WARNING || 0xFFA726)
+                                .setDescription(
+                                    `> **Usuario:** ${newState.member} (\`${userId}\`)\n` +
+                                    `> **Estado:** 🔀 Cambiando de canal\n` +
+                                    `> **Canal Actual:** <#${newState.channelId}>\n` +
+                                    `> **Movimientos:** ${session.history.join(' ➔ ')}\n` +
+                                    `> **Conectó:** <t:${timeEntrada}:T>`
+                                );
+                            await msg.edit({ embeds: [embed] }).catch(() => {});
+                        }
+                    }
+                }
+            }
+        }
         } catch (err) {
             console.error('[voiceStateUpdate] Error no manejado:', err.message);
         }
