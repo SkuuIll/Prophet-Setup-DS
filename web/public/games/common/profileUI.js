@@ -3,14 +3,19 @@
  */
 (function () {
     function displayNameFromAuth(auth) {
-        if (!auth) return sessionStorage.getItem('prophet_display_name') || 'Miembro';
-        return auth.username
-            || auth.discordUser?.username
-            || auth.discordUser?.global_name
-            || auth.user?.username
-            || auth.user?.global_name
-            || sessionStorage.getItem('prophet_display_name')
-            || 'Miembro';
+        const stored = sessionStorage.getItem('prophet_display_name');
+        if (!auth) return stored || 'Miembro';
+        const candidates = [
+            auth.username,
+            auth.discordUser?.global_name,
+            auth.discordUser?.username,
+            auth.user?.global_name,
+            auth.user?.username,
+            stored
+        ].filter(Boolean);
+        // Preferir nombre real sobre "Demo"
+        const real = candidates.find(n => n && n !== 'Demo' && n !== 'demo_user');
+        return real || stored || 'Miembro';
     }
 
     function avatarUrlFromAuth(auth) {
@@ -34,7 +39,7 @@
     function applyUserToNav(auth) {
         const name = displayNameFromAuth(auth);
         const nameEl = document.getElementById('user-name');
-        if (nameEl) nameEl.textContent = name;
+        if (nameEl && name && name !== 'Demo') nameEl.textContent = name;
 
         const levelEl = document.getElementById('user-level');
         if (levelEl && auth?.level != null) levelEl.textContent = `Nvl ${auth.level || 1}`;
@@ -47,10 +52,17 @@
             balEl.textContent = formatNumber(bal);
         }
 
-        // Avatar pill
+        // Avatar: hub v3 (#user-avatar) o badge legacy
+        const url = avatarUrlFromAuth(auth);
+        const hubAv = document.getElementById('user-avatar');
+        if (hubAv && url) {
+            hubAv.src = url;
+            hubAv.hidden = false;
+            hubAv.alt = name || '';
+        }
+
         const badge = document.querySelector('.prophet-user-badge');
-        if (badge && !badge.querySelector('.user-avatar')) {
-            const url = avatarUrlFromAuth(auth);
+        if (badge && !badge.querySelector('.user-avatar') && !hubAv) {
             if (url) {
                 const img = document.createElement('img');
                 img.className = 'user-avatar';
@@ -62,7 +74,6 @@
             }
         } else if (badge) {
             const img = badge.querySelector('.user-avatar');
-            const url = avatarUrlFromAuth(auth);
             if (img && url) img.src = url;
         }
 

@@ -97,23 +97,15 @@ async function fetchDiscordUser(accessToken) {
 }
 
 /**
- * Flujo completo Activity: code → token → user → game session token.
+ * Asegura fila de usuario en DB y crea sessionToken de juego.
  */
-async function createActivitySession(code, ttlMinutes = 180) {
-    const tokenResult = await exchangeCodeForToken(code);
-    if (!tokenResult.success) return tokenResult;
+function ensureUserAndSession(discordUser, ttlMinutes = 180) {
+    const user = discordUser;
+    const username = user.global_name || user.username || `User_${String(user.id).slice(-4)}`;
 
-    const userResult = await fetchDiscordUser(tokenResult.access_token);
-    if (!userResult.success) return userResult;
-
-    const user = userResult.user;
-    const username = user.global_name || user.username || `User_${user.id.slice(-4)}`;
-
-    // Asegurar usuario en DB del bot
     try {
         const { stmts } = require('../../database');
         if (stmts.getUser && !stmts.getUser(user.id)) {
-            // getOrCreate via atomicModifyBalance / insert simple
             if (stmts.atomicModifyBalance) {
                 stmts.atomicModifyBalance(user.id, 0, 'activity', 'ensure_user', 'Activity bootstrap');
             }
@@ -128,7 +120,6 @@ async function createActivitySession(code, ttlMinutes = 180) {
 
     return {
         success: true,
-        access_token: tokenResult.access_token,
         sessionToken,
         user: {
             id: user.id,
@@ -137,6 +128,41 @@ async function createActivitySession(code, ttlMinutes = 180) {
             avatar: user.avatar,
             global_name: user.global_name
         }
+    };
+}
+
+/**
+ * Crea sesión de juego a partir de un access_token de Discord ya emitido.
+ * Útil cuando el cliente solo obtuvo access_token vía /api/token.
+ */
+async function createSessionFromAccessToken(accessToken, ttlMinutes = 180) {
+    if (!accessToken) return { success: false, error: 'Falta access_token' };
+    const userResult = await fetchDiscordUser(accessToken);
+    if (!userResult.success) return userResult;
+    const session = ensureUserAndSession(userResult.user, ttlMinutes);
+    return {
+        success: true,
+        access_token: accessToken,
+        sessionToken: session.sessionToken,
+        user: session.user
+    };
+}
+
+/**
+ * Flujo completo Activity: code → token → user → game session token.
+ */
+async function createActivitySession(code, ttlMinutes = 180) {
+    const tokenResult = await exchangeCodeForToken(code);
+    if (!tokenResult.success) return tokenResult;
+
+    const session = await createSessionFromAccessToken(tokenResult.access_token, ttlMinutes);
+    if (!session.success) return session;
+
+    return {
+        success: true,
+        access_token: tokenResult.access_token,
+        sessionToken: session.sessionToken,
+        user: session.user
     };
 }
 
@@ -158,5 +184,7 @@ module.exports = {
     exchangeCodeForToken,
     fetchDiscordUser,
     createActivitySession,
+    createSessionFromAccessToken,
+    ensureUserAndSession,
     getPublicConfig
 };

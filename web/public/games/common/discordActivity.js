@@ -8,7 +8,7 @@
  * Ahora se guardan en sessionStorage y se reinyectan en la URL antes del SDK.
  */
 
-import { DiscordSDK } from '/games/vendor/embedded-app-sdk/index.mjs?v=20260811c';
+import { DiscordSDK } from '/games/vendor/embedded-app-sdk/index.mjs?v=20260811h';
 
 const FALLBACK_CLIENT_ID = '1472399458179354808';
 const STORAGE_KEY = 'prophet_discord_embed_params';
@@ -99,6 +99,18 @@ function isDiscordsays() {
 }
 
 /**
+ * En discordsays.com TODAS las llamadas al backend deben ir por /.proxy/
+ * (si no, Discord no reenvía al origin mapeado y el auth cae en Demo).
+ */
+function apiPaths(path) {
+    const p = path.startsWith('/') ? path : `/${path}`;
+    if (isDiscordsays()) {
+        return [`/.proxy${p}`, p];
+    }
+    return [p, `/.proxy${p}`];
+}
+
+/**
  * Navegación entre juegos conservando frame_id y compañía.
  */
 function navigatePreserveEmbed(path) {
@@ -172,19 +184,26 @@ function showError(title, detail) {
 }
 
 async function fetchConfig() {
-    for (const p of ['/api/games/config', '/.proxy/api/games/config']) {
+    for (const p of apiPaths('/api/games/config')) {
         try {
             const res = await fetch(p, { cache: 'no-store' });
             if (res.ok) return await res.json();
-        } catch (_) {}
+            console.warn('[Activity] config fail', p, res.status);
+        } catch (e) {
+            console.warn('[Activity] config err', p, e.message || e);
+        }
     }
     return null;
 }
 
-async function postJson(paths, body) {
+async function postJson(pathOrPaths, body) {
+    const paths = Array.isArray(pathOrPaths)
+        ? pathOrPaths
+        : apiPaths(pathOrPaths);
     let last = null;
     for (const p of paths) {
         try {
+            console.log('[Activity] POST', p);
             const res = await fetch(p, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -192,10 +211,19 @@ async function postJson(paths, body) {
                 cache: 'no-store'
             });
             const data = await res.json().catch(() => ({}));
-            if (res.ok) return data;
+            if (res.ok) {
+                console.log('[Activity] POST OK', p, {
+                    hasAccess: Boolean(data.access_token),
+                    hasSession: Boolean(data.sessionToken),
+                    user: data.user?.username || data.user?.id
+                });
+                return data;
+            }
             last = data.error || `${res.status} ${p}`;
+            console.warn('[Activity] POST fail', p, last);
         } catch (e) {
             last = e.message || String(e);
+            console.warn('[Activity] POST err', p, last);
         }
     }
     throw new Error(last || 'POST failed');
@@ -276,29 +304,52 @@ async function setupActivity() {
             window.__hideActivityBoot('Autorizando…');
         }
 
-        const { code } = await discordSdk.commands.authorize({
-            client_id: String(clientId),
-            response_type: 'code',
-            state: '',
-            prompt: 'none',
-            scope: ['identify', 'guilds', 'applications.commands']
-        });
-
-        let authPayload;
+        // Solo identify es suficiente para nombre/avatar (menos fricción OAuth)
+        const scopes = ['identify', 'guilds', 'applications.commands'];
+        let code = null;
         try {
-            authPayload = await postJson(
-                ['/api/games/activity-auth', '/.proxy/api/games/activity-auth'],
-                { code }
-            );
-        } catch (_) {
-            authPayload = await postJson(
-                ['/api/token', '/.proxy/api/token'],
-                { code }
-            );
+            const authRes = await discordSdk.commands.authorize({
+                client_id: String(clientId),
+                response_type: 'code',
+                state: '',
+                prompt: 'none',
+                scope: scopes
+            });
+            code = authRes?.code;
+        } catch (e1) {
+            console.warn('[Activity] authorize prompt=none falló, reintento…', e1);
+            const authRes = await discordSdk.commands.authorize({
+                client_id: String(clientId),
+                response_type: 'code',
+                state: '',
+                prompt: 'consent',
+                scope: ['identify']
+            });
+            code = authRes?.code;
+        }
+        if (!code) throw new Error('Discord no devolvió OAuth code');
+
+        // Un solo intercambio de code (codes son one-shot). Preferir /.proxy en Activity.
+        let authPayload = null;
+        let lastErr = null;
+        try {
+            authPayload = await postJson('/api/games/activity-auth', { code });
+        } catch (e) {
+            lastErr = e;
+            try {
+                authPayload = await postJson('/api/token', { code });
+            } catch (e2) {
+                lastErr = e2;
+                authPayload = null;
+            }
         }
 
         if (!authPayload || !authPayload.access_token) {
-            throw new Error((authPayload && authPayload.error) || 'Sin access_token');
+            throw new Error(
+                (authPayload && authPayload.error)
+                || (lastErr && lastErr.message)
+                || 'Sin access_token de Discord (OAuth falló)'
+            );
         }
 
         activityAuth = await discordSdk.commands.authenticate({
@@ -306,11 +357,30 @@ async function setupActivity() {
         });
         if (!activityAuth) throw new Error('authenticate() falló');
 
-        if (authPayload.sessionToken) {
-            sessionStorage.setItem('prophet_game_token', authPayload.sessionToken);
+        // Si el backend no mandó sessionToken, mint con access_token
+        if (!authPayload.sessionToken && authPayload.access_token) {
+            try {
+                const minted = await postJson('/api/games/session-from-access', {
+                    access_token: authPayload.access_token
+                });
+                if (minted?.sessionToken) {
+                    authPayload.sessionToken = minted.sessionToken;
+                    authPayload.user = minted.user || authPayload.user;
+                    authPayload.balance = minted.balance ?? authPayload.balance;
+                    authPayload.level = minted.level ?? authPayload.level;
+                }
+            } catch (e) {
+                console.warn('[Activity] No se pudo mint sessionToken', e);
+            }
         }
 
-        // Nombre visible: global_name (display) > username
+        if (authPayload.sessionToken) {
+            sessionStorage.setItem('prophet_game_token', authPayload.sessionToken);
+        } else {
+            sessionStorage.removeItem('prophet_game_token');
+        }
+
+        // Nombre visible: global_name (display) > username del SDK / backend
         const sdkUser = activityAuth.user || {};
         const displayName = (authPayload.user && authPayload.user.username)
             || sdkUser.global_name
@@ -319,9 +389,23 @@ async function setupActivity() {
         const userId = (authPayload.user && authPayload.user.id) || sdkUser.id;
         const avatar = (authPayload.user && authPayload.user.avatar) || sdkUser.avatar || null;
 
+        if (!userId) {
+            throw new Error('Discord no devolvió user.id — no se puede crear sesión');
+        }
+
         sessionStorage.setItem('prophet_display_name', displayName);
-        if (userId) sessionStorage.setItem('prophet_user_id', String(userId));
+        sessionStorage.setItem('prophet_user_id', String(userId));
         if (avatar) sessionStorage.setItem('prophet_avatar', String(avatar));
+
+        console.log('[Activity] auth OK', {
+            userId,
+            displayName,
+            hasSession: Boolean(authPayload.sessionToken)
+        });
+
+        if (typeof window.__hideActivityBoot === 'function') {
+            window.__hideActivityBoot(`Hola, ${displayName}`);
+        }
 
         const err = document.getElementById('prophet-activity-error');
         if (err) err.remove();

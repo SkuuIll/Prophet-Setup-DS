@@ -2,10 +2,10 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Prophet Games Hub — Portal de Juegos</title>
-    <link rel="stylesheet" href="/games/common/theme.css">
-    <link rel="stylesheet" href="/games/hub/hub.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Prophet Games</title>
+    <link rel="stylesheet" href="/games/common/theme.css?v=20260811h">
+    <link rel="stylesheet" href="/games/hub/hub.css?v=20260811h">
     <style>
       #activity-boot {
         position: fixed; inset: 0; z-index: 99990;
@@ -14,9 +14,9 @@
       }
       #activity-boot.hidden { display: none; }
       #activity-boot .spin {
-        width: 36px; height: 36px; border-radius: 50%;
+        width: 32px; height: 32px; border-radius: 50%;
         border: 3px solid rgba(179,136,255,.25); border-top-color: #b388ff;
-        animation: abspin .8s linear infinite;
+        animation: abspin .75s linear infinite;
       }
       @keyframes abspin { to { transform: rotate(360deg); } }
     </style>
@@ -24,11 +24,10 @@
 <body class="hub-body">
     <div id="activity-boot">
         <div class="spin"></div>
-        <div style="font-weight:800;letter-spacing:1px">PROPHET GAMES</div>
-        <div id="activity-boot-msg" style="color:#a89bc4;font-size:.9rem">Iniciando…</div>
+        <div style="font-weight:800;letter-spacing:.5px;font-size:.95rem">Prophet Games</div>
+        <div id="activity-boot-msg" style="color:#a89bc4;font-size:.82rem">Conectando…</div>
     </div>
     <script>
-      // Si la Activity carga este HTML, esto se ve al instante (sin módulos)
       window.__hideActivityBoot = function (msg) {
         var el = document.getElementById('activity-boot');
         if (!el) return;
@@ -40,176 +39,106 @@
         }
       };
       setTimeout(function () {
-        var m = document.getElementById('activity-boot-msg');
-        if (m && m.textContent === 'Iniciando…') m.textContent = 'Conectando con Discord…';
-      }, 2500);
-      // Si fallan los scripts, no dejar pantalla negra eterna
-      setTimeout(function () {
         var el = document.getElementById('activity-boot');
-        if (el && !el.classList.contains('hidden')) {
-          var m = document.getElementById('activity-boot-msg');
-          if (m) m.textContent = 'Cargando hub… (si ves esto, la Activity ya arrancó)';
-          setTimeout(function () { el.classList.add('hidden'); }, 1500);
-        }
-      }, 8000);
+        if (el && !el.classList.contains('hidden')) el.classList.add('hidden');
+      }, 10000);
     </script>
 
     <div class="hub-orbs" aria-hidden="true">
         <span class="orb orb-a"></span>
         <span class="orb orb-b"></span>
-        <span class="orb orb-c"></span>
     </div>
 
-    <header class="prophet-nav">
-        <a href="#" class="prophet-brand">
-            <div class="prophet-logo-glow" style="background: url('/assets/logo.png') center/cover;"></div>
-            <span class="prophet-title">PROPHET GAMES</span>
-        </a>
-        <div class="prophet-user-badge">
-            <div class="prophet-balance-pill">
-                <span class="coin-icon">◈</span>
-                <span id="user-balance">--</span>
+    <!-- Top bar compacta -->
+    <header class="hub-topbar">
+        <div class="hub-brand">
+            <div class="hub-logo" style="background-image:url('/assets/logo.png')"></div>
+            <div class="hub-brand-text">
+                <strong>Prophet</strong>
+                <span>Games</span>
             </div>
-            <div class="user-profile-header">
-                <span id="user-name" class="user-name">Miembro</span>
-                <span id="user-level" class="badge-level">Nvl 1</span>
+        </div>
+        <div class="hub-user" id="hub-user">
+            <img id="user-avatar" class="hub-avatar" alt="" width="32" height="32" hidden>
+            <div class="hub-user-meta">
+                <span id="user-name" class="hub-uname">…</span>
+                <span id="user-level" class="hub-ulevel">Nvl —</span>
+            </div>
+            <div class="hub-coins" title="Monedas">
+                <span class="hub-coin-ico">◈</span>
+                <span id="user-balance">—</span>
             </div>
         </div>
     </header>
 
-    <main class="hub-container">
-        <section class="hub-hero">
-            <div class="hero-badge">PROPHET ARENA · LIVE</div>
-            <p class="hero-greeting" id="hero-greeting">Bienvenido</p>
-            <h1 class="hero-title">
-                <span class="hero-line">Elegí un juego</span>
-                <span class="hero-line accent">y a jugar</span>
-            </h1>
-            <p class="hero-desc">
-                Monedas del server · multijugador · ranking en vivo
-            </p>
-            <div class="hero-stats">
-                <div class="hero-stat">
-                    <strong>5</strong>
-                    <span>Juegos</span>
-                </div>
-                <div class="hero-stat-divider"></div>
-                <div class="hero-stat">
-                    <strong id="hero-balance">—</strong>
-                    <span>Balance</span>
-                </div>
+    <main class="hub-main">
+        <!-- Greeting strip (sin números enormes) -->
+        <section class="hub-welcome">
+            <div class="welcome-left">
+                <p class="welcome-hi" id="hero-greeting">Bienvenido</p>
+                <h1 class="welcome-title">¿A qué jugamos?</h1>
+            </div>
+            <div class="welcome-right">
+                <span class="status-pill" id="conn-status">Conectando…</span>
             </div>
         </section>
 
-        <section class="games-section">
-            <div class="section-header">
-                <div>
-                    <h2 class="section-title">Catálogo</h2>
-                    <p class="section-sub">Tocá una carta para entrar</p>
-                </div>
-                <span class="section-badge">● ONLINE</span>
-            </div>
+        <!-- Games as compact tiles -->
+        <section class="hub-games" aria-label="Juegos">
+            <a class="g-tile t-tycoon" data-href="/games/tycoon/" href="/games/tycoon/">
+                <span class="g-ico">◆</span>
+                <span class="g-body">
+                    <span class="g-name">Tycoon</span>
+                    <span class="g-tag">Idle · servers</span>
+                </span>
+                <span class="g-go">→</span>
+            </a>
 
-            <div class="games-grid">
-                <article class="game-card theme-tycoon" data-href="/games/tycoon/">
-                    <div class="card-bg-art"></div>
-                    <div class="card-top">
-                        <span class="card-tag">IDLE / CLICKER</span>
-                        <span class="card-live">JUGAR</span>
-                    </div>
-                    <div class="card-icon-wrap">
-                        <div class="card-icon">◆</div>
-                    </div>
-                    <h3 class="card-title">Tycoon de Servidores</h3>
-                    <p class="card-desc">Montá un datacenter de CS2, PUBG y Rust. Producción pasiva 24/7 y upgrades de staff.</p>
-                    <div class="card-footer">
-                        <span class="card-meta">Progresión idle</span>
-                        <span class="btn-play">Entrar →</span>
-                    </div>
-                </article>
+            <a class="g-tile t-casino" data-href="/games/casino/" href="/games/casino/">
+                <span class="g-ico">◈</span>
+                <span class="g-body">
+                    <span class="g-name">Casino</span>
+                    <span class="g-tag">Crash · Ruleta · Cajas</span>
+                </span>
+                <span class="g-go">→</span>
+            </a>
 
-                <article class="game-card theme-casino" data-href="/games/casino/">
-                    <div class="card-bg-art"></div>
-                    <div class="card-top">
-                        <span class="card-tag">APUESTAS</span>
-                        <span class="card-live">JUGAR</span>
-                    </div>
-                    <div class="card-icon-wrap">
-                        <div class="card-icon">◈</div>
-                    </div>
-                    <h3 class="card-title">Casino Prophet</h3>
-                    <p class="card-desc">Crash Aviator provably fair, ruleta europea y cajas CS2 con carrete animado.</p>
-                    <div class="card-footer">
-                        <span class="card-meta">Crash · Ruleta · Cajas</span>
-                        <span class="btn-play">Entrar →</span>
-                    </div>
-                </article>
+            <a class="g-tile t-cards" data-href="/games/cards/" href="/games/cards/">
+                <span class="g-ico">♠</span>
+                <span class="g-body">
+                    <span class="g-name">Cartas</span>
+                    <span class="g-tag">Truco · UNO · BJ</span>
+                </span>
+                <span class="g-go">→</span>
+            </a>
 
-                <article class="game-card theme-trivia" data-href="/games/trivia/">
-                    <div class="card-bg-art"></div>
-                    <div class="card-top">
-                        <span class="card-tag">PARTY</span>
-                        <span class="card-live">JUGAR</span>
-                    </div>
-                    <div class="card-icon-wrap">
-                        <div class="card-icon">★</div>
-                    </div>
-                    <h3 class="card-title">Trivia Party</h3>
-                    <p class="card-desc">Competencias estilo Kahoot de gaming y comunidad. El más rápido se lleva el pozo.</p>
-                    <div class="card-footer">
-                        <span class="card-meta">Multijugador en vivo</span>
-                        <span class="btn-play">Entrar →</span>
-                    </div>
-                </article>
+            <a class="g-tile t-trivia" data-href="/games/trivia/" href="/games/trivia/">
+                <span class="g-ico">★</span>
+                <span class="g-body">
+                    <span class="g-name">Trivia</span>
+                    <span class="g-tag">Party en vivo</span>
+                </span>
+                <span class="g-go">→</span>
+            </a>
 
-                <article class="game-card theme-cards" data-href="/games/cards/">
-                    <div class="card-bg-art"></div>
-                    <div class="card-top">
-                        <span class="card-tag">CARTAS</span>
-                        <span class="card-live">JUGAR</span>
-                    </div>
-                    <div class="card-icon-wrap">
-                        <div class="card-icon">♠</div>
-                    </div>
-                    <h3 class="card-title">Truco · UNO · BJ</h3>
-                    <p class="card-desc">Truco argentino con cantos, UNO clásico 2–6 jugadores (+4/challenge) y Blackjack 21. Pozos de monedas.</p>
-                    <div class="card-footer">
-                        <span class="card-meta">Truco · UNO · Blackjack</span>
-                        <span class="btn-play">Entrar →</span>
-                    </div>
-                </article>
-
-                <article class="game-card theme-survivor featured" data-href="/games/survivor/">
-                    <div class="card-bg-art"></div>
-                    <div class="card-top">
-                        <span class="card-tag">ARCADE</span>
-                        <span class="card-live">JUGAR</span>
-                    </div>
-                    <div class="card-icon-wrap">
-                        <div class="card-icon">◎</div>
-                    </div>
-                    <h3 class="card-title">Prophet Survivor</h3>
-                    <p class="card-desc">Roguelite top-down a 60 FPS. Oleadas, upgrades, jefes y monedas según tu récord.</p>
-                    <div class="card-footer">
-                        <span class="card-meta">Canvas 2D · WASD / touch</span>
-                        <span class="btn-play">Entrar →</span>
-                    </div>
-                </article>
-            </div>
+            <a class="g-tile t-survivor featured" data-href="/games/survivor/" href="/games/survivor/">
+                <span class="g-ico">◎</span>
+                <span class="g-body">
+                    <span class="g-name">Survivor</span>
+                    <span class="g-tag">Arcade · oleadas · bosses</span>
+                </span>
+                <span class="g-chip">HOT</span>
+                <span class="g-go">→</span>
+            </a>
         </section>
 
-        <footer class="hub-footer">
-            <span>Prophet Bot · Economía unificada con Discord</span>
-            <span class="hub-footer-dot">·</span>
-            <span id="conn-status" class="conn-status">Conectando…</span>
-        </footer>
+        <p class="hub-hint">Monedas virtuales del server · sin dinero real</p>
     </main>
 
-        <!-- Discord Activities (Embedded App SDK) -->
-    <script type="module" src="/games/common/discordActivity.js?v=20260811d"></script>
-    <script src="/games/common/utils.js?v=20260811d"></script>
-    <script src="/games/common/profileUI.js?v=20260811d"></script>
-    <script src="/games/common/api.js?v=20260811d"></script>
-    <script src="/games/hub/hub.js?v=20260811d"></script>
+    <script type="module" src="/games/common/discordActivity.js?v=20260811h"></script>
+    <script src="/games/common/utils.js?v=20260811h"></script>
+    <script src="/games/common/profileUI.js?v=20260811h"></script>
+    <script src="/games/common/api.js?v=20260811h"></script>
+    <script src="/games/hub/hub.js?v=20260811h"></script>
 </body>
 </html>

@@ -85,6 +85,12 @@ const server = http.createServer(async (req, res) => {
 
     const parsedUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
     let pathname = parsedUrl.pathname;
+    // Discord Activities: requests vía /.proxy/* → normalizar al path real
+    if (pathname.startsWith('/.proxy/')) {
+        pathname = pathname.slice('/.proxy'.length) || '/';
+    } else if (pathname === '/.proxy') {
+        pathname = '/';
+    }
 
     // Log útil para depurar launches de Activity (sin body/secretos)
     if (!pathname.match(/\.(css|js|mjs|png|jpg|svg|ico|woff2?)$/i)) {
@@ -97,17 +103,25 @@ const server = http.createServer(async (req, res) => {
     }
 
     // ─── API: OAuth token exchange (Discord Activities) ───
-    // Discord tutorial usa POST /api/token
+    // Devuelve SIEMPRE sessionToken + user (no solo access_token) para no caer en demo.
     if ((pathname === '/api/token' || pathname === '/.proxy/api/token'
         || pathname === '/api/games/token' || pathname === '/.proxy/api/games/token')
         && req.method === 'POST') {
         try {
             const data = await readJsonBody(req);
-            const result = await DiscordActivityAuth.exchangeCodeForToken(data.code);
+            const result = await DiscordActivityAuth.createActivitySession(data.code, data.ttlMinutes || 180);
             if (!result.success) {
                 return sendJson(res, 400, { error: result.error });
             }
-            return sendJson(res, 200, { access_token: result.access_token });
+            const eco = EconomyBridge.getUserBalance(result.user.id);
+            return sendJson(res, 200, {
+                access_token: result.access_token,
+                sessionToken: result.sessionToken,
+                user: result.user,
+                balance: eco.balance,
+                bank: eco.bank,
+                level: eco.level
+            });
         } catch (e) {
             return sendJson(res, 400, { error: e.message || 'Error OAuth' });
         }
@@ -134,6 +148,32 @@ const server = http.createServer(async (req, res) => {
         } catch (e) {
             console.error('activity-auth error:', e);
             return sendJson(res, 500, { error: e.message || 'Error de autenticación Activity' });
+        }
+    }
+
+    // ─── API: mint session from existing Discord access_token ───
+    if ((pathname === '/api/games/session-from-access' || pathname === '/.proxy/api/games/session-from-access')
+        && req.method === 'POST') {
+        try {
+            const data = await readJsonBody(req);
+            const result = await DiscordActivityAuth.createSessionFromAccessToken(
+                data.access_token || data.accessToken,
+                data.ttlMinutes || 180
+            );
+            if (!result.success) {
+                return sendJson(res, 400, { error: result.error });
+            }
+            const eco = EconomyBridge.getUserBalance(result.user.id);
+            return sendJson(res, 200, {
+                sessionToken: result.sessionToken,
+                access_token: result.access_token,
+                user: result.user,
+                balance: eco.balance,
+                bank: eco.bank,
+                level: eco.level
+            });
+        } catch (e) {
+            return sendJson(res, 500, { error: e.message || 'Error creando sesión' });
         }
     }
 
@@ -261,7 +301,8 @@ const server = http.createServer(async (req, res) => {
 const wss = new WebSocket.Server({ noServer: true });
 
 server.on('upgrade', (request, socket, head) => {
-    const { pathname } = new URL(request.url, `http://${request.headers.host || 'localhost'}`);
+    let { pathname } = new URL(request.url, `http://${request.headers.host || 'localhost'}`);
+    if (pathname.startsWith('/.proxy/')) pathname = pathname.slice('/.proxy'.length) || '/';
     if (pathname === '/ws' || pathname === '/.proxy/ws') {
         wss.handleUpgrade(request, socket, head, (ws) => {
             wss.emit('connection', ws, request);
@@ -333,54 +374,86 @@ wss.on('connection', (ws) => {
 
             // 1. Autenticación Inicial
             if (data.type === 'auth') {
-                const session = AuthManager.validateToken(data.token);
+                const rawToken = data.token;
+                const session = AuthManager.validateToken(rawToken);
+
+                // Cliente puede mandar username de Discord como hint (no confiable para id)
+                const clientHintName = (data.username || data.displayName || '').toString().slice(0, 64);
+
+                console.log('[WS auth]', {
+                    tokenKind: !rawToken ? 'empty'
+                        : rawToken === 'demo_token' ? 'demo'
+                        : session ? 'valid_session' : 'invalid_session',
+                    hint: clientHintName || null,
+                    userId: session?.userId || null
+                });
+
                 if (!session) {
-                    // Demo mode: allow local testing without Discord token
-                    if (data.token === 'demo_token' || !data.token) {
+                    // Demo solo si el cliente lo pide explícitamente (browser local)
+                    if (rawToken === 'demo_token' || !rawToken) {
+                        const demoName = clientHintName && clientHintName !== 'Demo'
+                            ? clientHintName
+                            : 'Demo';
                         sessionUser = {
                             userId: 'demo_user',
-                            username: 'Demo',
-                            user: { id: 'demo_user', username: 'Demo' }
+                            username: demoName,
+                            user: { id: 'demo_user', username: demoName }
                         };
                         ws.userId = 'demo_user';
                         ws.send(JSON.stringify({
                             type: 'auth_success',
                             userId: 'demo_user',
-                            username: 'Demo',
+                            username: demoName,
                             user: sessionUser.user,
                             balance: 10000,
                             bank: 0,
                             level: 1,
-                            demo: true
+                            demo: true,
+                            needsRealAuth: true
                         }));
                         return;
                     }
-                    ws.send(JSON.stringify({ type: 'auth_error', message: 'Token de sesión inválido o expirado' }));
+                    ws.send(JSON.stringify({
+                        type: 'auth_error',
+                        message: 'Token de sesión inválido o expirado. Reabrí la Activity.'
+                    }));
                     return;
                 }
-                const displayName = session.username
-                    || session.user?.username
-                    || `Jugador_${String(session.userId).slice(-4)}`;
+
+                // Actualizar meta de sesión si el cliente manda nombre real
+                if (clientHintName && clientHintName !== 'Demo' && !/^Jugador_/.test(clientHintName)) {
+                    AuthManager.setSessionMeta(rawToken, {
+                        username: clientHintName,
+                        avatar: data.avatar || null
+                    });
+                }
+
+                const refreshed = AuthManager.validateToken(rawToken) || session;
+                const displayName = refreshed.username
+                    || refreshed.user?.username
+                    || clientHintName
+                    || `Jugador_${String(refreshed.userId).slice(-4)}`;
                 sessionUser = {
-                    ...session,
+                    ...refreshed,
                     username: displayName,
-                    avatar: session.avatar || session.user?.avatar || null
+                    avatar: refreshed.avatar || refreshed.user?.avatar || data.avatar || null
                 };
-                ws.userId = session.userId;
-                const balanceData = EconomyBridge.getUserBalance(session.userId);
+                ws.userId = refreshed.userId;
+                const balanceData = EconomyBridge.getUserBalance(refreshed.userId);
                 ws.send(JSON.stringify({
                     type: 'auth_success',
-                    userId: session.userId,
+                    userId: refreshed.userId,
                     username: displayName,
                     avatar: sessionUser.avatar,
                     user: {
-                        id: session.userId,
+                        id: refreshed.userId,
                         username: displayName,
                         avatar: sessionUser.avatar
                     },
                     balance: balanceData.balance,
                     bank: balanceData.bank,
-                    level: balanceData.level
+                    level: balanceData.level,
+                    demo: false
                 }));
                 return;
             }
