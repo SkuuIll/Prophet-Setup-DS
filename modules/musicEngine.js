@@ -581,6 +581,10 @@ module.exports = async function inicializarMusica(client) {
         // ─── Evento: Track agregado a la cola ───
         client.player.events.on('audioTrackAdd', (queue, track) => {
             if (!queue.metadata?.channel) return;
+            // Evitar spam: Si no hay nada reproduciéndose, saltamos este mensaje
+            // porque inmediatamente se disparará el evento 'playerStart'
+            if (!queue.currentTrack) return;
+
 
             const tracks = queue.tracks.toArray();
             const position = tracks.findIndex(t => t.id === track.id) + 1;
@@ -613,6 +617,8 @@ module.exports = async function inicializarMusica(client) {
         // ─── Evento: Playlist agregada a la cola ───
         client.player.events.on('audioTracksAdd', (queue, tracks) => {
             if (!queue.metadata?.channel || !tracks.length) return;
+            // Evitar spam si es la primera canción
+            if (!queue.currentTrack) return;
             const playlist = tracks[0].playlist;
             const title = playlist?.title || 'Selección de música';
             const embed = new EmbedBuilder()
