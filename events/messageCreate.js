@@ -359,8 +359,8 @@ module.exports = {
                 }
             }
 
-            // Enviar al canal de bienvenida/general, no en el canal donde escribió
-            const levelUpChannel = message.guild.channels.cache.get(config.CHANNELS.BIENVENIDOS)
+            // Enviar al canal de roles/niveles, no en el canal donde escribió ni en bienvenidos
+            const levelUpChannel = message.guild.channels.cache.get(config.CHANNELS.ROLES)
                 || message.guild.channels.cache.get(config.CHANNELS.CHAT);
             if (levelUpChannel) {
                 levelUpChannel.send({ embeds: [embed] }).catch(() => {});

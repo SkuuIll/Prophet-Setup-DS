@@ -26,7 +26,8 @@ module.exports = {
             const { trackLevel } = require('../modules/profileSystem');
             trackLevel(member.id, resultado.nuevoNivel);
 
-            const chatChannel = guild.channels.cache.get(config.CHANNELS.BIENVENIDOS)
+            // Enviar al canal de roles/niveles, no a bienvenidos
+            const chatChannel = guild.channels.cache.get(config.CHANNELS.ROLES)
                 || guild.channels.cache.get(config.CHANNELS.CHAT);
             if (!chatChannel) return;
 
@@ -322,21 +323,26 @@ module.exports = {
             }
         }
 
-        // 3. Si salió del canal: borrar temporales vacíos usando la DB de referencia
+        // 3. Si salió del canal: borrar ÚNICAMENTE canales temporales vacíos
         if (oldState.channelId) {
             const leftChannel = oldState.channel;
             if (leftChannel && leftChannel.members.size === 0) {
-                // Verificar si es un canal temporal registrado en la DB
-                if (stmts.isTempChannel(leftChannel.id)) {
+                const isRegisteredTemp = stmts.isTempChannel(leftChannel.id);
+                const isTempByName = leftChannel.name.startsWith('🔊 Sala de') || leftChannel.name.startsWith('🔊 Sala ');
+
+                // NUNCA borrar canales permanentes fijos del servidor
+                const isPermanent = leftChannel.id === generatorId ||
+                    leftChannel.name.includes('Lobby') ||
+                    leftChannel.name.includes('VIP') ||
+                    leftChannel.name.includes('AFK') ||
+                    leftChannel.name.includes('Staff');
+
+                if (!isPermanent && (isRegisteredTemp || isTempByName)) {
                     stmts.removeTempChannel(leftChannel.id);
                     stmts.incrementAnalyticsMetric('temp_channels_deleted', 'global', 1);
                     leftChannel.delete('Canal de voz temporal vacío').catch(() => { });
-                } else if (leftChannel.parentId === categoryId && leftChannel.id !== generatorId) {
-                    // Fallback: si está en la categoría de temporales pero no está en DB (restart)
-                    stmts.incrementAnalyticsMetric('temp_channels_deleted', 'global', 1);
-                    leftChannel.delete('Canal de voz temporal vacío (sin registro DB)').catch(() => { });
                 } else {
-                    // Canal normal vacío: limpiar su status con delay para evitar rate limits
+                    // Canal permanente normal vacío: limpiar su status con delay
                     setTimeout(async () => {
                         try {
                             await oldState.client.rest.put(`/channels/${leftChannel.id}/voice-status`, {

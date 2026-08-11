@@ -53,7 +53,7 @@ async function sendModResponse({ interaction, target, action, reason, emoji, col
     await interaction.reply({ embeds: [embed], flags: isEphemeral !== false ? 64 : 0 });
 
     const logsChannel = interaction.guild.channels.cache.get(config.CHANNELS.LOGS);
-    const reportsChannel = interaction.guild.channels.cache.get(config.CHANNELS.REPORTES);
+    const reportsChannel = interaction.guild.channels.cache.get(config.CHANNELS.LOGS);
 
     if (logsChannel) await logsChannel.send({ embeds: [embed] }).catch(() => { });
     if (reportsChannel && reportsChannel.id !== logsChannel?.id) {

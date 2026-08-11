@@ -289,7 +289,7 @@ module.exports = {
                         );
 
                         // Enviar SOLO al canal de reportes
-                        const reportChannel = interaction.guild?.channels.cache.get(config.CHANNELS.REPORTES)
+                        const reportChannel = interaction.guild?.channels.cache.get(config.CHANNELS.LOGS)
                             || interaction.guild?.channels.cache.find(c => c.name.toLowerCase().includes('reporte') && c.isTextBased());
 
                         if (reportChannel) {

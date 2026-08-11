@@ -312,4 +312,119 @@ async function generarBienvenida(member) {
     return canvas.toBuffer();
 }
 
-module.exports = { generarTarjetaNivel, generarBienvenida };
+/**
+ * Genera tarjeta de DESPEDIDA premium
+ */
+async function generarDespedida(member) {
+    const W = 1000, H = 500;
+    const canvas = createCanvas(W, H);
+    const ctx = canvas.getContext('2d');
+
+    // ── Fondo con degradado ──
+    const grad = ctx.createLinearGradient(0, 0, W, H);
+    grad.addColorStop(0, '#0E0914');
+    grad.addColorStop(0.5, '#1E0B1A');
+    grad.addColorStop(1, '#0E0914');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, W, H);
+
+    // ── Partículas decorativas ──
+    const particles = [
+        { x: 100, y: 100, r: 70, c: 'rgba(255,82,82,0.12)' },
+        { x: 900, y: 380, r: 85, c: 'rgba(187,134,252,0.10)' },
+        { x: 500, y: 440, r: 50, c: 'rgba(255,82,82,0.08)' },
+    ];
+    for (const p of particles) {
+        const rg = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r);
+        rg.addColorStop(0, p.c);
+        rg.addColorStop(1, 'transparent');
+        ctx.fillStyle = rg;
+        ctx.fillRect(p.x - p.r, p.y - p.r, p.r * 2, p.r * 2);
+    }
+
+    // ── Panel central translúcido ──
+    ctx.save();
+    roundRect(ctx, W / 2 - 370, 15, 740, H - 30, 24);
+    ctx.fillStyle = 'rgba(13,13,21,0.78)';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,82,82,0.35)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    ctx.restore();
+
+    // ── Avatar con glow ──
+    const AX = W / 2, AY = 168, AR = 90;
+
+    ctx.save();
+    ctx.shadowColor = '#FF5252';
+    ctx.shadowBlur = 35;
+    ctx.beginPath();
+    ctx.arc(AX, AY, AR + 10, 0, Math.PI * 2);
+    const aGrad = ctx.createLinearGradient(AX - AR, AY - AR, AX + AR, AY + AR);
+    aGrad.addColorStop(0, '#FF5252');
+    aGrad.addColorStop(1, '#BB86FC');
+    ctx.strokeStyle = aGrad;
+    ctx.lineWidth = 5;
+    ctx.stroke();
+    ctx.restore();
+
+    ctx.save();
+    clipCircle(ctx, AX, AY, AR);
+    try {
+        const avatar = await loadImage(member.user.displayAvatarURL({ extension: 'png', size: 256 }));
+        ctx.drawImage(avatar, AX - AR, AY - AR, AR * 2, AR * 2);
+    } catch {
+        const fb = ctx.createLinearGradient(AX - AR, AY - AR, AX + AR, AY + AR);
+        fb.addColorStop(0, '#FF5252');
+        fb.addColorStop(1, '#BB86FC');
+        ctx.fillStyle = fb;
+        ctx.fillRect(AX - AR, AY - AR, AR * 2, AR * 2);
+    }
+    ctx.restore();
+
+    // ── Texto "¡HASTA LUEGO!" ──
+    ctx.textAlign = 'center';
+    ctx.shadowColor = '#FF5252';
+    ctx.shadowBlur = 15;
+    ctx.fillStyle = '#FF5252';
+    ctx.font = 'bold 22px sans-serif';
+    ctx.fillText('✦  ¡HASTA LUEGO!  ✦', AX, 290);
+    ctx.shadowBlur = 0;
+
+    // ── Username grande ──
+    ctx.fillStyle = THEME.text;
+    ctx.font = 'bold 46px sans-serif';
+    let uname = member.user.username;
+    while (ctx.measureText(uname).width > 680 && uname.length > 3) uname = uname.slice(0, -1);
+    if (uname !== member.user.username) uname += '…';
+    ctx.fillText(uname, AX, 345);
+
+    // ── Subtítulo "servidor · miembros restantes" ──
+    ctx.fillStyle = THEME.sub;
+    ctx.font = '22px sans-serif';
+    ctx.fillText(`Prophet Gaming  ·  Ahora somos ${member.guild.memberCount.toLocaleString()} miembros`, AX, 385);
+
+    // ── Línea decorativa inferior ──
+    ctx.save();
+    const lineGrad = ctx.createLinearGradient(AX - 200, 0, AX + 200, 0);
+    lineGrad.addColorStop(0, 'transparent');
+    lineGrad.addColorStop(0.5, '#FF5252');
+    lineGrad.addColorStop(1, 'transparent');
+    ctx.strokeStyle = lineGrad;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(AX - 200, 408);
+    ctx.lineTo(AX + 200, 408);
+    ctx.stroke();
+    ctx.restore();
+
+    // ── Hint inferior ──
+    ctx.fillStyle = 'rgba(176,176,192,0.75)';
+    ctx.font = '17px sans-serif';
+    ctx.fillText('¡Gracias por haber sido parte de la comunidad! 👋', AX, 440);
+
+    ctx.textAlign = 'left';
+    return canvas.toBuffer();
+}
+
+module.exports = { generarTarjetaNivel, generarBienvenida, generarDespedida };
