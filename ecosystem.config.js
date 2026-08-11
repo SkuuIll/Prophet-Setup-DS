@@ -1,4 +1,4 @@
-// ═══ PM2 Ecosystem — Prophet Bot v2.9 ═══
+// ═══ PM2 Ecosystem — Prophet Bot v3.0 ═══
 
 module.exports = {
     apps: [{

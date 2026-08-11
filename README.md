@@ -396,60 +396,80 @@ pm2 monit                 # Monitor CPU/RAM
 ProphetBot/
 │
 ├── 📁 assets/                  # Recursos visuales
-│   ├── banner.png              # Banner del servidor (usado en welcome card)
-│   └── logo.png                # Logo del bot
+│   ├── banner.png              # Banner del servidor (welcome card)
+│   ├── logo.png                # Logo del bot
+│   ├── music_banner.png        # Banner del reproductor
+│   └── 📁 sounds/             # Sonidos para /bardeo y /confesion
 │
-├── 📁 commands/                # 97 Slash Commands
-│   ├── 📁 admin/      (12)    # Setup de tickets, counting, roles, boost
-│   ├── 📁 economy/    (10)    # Balance, daily, work, gamble, shop, pay, bank
-│   ├── 📁 fun/        (10)    # 8ball, coinflip, rps, tictactoe, blackjack
-│   ├── 📁 gaming/      (2)    # PUBG, CS2 stats
-│   ├── 📁 levels/      (2)    # Nivel individual y leaderboard
-│   ├── 📁 mod/         (9)    # Ban, kick, mute, warn, clear, purge, tempban
-│   ├── 📁 music/      (10)    # Play, queue, skip, stop, volumen, Lavalink
-│   └── 📁 utility/    (42)    # Ping, recordatorio, hilo, calc, color, qr, IA, etc.
+├── 📁 commands/                # 100 Slash Commands (10 carpetas)
+│   ├── 📁 admin/      (14)    # Setup de tickets, voz, roles, Twitch, YouTube
+│   ├── 📁 context/     (3)    # Menús de clic derecho (reportar, perfil, coins)
+│   ├── 📁 economy/     (9)    # Balance, daily, work, gamble, shop, pay, bank
+│   ├── 📁 fun/        (14)    # 8ball, coinflip, rps, tictactoe, blackjack, meme
+│   ├── 📁 gaming/      (5)    # Steam, LoL, VALORANT, CS2, PUBG stats
+│   ├── 📁 mod/         (9)    # Ban, kick, mute, warn, purge, tempban
+│   ├── 📁 music/       (9)    # Play, queue, skip, stop, volumen, filter
+│   ├── 📁 profile/     (6)    # Perfil, nivel, ranking, misiones, premium, rep
+│   └── 📁 utility/    (31)    # Ping, recordatorio, calc, color, qr, IA, etc.
 │
-├── 📁 events/                  # 16 Event Handlers
+├── 📁 events/                  # 17 Event Handlers
 │   ├── guildMemberAdd.js       # Bienvenida canvas + anti-raid + boost rewards
 │   ├── guildMemberUpdate.js    # Boost rewards + log de roles/apodos
 │   ├── interactionCreate.js    # Router de slash commands y botones
 │   ├── messageCreate.js        # XP, AFK, anti-spam, auto-mod, counting
 │   ├── messageDelete.js        # Log + snipe
-│   └── voiceStateUpdate.js     # Canales dinámicos + estados gaming
+│   ├── voiceStateUpdate.js     # Canales dinámicos + estados gaming + logs
+│   └── ...                     # +11 event handlers más
 │
-├── 📁 modules/                 # 25 Módulos de lógica
+├── 📁 modules/                 # 30 Módulos de lógica
+│   ├── musicEngine.js          # Motor de música (discord-player + Shoukaku)
 │   ├── antispam.js             # Anti-spam (10 filtros), anti-raid
 │   ├── leveling.js             # Cálculo de XP, niveles y roles
-│   ├── giveaways.js            # Sistema de sorteos
-│   ├── tickets.js              # Tickets de soporte
-│   ├── semanticSearch.js       # Búsqueda IA en historial
-│   ├── steamIntegration.js     # API de Steam
-│   ├── riotIntegration.js      # API de Riot Games (LoL)
-│   ├── calendarIntegration.js  # Sistema de eventos
-│   ├── paymentSystem.js        # Mercado Pago
-│   └── ...                     # Más módulos
+│   ├── trollNicknames.js       # Sistema de apodos trol argentinos
+│   ├── profileSystem.js        # Badges, achievements, quests
+│   ├── aiChat.js               # Chat con IA (Gemini)
+│   ├── twitchMonitor.js        # Monitor de streams en vivo
+│   ├── youtubeMonitor.js       # Monitor de videos nuevos
+│   ├── gameServerMonitor.js    # Monitor de servidores de juegos
+│   └── ...                     # +21 módulos más
+│
+├── 📁 scripts/                 # 29 Scripts one-shot y herramientas
+│   ├── deploy.sh               # Deploy automatizado
+│   ├── auto_update.sh          # Auto-update con git pull
+│   ├── backup_database.js      # Backup de SQLite
+│   ├── send_staff_commands.js  # Postea guía de comandos en staff
+│   ├── update_bot_channel.js   # Actualiza canal de comandos
+│   └── ...                     # +24 scripts más
+│
+├── 📁 test/                    # 7 Tests unitarios
+│   ├── musicResolver.test.js   # Tests del resolver de música
+│   ├── trollNicknames.test.js  # Tests del sistema trol
+│   └── ...                     # +5 tests más
+│
+├── 📁 utils/                   # 10 Utilidades compartidas
+│   ├── canvas.js               # Tarjetas de nivel + welcome card premium
+│   ├── musicResolver.js        # Resolver de URLs de música
+│   ├── PaginationBuilder.js    # Paginación de embeds
+│   └── ...                     # +7 utilidades más
 │
 ├── 📁 web/                     # Dashboard web interno
 │   ├── server.js               # Servidor HTTP Express
-│   ├── dashboardState.js       # Estado del dashboard
-│   ├── security.js             # Sistema de seguridad
-│   └── ...                     # Más archivos web
+│   ├── secureServer.js         # Servidor seguro con JWT/RBAC
+│   ├── security.js             # Sistema de seguridad completo
+│   └── ...                     # +4 archivos web
 │
-├── 📁 Lavalink/                # Servidor de música
+├── 📁 Lavalink/                # Servidor de audio
 │   ├── Lavalink.jar            # Servidor Lavalink
 │   └── application.yml         # Configuración
-│
-├── 📁 utils/
-│   ├── canvas.js               # Tarjetas de nivel + welcome card premium
-│   └── runtimeConfig.js        # Configuración runtime
 │
 ├── 📁 data/                    # Datos persistentes (gitignored)
 │   └── prophet.sqlite          # Base de datos SQLite
 │
 ├── ⚙️ config.js                # IDs de canales, roles, colores, economía
 ├── 💾 database.js              # Motor SQLite con migraciones y WAL
-├── 🚀 index.js                 # Entry point + Event Router
-├── 📦 ecosystem.config.js      # Config PM2 para producción
+├── 🚀 index.js                 # Entry point — ProphetBot (bot principal)
+├── 🎵 music_bot.js             # Entry point — ProphetMusic (bot de música)
+├── 📦 ecosystem.config.js      # Config PM2 (3 procesos: Bot + Lavalink + Music)
 └── 📦 package.json             # Dependencias
 ```
 
