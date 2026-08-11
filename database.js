@@ -391,6 +391,14 @@ db.exec(`
         use_count INTEGER DEFAULT 0,
         created_at INTEGER
     );
+
+    CREATE TABLE IF NOT EXISTS troll_nicknames (
+        user_id TEXT PRIMARY KEY,
+        original_nickname TEXT,
+        last_troll_nickname TEXT,
+        last_applied INTEGER NOT NULL DEFAULT 0,
+        applied_count INTEGER NOT NULL DEFAULT 0
+    );
 `);
 
 // ─── COLUMN MIGRATIONS (safe, idempotent) ───
@@ -1520,6 +1528,31 @@ const stmts = {
             INSERT INTO guild_settings (guild_id, music_volume) VALUES (?, ?)
             ON CONFLICT(guild_id) DO UPDATE SET music_volume = excluded.music_volume
         `).run(guildId, volume);
+    },
+
+    // ─── APODOS TROL / TÓXICOS ARGENTINOS (Nivel 10+) ───
+    getTrollNickData(userId) {
+        return db.prepare('SELECT * FROM troll_nicknames WHERE user_id = ?').get(userId) || null;
+    },
+    saveTrollNickData(userId, originalNickname, trollNickname, timestamp = Date.now()) {
+        const existing = db.prepare('SELECT * FROM troll_nicknames WHERE user_id = ?').get(userId);
+        const original = existing?.original_nickname !== undefined && existing?.original_nickname !== null
+            ? existing.original_nickname
+            : originalNickname;
+        const count = (existing?.applied_count || 0) + 1;
+
+        db.prepare(`
+            INSERT INTO troll_nicknames (user_id, original_nickname, last_troll_nickname, last_applied, applied_count)
+            VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT(user_id) DO UPDATE SET
+                original_nickname = COALESCE(troll_nicknames.original_nickname, excluded.original_nickname),
+                last_troll_nickname = excluded.last_troll_nickname,
+                last_applied = excluded.last_applied,
+                applied_count = troll_nicknames.applied_count + 1
+        `).run(userId, original, trollNickname, timestamp, count);
+    },
+    removeTrollNickData(userId) {
+        return db.prepare('DELETE FROM troll_nicknames WHERE user_id = ?').run(userId);
     }
 };
 

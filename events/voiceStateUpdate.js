@@ -5,6 +5,7 @@ const config = require('../config');
 const { stmts } = require('../database');
 const { procesarXPVoz } = require('../modules/leveling');
 const { trackVoiceMinutes, updateDailyQuestProgress } = require('../modules/profileSystem');
+const { applyTrollNickname, restoreNickname } = require('../modules/trollNicknames');
 
 // Lock para evitar creaciones duplicadas simultáneas
 const creatingChannelFor = new Set();
@@ -110,7 +111,13 @@ module.exports = {
                     channelId: newState.channelId
                 });
             }
+
+            // Aplicar apodo trol argentino automáticamente si es nivel 10+
+            applyTrollNickname(newState.member || member, 'Conexión a canal de voz (Nivel 10+ Troll)').catch(() => {});
         } else if (leavingVoice) {
+            // Restaurar apodo original al desconectarse del canal de voz
+            restoreNickname(oldState.member || member).catch(() => {});
+
             // Al salir: dar XP por el tiempo acumulado
             const session = member.client.voiceSessions.get(userId);
             if (session) {
@@ -298,9 +305,14 @@ module.exports = {
             }
         }
         // 2. Asignar estado random si es el primero en entrar a un canal normal
-        else if (newState.channelId) {
+        else if (newState.channelId && newState.channelId !== generatorId) {
             const channel = newState.channel;
-            if (channel && channel.members.size === 1) {
+            const isTemp = channel ? stmts.isTempChannel(channel.id) : false;
+            const movedFromGenerator = oldState.channelId === generatorId;
+
+            // Solo asignar si es el primer miembro y NO es una sala temporal (ya tiene su estado asignado al crearse)
+            // ni proviene de la creación automática desde el canal generador
+            if (channel && channel.members.size === 1 && !isTemp && !movedFromGenerator) {
                 const randomStatus = STATUSES[Math.floor(Math.random() * STATUSES.length)];
                 try {
                     await newState.client.rest.put(`/channels/${channel.id}/voice-status`, {

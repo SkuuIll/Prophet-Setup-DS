@@ -225,6 +225,14 @@ const config = {
         LOGO: './assets/logo.png',
         BANNER: './assets/banner.png',
         MUSIC_BANNER: 'https://raw.githubusercontent.com/SkuuIll/Prophet-Setup-DS/main/assets/music_banner.png',
+    },
+
+    // Sistema de Apodos Trol Argentinos (Nivel 10+)
+    TROLL_NICKNAMES: {
+        ENABLED: true,             // Activar/desactivar sistema globalmente
+        MIN_LEVEL: 10,             // Nivel mínimo requerido para aplicar apodo trol
+        COOLDOWN: 30 * 60 * 1000,  // Cooldown entre cambios automáticos (30 minutos)
+        LOG_CHANGES: true,         // Registrar cambios en el canal de logs
     }
 };
 
