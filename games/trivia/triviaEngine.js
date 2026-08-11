@@ -1,9 +1,10 @@
 const QuestionBank = require('./questionBank');
 const EconomyBridge = require('../common/economyBridge');
+const cfg = require('../common/gamesConfig').trivia || {};
 
 class TriviaEngine {
     constructor() {
-        this.rooms = new Map(); // roomId -> Room
+        this.rooms = new Map();
         this.broadcastCallback = null;
     }
 
@@ -25,46 +26,52 @@ class TriviaEngine {
         return code;
     }
 
-    /**
-     * Crea una sala nueva de Trivia
-     */
-    createRoom(hostUserId, hostUsername, questionCount = 7) {
+    createRoom(hostUserId, hostUsername, questionCount = null) {
+        const qCount = Math.min(15, Math.max(5, Number(questionCount) || cfg.defaultQuestions || 10));
         const roomId = this.generateRoomCode();
-        const questions = QuestionBank.getRandomQuestions(questionCount);
+        const questions = QuestionBank.getRandomQuestions(qCount);
 
         const room = {
             roomId,
             hostUserId,
-            state: 'LOBBY', // 'LOBBY', 'QUESTION', 'REVEAL', 'LEADERBOARD', 'PODIUM'
+            state: 'LOBBY',
             players: new Map(),
             questions,
             currentQuestionIndex: 0,
-            timeLeft: 15,
+            timeLeft: cfg.timeLimit || 15,
             questionStartTime: 0,
             timerInterval: null,
-            createdTime: Date.now()
+            createdTime: Date.now(),
+            // Meta de partida
+            firstBlood: null, // userId que acertó primero más veces
+            stats: {}
         };
 
-        // Agregar al host como jugador
-        room.players.set(hostUserId, {
-            userId: hostUserId,
-            username: hostUsername || 'Host',
-            score: 0,
-            streak: 0,
-            currentAnswer: null,
-            answerTime: 0,
-            isHost: true
-        });
+        room.players.set(hostUserId, this._newPlayer(hostUserId, hostUsername || 'Host', true));
 
         this.rooms.set(roomId, room);
         return { success: true, room: this.getPublicRoomState(room) };
     }
 
-    /**
-     * Se une a una sala existente
-     */
+    _newPlayer(userId, username, isHost = false) {
+        return {
+            userId,
+            username: username || `Jugador_${String(userId).slice(-4)}`,
+            score: 0,
+            streak: 0,
+            bestStreak: 0,
+            correct: 0,
+            wrong: 0,
+            perfectSpeed: 0, // respuestas en <3s
+            currentAnswer: null,
+            answerTime: 0,
+            lastPoints: 0,
+            isHost
+        };
+    }
+
     joinRoom(roomId, userId, username) {
-        const room = this.rooms.get(roomId.toUpperCase().trim());
+        const room = this.rooms.get(String(roomId || '').toUpperCase().trim());
         if (!room) {
             return { success: false, error: 'La sala no existe o ya finalizó' };
         }
@@ -73,16 +80,12 @@ class TriviaEngine {
             return { success: false, error: 'La partida ya comenzó. Esperá a la siguiente.' };
         }
 
+        if (room.players.size >= 12) {
+            return { success: false, error: 'Sala llena (máx 12)' };
+        }
+
         if (!room.players.has(userId)) {
-            room.players.set(userId, {
-                userId,
-                username: username || `Jugador_${userId.slice(-4)}`,
-                score: 0,
-                streak: 0,
-                currentAnswer: null,
-                answerTime: 0,
-                isHost: false
-            });
+            room.players.set(userId, this._newPlayer(userId, username));
         }
 
         this.broadcastToRoom(room.roomId, {
@@ -93,14 +96,12 @@ class TriviaEngine {
         return { success: true, room: this.getPublicRoomState(room) };
     }
 
-    /**
-     * Inicia la partida (Solo el Host)
-     */
     startGame(roomId, requestingUserId) {
         const room = this.rooms.get(roomId);
         if (!room) return { success: false, error: 'Sala no encontrada' };
         if (room.hostUserId !== requestingUserId) return { success: false, error: 'Solo el anfitrión puede iniciar la partida' };
         if (room.state !== 'LOBBY') return { success: false, error: 'La partida ya inició' };
+        if (room.players.size < 1) return { success: false, error: 'No hay jugadores' };
 
         room.currentQuestionIndex = 0;
         this.startQuestion(room);
@@ -115,13 +116,14 @@ class TriviaEngine {
         }
 
         room.state = 'QUESTION';
-        room.timeLeft = q.timeLimit || 15;
+        room.timeLeft = q.timeLimit || cfg.timeLimit || 15;
         room.questionStartTime = Date.now();
+        room.firstCorrectThisQ = null;
 
-        // Resetear respuestas de jugadores
         for (const p of room.players.values()) {
             p.currentAnswer = null;
             p.answerTime = 0;
+            p.lastPoints = 0;
         }
 
         this.broadcastToRoom(room.roomId, {
@@ -129,6 +131,7 @@ class TriviaEngine {
             questionIndex: room.currentQuestionIndex,
             totalQuestions: room.questions.length,
             category: q.category,
+            difficulty: q.difficulty || 'normal',
             question: q.question,
             options: q.options,
             timeLimit: room.timeLeft
@@ -143,7 +146,6 @@ class TriviaEngine {
                 timeLeft: room.timeLeft
             });
 
-            // Verificar si todos respondieron
             const allAnswered = Array.from(room.players.values()).every(p => p.currentAnswer !== null);
 
             if (room.timeLeft <= 0 || allAnswered) {
@@ -152,13 +154,16 @@ class TriviaEngine {
             }
         }, 1000);
 
-        if (room.timerInterval.unref) {
-            room.timerInterval.unref();
-        }
+        if (room.timerInterval.unref) room.timerInterval.unref();
     }
 
     /**
-     * Registra la respuesta de un jugador
+     * Scoring v2:
+     *  base 400
+     *  + speed 0-600 (ratio tiempo restante)
+     *  + streak bonus 0-400 (cap 8)
+     *  + first blood +100
+     *  + difficulty mult (easy 0.9 / normal 1 / hard 1.25)
      */
     submitAnswer(roomId, userId, optionIndex) {
         const room = this.rooms.get(roomId);
@@ -179,16 +184,32 @@ class TriviaEngine {
 
         const q = room.questions[room.currentQuestionIndex];
         const isCorrect = opt === q.correctIndex;
+        const timeLimit = q.timeLimit || cfg.timeLimit || 15;
+        const streakCap = cfg.streakCap || 8;
 
         if (isCorrect) {
-            // Fórmula de velocidad (500 a 1000 pts)
-            const remainingRatio = Math.max(0, (q.timeLimit - elapsedSec) / q.timeLimit);
-            const pointsGained = 500 + Math.floor(500 * remainingRatio) + (player.streak * 50);
+            const remainingRatio = Math.max(0, Math.min(1, (timeLimit - elapsedSec) / timeLimit));
+            const speedPts = Math.floor(600 * remainingRatio);
+            const streakPts = Math.min(streakCap, player.streak) * 50;
+            let firstBlood = 0;
+            if (!room.firstCorrectThisQ) {
+                room.firstCorrectThisQ = userId;
+                firstBlood = 100;
+            }
+            const diff = (q.difficulty || 'normal').toLowerCase();
+            const diffMul = diff === 'hard' || diff === 'dificil' ? 1.25
+                : diff === 'easy' || diff === 'facil' ? 0.9 : 1.0;
+
+            const pointsGained = Math.floor((400 + speedPts + streakPts + firstBlood) * diffMul);
             player.score += pointsGained;
             player.streak += 1;
+            player.bestStreak = Math.max(player.bestStreak, player.streak);
+            player.correct += 1;
             player.lastPoints = pointsGained;
+            if (elapsedSec <= 3) player.perfectSpeed += 1;
         } else {
             player.streak = 0;
+            player.wrong += 1;
             player.lastPoints = 0;
         }
 
@@ -199,25 +220,26 @@ class TriviaEngine {
             totalPlayers: room.players.size
         });
 
-        return { success: true };
+        return { success: true, correct: isCorrect, points: player.lastPoints, streak: player.streak };
     }
 
-    /**
-     * Revela la respuesta correcta y muestra el scoreboard
-     */
     revealAnswer(room) {
         room.state = 'REVEAL';
         const q = room.questions[room.currentQuestionIndex];
-
         const leaderboard = this.getLeaderboard(room);
 
         this.broadcastToRoom(room.roomId, {
             type: 'trivia:reveal',
             correctIndex: q.correctIndex,
-            leaderboard
+            explanation: q.explanation || null,
+            leaderboard,
+            perPlayer: leaderboard.map(p => ({
+                userId: p.userId,
+                lastPoints: room.players.get(p.userId)?.lastPoints || 0,
+                streak: p.streak
+            }))
         });
 
-        // Esperar 4 segundos y mostrar pantalla de posiciones o pasar a la siguiente
         const revealTimeout = setTimeout(() => {
             if (room.currentQuestionIndex + 1 < room.questions.length) {
                 room.currentQuestionIndex++;
@@ -229,20 +251,38 @@ class TriviaEngine {
         if (revealTimeout.unref) revealTimeout.unref();
     }
 
-    /**
-     * Termina la partida y entrega premios a los 3 primeros
-     */
     endGame(room) {
         room.state = 'PODIUM';
         if (room.timerInterval) clearInterval(room.timerInterval);
 
         const leaderboard = this.getLeaderboard(room);
-        const prizes = [2500, 1000, 500];
+        const basePrizes = cfg.prizes || [3000, 1500, 750];
+        // Escala con jugadores (más gente = pozo mayor)
+        const scale = 1 + Math.max(0, room.players.size - 2) * 0.12;
+        const perfectBonus = cfg.perfectBonus || 500;
 
-        leaderboard.slice(0, 3).forEach((winner, idx) => {
-            const reward = prizes[idx] || 0;
+        leaderboard.forEach((winner, idx) => {
+            let reward = 0;
+            if (idx < basePrizes.length) {
+                reward = Math.floor(basePrizes[idx] * scale);
+            }
+            // Perfect game: todas correctas
+            const p = room.players.get(winner.userId);
+            if (p && p.correct === room.questions.length && p.wrong === 0) {
+                reward += perfectBonus;
+                winner.perfect = true;
+            }
+            // Best streak bonus
+            if (p && p.bestStreak >= 5) {
+                reward += 150;
+                winner.streakBonus = true;
+            }
+
             if (reward > 0) {
-                EconomyBridge.addCoins(winner.userId, reward, 'trivia_party', 'podium_win', `${idx + 1}º Puesto en Trivia (${room.roomId})`);
+                EconomyBridge.addCoins(
+                    winner.userId, reward, 'trivia_party', 'podium_win',
+                    `${idx + 1}º Trivia ${room.roomId}`
+                );
             }
             winner.rewardCoins = reward;
         });
@@ -250,10 +290,10 @@ class TriviaEngine {
         this.broadcastToRoom(room.roomId, {
             type: 'trivia:podium',
             podium: leaderboard.slice(0, 3),
-            leaderboard
+            leaderboard,
+            scale: Math.round(scale * 100) / 100
         });
 
-        // Eliminar sala después de 5 minutos
         const cleanupTimeout = setTimeout(() => {
             this.rooms.delete(room.roomId);
         }, 300000);
@@ -267,9 +307,12 @@ class TriviaEngine {
                 username: p.username,
                 score: p.score,
                 streak: p.streak,
+                bestStreak: p.bestStreak,
+                correct: p.correct,
+                wrong: p.wrong,
                 isHost: p.isHost
             }))
-            .sort((a, b) => b.score - a.score);
+            .sort((a, b) => b.score - a.score || b.correct - a.correct);
     }
 
     getPublicRoomState(room) {

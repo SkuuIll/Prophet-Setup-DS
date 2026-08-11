@@ -22,6 +22,7 @@ document.querySelectorAll('.mode-tab').forEach(tab => {
         tab.classList.add('active');
         const mode = tab.getAttribute('data-mode');
         document.getElementById(`view-${mode}`).classList.add('active');
+        if (window.SoundFX) SoundFX.playClick();
     });
 });
 
@@ -178,8 +179,56 @@ window.initCasesEvents = () => {
 
         document.getElementById('casino-balance').innerText = formatNumber(data.balance);
         animateReel(data.reel, data.winningIndex, data.winningItem);
+
+        // Pity + crédito soft-sell
+        setTimeout(() => {
+            if (data.winningItem?.credited) {
+                const label = data.winningItem.softSold
+                    ? `Venta soft +${formatNumber(data.winningItem.credited)}`
+                    : `+${formatNumber(data.winningItem.credited)} monedas`;
+                if (window.spawnFloatingText) {
+                    spawnFloatingText(window.innerWidth / 2, window.innerHeight / 2 + 20, label, '#FFD54F');
+                }
+            }
+            if (data.pityTriggered) {
+                if (window.spawnFloatingText) {
+                    spawnFloatingText(window.innerWidth / 2, window.innerHeight / 2 + 50, '★ PITY!', '#FFD700');
+                }
+            }
+            updatePityUI(data.pity);
+        }, 5400);
     });
+
+    window.prophetClient.on('cases:pity', (data) => updatePityUI(data.pity));
+    window.prophetClient.send({ type: 'cases:get_pity' });
 };
+
+function updatePityUI(pity) {
+    if (!pity) return;
+    let el = document.getElementById('cases-pity-bar');
+    if (!el) {
+        const host = document.getElementById('view-cases') || document.body;
+        el = document.createElement('div');
+        el.id = 'cases-pity-bar';
+        el.style.cssText = 'margin:10px 0;padding:10px 14px;border-radius:12px;background:rgba(179,136,255,.1);border:1px solid rgba(179,136,255,.25);font-size:13px;display:flex;gap:16px;flex-wrap:wrap;align-items:center';
+        host.insertBefore(el, host.firstChild);
+    }
+    const epicLeft = Math.max(0, (pity.pityEpicAt || 25) - (pity.sinceEpic || 0));
+    const legLeft = Math.max(0, (pity.pityLegendaryAt || 80) - (pity.sinceLegendary || 0));
+    el.innerHTML = `
+        <strong>Pity</strong>
+        <span>Épico en ≤${epicLeft} aperturas</span>
+        <span>Legendario en ≤${legLeft}</span>
+        <span style="opacity:.7">${pity.opens || 0} abiertas</span>
+    `;
+    // Mini historial
+    if (pity.history?.length) {
+        const last = pity.history.slice(0, 5).map(h =>
+            `<span title="${h.item}" style="opacity:.85">${h.icon || '🎁'}</span>`
+        ).join(' ');
+        el.innerHTML += `<span style="margin-left:auto">Recientes: ${last}</span>`;
+    }
+}
 
 // ═══ INICIALIZADOR GENERAL DEL CASINO ═══
 document.addEventListener('DOMContentLoaded', async () => {

@@ -249,7 +249,11 @@ window.initTriviaEvents = () => {
         }
 
         switchView(viewPodium);
-        if (soundEnabled) SoundFX.playUpgrade();
+        if (soundEnabled) {
+            if (SoundFX.playWin) SoundFX.playWin();
+            else SoundFX.playUpgrade();
+        }
+        if (window.spawnConfetti) spawnConfetti(48);
     });
 };
 

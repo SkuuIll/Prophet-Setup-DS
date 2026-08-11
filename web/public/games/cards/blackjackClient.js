@@ -9,6 +9,7 @@ const bjActionsPanel = document.getElementById('bj-actions-panel');
 const btnBjHit = document.getElementById('btn-bj-hit');
 const btnBjStand = document.getElementById('btn-bj-stand');
 const btnBjDouble = document.getElementById('btn-bj-double');
+const btnBjSplit = document.getElementById('btn-bj-split');
 
 const bjDealerCards = document.getElementById('bj-dealer-cards');
 const bjPlayerCards = document.getElementById('bj-player-cards');
@@ -16,15 +17,19 @@ const bjDealerScore = document.getElementById('bj-dealer-score');
 const bjPlayerScore = document.getElementById('bj-player-score');
 const bjResultBanner = document.getElementById('bj-result-banner');
 
+function setSplitVisible(show) {
+    if (btnBjSplit) btnBjSplit.style.display = show ? 'inline-flex' : 'none';
+}
+
 bjBetInput.addEventListener('input', () => {
     const val = parseInt(bjBetInput.value, 10) || 100;
-    btnBjDeal.innerText = `REPARTIR (🪙 ${formatNumber(val)})`;
+    btnBjDeal.innerText = `REPARTIR (${formatNumber(val)})`;
 });
 
 btnBjDeal.addEventListener('click', () => {
     const bet = parseInt(bjBetInput.value, 10) || 100;
     SoundFX.playClick();
-
+    setSplitVisible(false);
     window.prophetClient.send({
         type: 'blackjack:start',
         betAmount: bet
@@ -46,6 +51,13 @@ btnBjDouble.addEventListener('click', () => {
     window.prophetClient.send({ type: 'blackjack:double' });
 });
 
+if (btnBjSplit) {
+    btnBjSplit.addEventListener('click', () => {
+        SoundFX.playClick();
+        window.prophetClient.send({ type: 'blackjack:split' });
+    });
+}
+
 function renderBjPlayerHand(cards, score) {
     bjPlayerCards.innerHTML = '';
     cards.forEach(c => bjPlayerCards.appendChild(renderBjCard(c.value, c.suit)));
@@ -56,9 +68,7 @@ function renderBjDealerHand(cards, score, isFinished = false) {
     bjDealerCards.innerHTML = '';
     cards.forEach((c, idx) => {
         if (!isFinished && idx === 1) {
-            const backCard = document.createElement('div');
-            backCard.className = 'card-bj card-back';
-            bjDealerCards.appendChild(backCard);
+            bjDealerCards.appendChild(renderBjCard(null, null, true));
         } else {
             bjDealerCards.appendChild(renderBjCard(c.value, c.suit));
         }
@@ -77,20 +87,36 @@ window.initBlackjackEvents = () => {
         renderBjPlayerHand(data.playerHand, data.playerScore);
         renderBjDealerHand([data.dealerVisibleCard, {}], data.playerScore, false);
 
-        if (data.playerScore === 21) {
-            // Blackjack natural
+        if (data.playerScore === 21 && data.result) {
             bjResultBanner.innerText = data.result;
             renderBjDealerHand(data.dealerHand, data.dealerScore, true);
             bjBetPanel.style.display = 'flex';
             bjActionsPanel.style.display = 'none';
-            SoundFX.playUpgrade();
+            setSplitVisible(false);
+            SoundFX.playWin ? SoundFX.playWin() : SoundFX.playUpgrade();
         } else {
-            bjResultBanner.innerText = 'TU TURNO: ¿Pedir, Plantarse o Doblar?';
+            bjResultBanner.innerText = 'TU TURNO: Pedir · Plantarse · Doblar' + (data.canSplit ? ' · Dividir' : '');
             bjBetPanel.style.display = 'none';
             bjActionsPanel.style.display = 'flex';
             btnBjDouble.disabled = !data.canDouble;
-            SoundFX.playClick();
+            setSplitVisible(!!data.canSplit);
+            SoundFX.playCard ? SoundFX.playCard() : SoundFX.playClick();
         }
+    });
+
+    window.prophetClient.on('blackjack:split_result', (data) => {
+        if (!data.success) {
+            if (window.showToast) showToast(data.error || 'No se pudo dividir', 'error');
+            return;
+        }
+        if (data.balance !== undefined) {
+            document.getElementById('cards-balance').innerText = formatNumber(data.balance);
+        }
+        renderBjPlayerHand(data.playerHand, data.playerScore);
+        bjResultBanner.innerText = data.message || 'Mano dividida · jugá la principal';
+        setSplitVisible(false);
+        btnBjDouble.disabled = !data.canDouble;
+        SoundFX.playClick();
     });
 
     window.prophetClient.on('blackjack:hit_result', (data) => {
@@ -120,15 +146,17 @@ window.initBlackjackEvents = () => {
         bjActionsPanel.style.display = 'none';
 
         if (data.payout > 0) {
-            SoundFX.playUpgrade();
+            SoundFX.playWin();
+            if (window.spawnConfetti) spawnConfetti(28);
         } else {
-            SoundFX.playClick();
+            SoundFX.playLose();
         }
     });
 
     window.prophetClient.on('blackjack:double_result', (data) => {
         if (!data.success) {
-            alert(data.error || 'Error al doblar');
+            if (window.showToast) showToast(data.error || 'Error al doblar', 'error');
+            else alert(data.error || 'Error al doblar');
             return;
         }
 
@@ -143,19 +171,35 @@ window.initBlackjackEvents = () => {
         bjBetPanel.style.display = 'flex';
         bjActionsPanel.style.display = 'none';
 
-        if (data.payout > 0) SoundFX.playUpgrade();
-        else SoundFX.playClick();
+        if (data.payout > 0) {
+            SoundFX.playWin();
+            if (window.spawnConfetti) spawnConfetti(28);
+        } else {
+            SoundFX.playLose();
+        }
     });
 };
 
 // ═══ INICIALIZADOR GENERAL ═══
 document.addEventListener('DOMContentLoaded', async () => {
+    const navBack = document.getElementById('nav-back-cards');
+    if (navBack) {
+        navBack.addEventListener('click', (e) => {
+            e.preventDefault();
+            if (window.prophetNavigate) window.prophetNavigate('/games/hub/');
+            else location.href = '/games/hub/';
+        });
+    }
+
     const authData = await window.prophetClient.connect();
     if (authData) {
         myUserId = authData.userId;
+        window.__cardsUserId = authData.userId;
+        if (window.setUnoUserId) window.setUnoUserId(authData.userId);
         document.getElementById('cards-balance').innerText = formatNumber(authData.balance);
     }
 
     window.initTrucoEvents();
     window.initBlackjackEvents();
+    if (window.initUnoEvents) window.initUnoEvents();
 });

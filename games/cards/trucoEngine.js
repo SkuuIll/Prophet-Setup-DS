@@ -75,9 +75,22 @@ class TrucoEngine {
      * Unirse a una mesa de Truco existente
      */
     joinTable(tableId, guestUserId, guestUsername) {
-        const table = this.tables.get(tableId.toUpperCase().trim());
+        const code = String(tableId || '').toUpperCase().trim();
+        const table = this.tables.get(code);
         if (!table) return { success: false, error: 'Mesa no encontrada' };
+
+        // Reconexión: el jugador ya está en la mesa
+        const existingIdx = table.players.findIndex(p => p.userId === guestUserId);
+        if (existingIdx !== -1) {
+            return {
+                success: true,
+                reconnected: true,
+                table: this.getPublicState(table, guestUserId)
+            };
+        }
+
         if (table.players.length >= 2) return { success: false, error: 'La mesa ya está completa' };
+        if (table.state === 'FINISHED') return { success: false, error: 'La partida ya terminó' };
 
         if (table.betAmount > 0) {
             const deduct = EconomyBridge.deductCoins(guestUserId, table.betAmount, 'cards_truco', 'table_bet', `Unión a mesa ${table.tableId}`);
@@ -89,7 +102,7 @@ class TrucoEngine {
 
         table.players.push({
             userId: guestUserId,
-            username: guestUsername || `Jugador_${guestUserId.slice(-4)}`,
+            username: guestUsername || `Jugador_${String(guestUserId).slice(-4)}`,
             score: 0,
             hand: [],
             playedCards: [],
@@ -106,6 +119,17 @@ class TrucoEngine {
         });
 
         return { success: true, table: this.getPublicState(table, guestUserId) };
+    }
+
+    /**
+     * Re-sincronizar estado de mesa (reconexión sin re-pagar)
+     */
+    getTableState(tableId, userId) {
+        const table = this.tables.get(String(tableId || '').toUpperCase().trim());
+        if (!table) return { success: false, error: 'Mesa no encontrada' };
+        const inTable = table.players.some(p => p.userId === userId);
+        if (!inTable) return { success: false, error: 'No estás en esta mesa' };
+        return { success: true, table: this.getPublicState(table, userId) };
     }
 
     /**
@@ -254,12 +278,20 @@ class TrucoEngine {
             if (wins[1] === 'parda' && wins[0] !== 'parda') return wins[0];
             // Doble parda -> gana mano
             if (wins[0] === 'parda' && wins[1] === 'parda') return manoIdx;
+            // 1-1 distinto -> va a tercera (null)
         } else if (wins.length === 3) {
-            // Se define en tercera
-            if (wins[2] === 0) return 0;
-            if (wins[2] === 1) return 1;
-            // 3ra parda -> gana el que ganó 1ra
-            if (wins[2] === 'parda') return wins[0] !== 'parda' ? wins[0] : manoIdx;
+            // Contar vueltas no pardas
+            const count = [0, 0];
+            for (const w of wins) {
+                if (w === 0 || w === 1) count[w]++;
+            }
+            if (count[0] > count[1]) return 0;
+            if (count[1] > count[0]) return 1;
+            // Empate en vueltas (ej. parda en alguna): gana quien ganó la 1ra no-parda, o mano
+            for (const w of wins) {
+                if (w === 0 || w === 1) return w;
+            }
+            return manoIdx;
         }
         return null;
     }
@@ -287,10 +319,55 @@ class TrucoEngine {
             table.pendingCanto = { type: 'vale_cuatro', fromIdx: playerIdx, value: 4, pointsIfNo: 3 };
         } else if (cantoType === 'envido') {
             if (table.envidoPlayed || table.currentTrick > 0) return { success: false, error: 'El Envido solo se canta en primera vuelta' };
-            table.pendingCanto = { type: 'envido', fromIdx: playerIdx, value: 2, pointsIfNo: 1 };
+            table.pendingCanto = { type: 'envido', fromIdx: playerIdx, value: 2, pointsIfNo: 1, chain: 1 };
+        } else if (cantoType === 'envido_envido') {
+            // Respuesta en cadena: suma +2 (total 4 si venía de envido)
+            if (table.currentTrick > 0) return { success: false, error: 'Envido solo en primera' };
+            if (!table.pendingCanto || !['envido', 'envido_envido'].includes(table.pendingCanto.type)) {
+                return { success: false, error: 'Solo podés subir un Envido pendiente' };
+            }
+            if (table.pendingCanto.fromIdx === playerIdx) return { success: false, error: 'No podés subir tu propio canto' };
+            const prev = table.pendingCanto;
+            table.pendingCanto = {
+                type: 'envido_envido',
+                fromIdx: playerIdx,
+                value: (prev.value || 2) + 2,
+                pointsIfNo: prev.value || 2,
+                chain: (prev.chain || 1) + 1
+            };
         } else if (cantoType === 'real_envido') {
             if (table.envidoPlayed || table.currentTrick > 0) return { success: false, error: 'No se puede cantar Real Envido ahora' };
-            table.pendingCanto = { type: 'real_envido', fromIdx: playerIdx, value: 3, pointsIfNo: 1 };
+            // Si hay envido pendiente, se suma
+            if (table.pendingCanto && ['envido', 'envido_envido', 'real_envido'].includes(table.pendingCanto.type)) {
+                if (table.pendingCanto.fromIdx === playerIdx) return { success: false, error: 'No podés subir tu propio canto' };
+                const prev = table.pendingCanto;
+                table.pendingCanto = {
+                    type: 'real_envido',
+                    fromIdx: playerIdx,
+                    value: (prev.value || 0) + 3,
+                    pointsIfNo: prev.value || 1,
+                    chain: (prev.chain || 1) + 1
+                };
+            } else {
+                table.pendingCanto = { type: 'real_envido', fromIdx: playerIdx, value: 3, pointsIfNo: 1, chain: 1 };
+            }
+        } else if (cantoType === 'falta_envido') {
+            if (table.envidoPlayed || table.currentTrick > 0) return { success: false, error: 'No se puede cantar Falta Envido ahora' };
+            const maxScore = Math.max(table.players[0].score, table.players[1].score);
+            const faltaPoints = Math.max(1, table.targetScore - maxScore);
+            // Si hay cadena de envido, falta la define
+            if (table.pendingCanto && ['envido', 'envido_envido', 'real_envido'].includes(table.pendingCanto.type)) {
+                if (table.pendingCanto.fromIdx === playerIdx) return { success: false, error: 'No podés subir tu propio canto' };
+                table.pendingCanto = {
+                    type: 'falta_envido',
+                    fromIdx: playerIdx,
+                    value: faltaPoints,
+                    pointsIfNo: table.pendingCanto.value || 1,
+                    chain: (table.pendingCanto.chain || 1) + 1
+                };
+            } else {
+                table.pendingCanto = { type: 'falta_envido', fromIdx: playerIdx, value: faltaPoints, pointsIfNo: 1, chain: 1 };
+            }
         } else {
             return { success: false, error: 'Canto no reconocido' };
         }
@@ -319,10 +396,10 @@ class TrucoEngine {
         const wants = response === 'quiero';
         const rivalIdx = canto.fromIdx;
 
-        if (canto.type === 'envido' || canto.type === 'real_envido') {
+        const isEnvidoFamily = ['envido', 'envido_envido', 'real_envido', 'falta_envido'].includes(canto.type);
+        if (isEnvidoFamily) {
             table.envidoPlayed = true;
             if (wants) {
-                // Se miden los tantos
                 const p0Envido = table.players[0].envidoPoints;
                 const p1Envido = table.players[1].envidoPoints;
                 let envidoWinner = null;
@@ -333,21 +410,31 @@ class TrucoEngine {
 
                 table.players[envidoWinner].score += canto.value;
 
+                const envidoWin = table.players[envidoWinner].score >= table.targetScore;
+
                 this.broadcast(table.tableId, {
                     type: 'truco:envido_result',
                     winnerIdx: envidoWinner,
                     p0Envido,
                     p1Envido,
                     pointsGained: canto.value,
+                    cantoType: canto.type,
+                    chain: canto.chain || 1,
                     scores: [table.players[0].score, table.players[1].score]
                 });
+
+                if (envidoWin) {
+                    table.pendingCanto = null;
+                    this.finishGame(table, envidoWinner);
+                    return { success: true };
+                }
             } else {
-                // No Quiero -> puntos para el que cantó
                 table.players[rivalIdx].score += canto.pointsIfNo;
                 this.broadcast(table.tableId, {
                     type: 'truco:canto_rejected',
                     winnerIdx: rivalIdx,
                     pointsGained: canto.pointsIfNo,
+                    cantoType: canto.type,
                     scores: [table.players[0].score, table.players[1].score]
                 });
             }

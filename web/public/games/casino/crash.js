@@ -91,30 +91,49 @@ document.getElementById('btn-show-fairness').addEventListener('click', () => {
 });
 
 // ═══ CANVAS RENDERING LOOP (60 FPS) ═══
+const crashParticles = [];
+let crashAnimT = 0;
+
 function drawCrashCurve() {
     const w = crashCanvas.width;
     const h = crashCanvas.height;
+    crashAnimT += 0.016;
 
-    ctx.clearRect(0, 0, w, h);
+    // Fondo
+    const bg = ctx.createLinearGradient(0, 0, 0, h);
+    bg.addColorStop(0, '#120a22');
+    bg.addColorStop(1, '#07040f');
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, w, h);
 
-    // Fondo grid
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.04)';
+    // Stars
+    ctx.fillStyle = 'rgba(200, 180, 255, 0.35)';
+    for (let i = 0; i < 40; i++) {
+        const sx = (i * 97 + crashAnimT * 12) % w;
+        const sy = (i * 53) % (h - 40);
+        ctx.globalAlpha = 0.2 + (i % 5) * 0.12;
+        ctx.fillRect(sx, sy, 1.5, 1.5);
+    }
+    ctx.globalAlpha = 1;
+
+    // Grid
+    ctx.strokeStyle = 'rgba(179, 136, 255, 0.06)';
     ctx.lineWidth = 1;
-    for (let x = 40; x < w; x += 60) {
+    for (let x = 40; x < w; x += 50) {
         ctx.beginPath();
         ctx.moveTo(x, 0);
         ctx.lineTo(x, h - 30);
         ctx.stroke();
     }
-    for (let y = 30; y < h - 30; y += 50) {
+    for (let y = 20; y < h - 30; y += 40) {
         ctx.beginPath();
         ctx.moveTo(40, y);
         ctx.lineTo(w, y);
         ctx.stroke();
     }
 
-    // Ejes
-    ctx.strokeStyle = 'rgba(187, 134, 252, 0.3)';
+    // Axes
+    ctx.strokeStyle = 'rgba(179, 136, 255, 0.35)';
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.moveTo(40, 10);
@@ -125,42 +144,108 @@ function drawCrashCurve() {
     if (crashState === 'RUNNING' || crashState === 'CRASHED') {
         const startX = 40;
         const startY = h - 30;
-
-        // Progreso relativo
         const progress = Math.min(1, (currentMultiplier - 1.0) / 10);
         const endX = startX + (w - 100) * progress;
         const endY = startY - (h - 90) * Math.pow(progress, 0.85);
+        const isDead = crashState === 'CRASHED';
+        const mainColor = isDead ? '#FF5252' : '#00E5C3';
 
-        // Curva
+        // Curve fill
         ctx.beginPath();
         ctx.moveTo(startX, startY);
-        ctx.quadraticCurveTo(
-            startX + (endX - startX) * 0.6,
-            startY,
-            endX,
-            endY
-        );
-
-        ctx.strokeStyle = crashState === 'CRASHED' ? '#EF5350' : '#03DAC6';
-        ctx.lineWidth = 4;
-        ctx.shadowColor = crashState === 'CRASHED' ? 'rgba(239, 83, 80, 0.8)' : 'rgba(3, 218, 198, 0.8)';
-        ctx.shadowBlur = 15;
-        ctx.stroke();
-        ctx.shadowBlur = 0;
-
-        // Relleno bajo la curva
+        ctx.quadraticCurveTo(startX + (endX - startX) * 0.55, startY, endX, endY);
         ctx.lineTo(endX, startY);
         ctx.closePath();
         const grad = ctx.createLinearGradient(0, endY, 0, startY);
-        grad.addColorStop(0, crashState === 'CRASHED' ? 'rgba(239, 83, 80, 0.25)' : 'rgba(3, 218, 198, 0.2)');
+        grad.addColorStop(0, isDead ? 'rgba(255, 82, 82, 0.35)' : 'rgba(0, 229, 195, 0.28)');
         grad.addColorStop(1, 'transparent');
         ctx.fillStyle = grad;
         ctx.fill();
 
-        // Icono del Cohete / Nave
-        ctx.font = '24px serif';
-        ctx.fillText(crashState === 'CRASHED' ? '💥' : '🚀', endX - 12, endY - 6);
+        // Curve stroke
+        ctx.beginPath();
+        ctx.moveTo(startX, startY);
+        ctx.quadraticCurveTo(startX + (endX - startX) * 0.55, startY, endX, endY);
+        ctx.strokeStyle = mainColor;
+        ctx.lineWidth = 4;
+        ctx.shadowColor = mainColor;
+        ctx.shadowBlur = 18;
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+
+        // Trail particles while flying
+        if (!isDead && Math.random() < 0.6) {
+            crashParticles.push({
+                x: endX, y: endY,
+                vx: -1 - Math.random() * 2,
+                vy: (Math.random() - 0.5) * 2,
+                life: 20 + Math.random() * 15,
+                max: 35,
+                color: mainColor
+            });
+        }
+
+        // Rocket ship (vector)
+        ctx.save();
+        ctx.translate(endX, endY);
+        const angle = Math.atan2(endY - startY, endX - startX) - Math.PI / 2;
+        ctx.rotate(isDead ? angle + 0.8 : Math.atan2(-(endY - (startY - 20)), endX - (startX + 40)));
+
+        if (isDead) {
+            // Explosion burst
+            for (let i = 0; i < 12; i++) {
+                const a = (i / 12) * Math.PI * 2 + crashAnimT * 3;
+                const r = 10 + (i % 3) * 6 + Math.sin(crashAnimT * 8 + i) * 4;
+                ctx.fillStyle = i % 2 ? '#FFD54F' : '#FF5252';
+                ctx.globalAlpha = 0.7;
+                ctx.beginPath();
+                ctx.arc(Math.cos(a) * r, Math.sin(a) * r, 3, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.globalAlpha = 1;
+            ctx.font = '22px serif';
+            ctx.fillText('💥', -12, 8);
+        } else {
+            // Ship body
+            ctx.shadowColor = mainColor;
+            ctx.shadowBlur = 12;
+            ctx.fillStyle = '#E8E0FF';
+            ctx.beginPath();
+            ctx.moveTo(0, -14);
+            ctx.lineTo(8, 10);
+            ctx.lineTo(0, 6);
+            ctx.lineTo(-8, 10);
+            ctx.closePath();
+            ctx.fill();
+            ctx.fillStyle = '#00E5C3';
+            ctx.beginPath();
+            ctx.moveTo(-5, 8);
+            ctx.lineTo(0, 18 + Math.sin(crashAnimT * 20) * 3);
+            ctx.lineTo(5, 8);
+            ctx.closePath();
+            ctx.fill();
+            ctx.fillStyle = '#7C4DFF';
+            ctx.beginPath();
+            ctx.arc(0, -2, 3, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        ctx.restore();
     }
+
+    // Particles update/draw
+    for (let i = crashParticles.length - 1; i >= 0; i--) {
+        const p = crashParticles[i];
+        p.x += p.vx;
+        p.y += p.vy;
+        p.life--;
+        if (p.life <= 0) { crashParticles.splice(i, 1); continue; }
+        ctx.globalAlpha = p.life / p.max;
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 2, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    ctx.globalAlpha = 1;
 
     requestAnimationFrame(drawCrashCurve);
 }
@@ -250,7 +335,10 @@ window.initCrashEvents = () => {
         renderBetsList(data.bets || []);
         myBet = null;
         updateActionButton();
-        if (soundEnabled) SoundFX.playClick();
+        if (soundEnabled) {
+            if (SoundFX.playCrash) SoundFX.playCrash();
+            else SoundFX.playClick();
+        }
     });
 
     window.prophetClient.on('crash:bet_result', (data) => {

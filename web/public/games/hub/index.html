@@ -4,11 +4,62 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Prophet Games Hub — Portal de Juegos</title>
-    <link rel="stylesheet" href="../common/theme.css">
-    <link rel="stylesheet" href="hub.css">
+    <link rel="stylesheet" href="/games/common/theme.css">
+    <link rel="stylesheet" href="/games/hub/hub.css">
+    <style>
+      #activity-boot {
+        position: fixed; inset: 0; z-index: 99990;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        background: #07050f; color: #e8e0ff; font-family: system-ui, sans-serif; gap: 10px;
+      }
+      #activity-boot.hidden { display: none; }
+      #activity-boot .spin {
+        width: 36px; height: 36px; border-radius: 50%;
+        border: 3px solid rgba(179,136,255,.25); border-top-color: #b388ff;
+        animation: abspin .8s linear infinite;
+      }
+      @keyframes abspin { to { transform: rotate(360deg); } }
+    </style>
 </head>
-<body>
-    <!-- Navbar -->
+<body class="hub-body">
+    <div id="activity-boot">
+        <div class="spin"></div>
+        <div style="font-weight:800;letter-spacing:1px">PROPHET GAMES</div>
+        <div id="activity-boot-msg" style="color:#a89bc4;font-size:.9rem">Iniciando…</div>
+    </div>
+    <script>
+      // Si la Activity carga este HTML, esto se ve al instante (sin módulos)
+      window.__hideActivityBoot = function (msg) {
+        var el = document.getElementById('activity-boot');
+        if (!el) return;
+        if (msg) {
+          var m = document.getElementById('activity-boot-msg');
+          if (m) m.textContent = msg;
+        } else {
+          el.classList.add('hidden');
+        }
+      };
+      setTimeout(function () {
+        var m = document.getElementById('activity-boot-msg');
+        if (m && m.textContent === 'Iniciando…') m.textContent = 'Conectando con Discord…';
+      }, 2500);
+      // Si fallan los scripts, no dejar pantalla negra eterna
+      setTimeout(function () {
+        var el = document.getElementById('activity-boot');
+        if (el && !el.classList.contains('hidden')) {
+          var m = document.getElementById('activity-boot-msg');
+          if (m) m.textContent = 'Cargando hub… (si ves esto, la Activity ya arrancó)';
+          setTimeout(function () { el.classList.add('hidden'); }, 1500);
+        }
+      }, 8000);
+    </script>
+
+    <div class="hub-orbs" aria-hidden="true">
+        <span class="orb orb-a"></span>
+        <span class="orb orb-b"></span>
+        <span class="orb orb-c"></span>
+    </div>
+
     <header class="prophet-nav">
         <a href="#" class="prophet-brand">
             <div class="prophet-logo-glow" style="background: url('/assets/logo.png') center/cover;"></div>
@@ -16,104 +67,149 @@
         </a>
         <div class="prophet-user-badge">
             <div class="prophet-balance-pill">
-                <span>💰</span>
+                <span class="coin-icon">◈</span>
                 <span id="user-balance">--</span>
             </div>
             <div class="user-profile-header">
-                <span id="user-name" style="font-weight: 700;">Miembro</span>
+                <span id="user-name" class="user-name">Miembro</span>
                 <span id="user-level" class="badge-level">Nvl 1</span>
             </div>
         </div>
     </header>
 
-    <!-- Main Container -->
     <main class="hub-container">
-        <!-- Hero Banner -->
         <section class="hub-hero">
-            <div class="hero-content">
-                <h1 class="hero-title">PORTAL DE JUEGOS PROPHET</h1>
-                <p class="hero-desc">Jugá, apostá y competí en tiempo real con los miembros del servidor usando tus monedas virtuales.</p>
+            <div class="hero-badge">PROPHET ARENA · LIVE</div>
+            <p class="hero-greeting" id="hero-greeting">Bienvenido</p>
+            <h1 class="hero-title">
+                <span class="hero-line">Elegí un juego</span>
+                <span class="hero-line accent">y a jugar</span>
+            </h1>
+            <p class="hero-desc">
+                Monedas del server · multijugador · ranking en vivo
+            </p>
+            <div class="hero-stats">
+                <div class="hero-stat">
+                    <strong>5</strong>
+                    <span>Juegos</span>
+                </div>
+                <div class="hero-stat-divider"></div>
+                <div class="hero-stat">
+                    <strong id="hero-balance">—</strong>
+                    <span>Balance</span>
+                </div>
             </div>
         </section>
 
-        <!-- Games Grid -->
         <section class="games-section">
             <div class="section-header">
-                <h2 class="section-title">🎮 Catálogo de Juegos</h2>
-                <span class="section-badge">Temporada 2026</span>
+                <div>
+                    <h2 class="section-title">Catálogo</h2>
+                    <p class="section-sub">Tocá una carta para entrar</p>
+                </div>
+                <span class="section-badge">● ONLINE</span>
             </div>
 
             <div class="games-grid">
-                <!-- 1. Tycoon de Servidores (DISPONIBLE) -->
-                <div class="game-card active-card" onclick="location.href='../tycoon/'">
-                    <div class="card-glow"></div>
-                    <div class="card-tag tag-ready">🟢 JUGAR AHORA</div>
-                    <div class="card-icon">🕹️</div>
+                <article class="game-card theme-tycoon" data-href="/games/tycoon/">
+                    <div class="card-bg-art"></div>
+                    <div class="card-top">
+                        <span class="card-tag">IDLE / CLICKER</span>
+                        <span class="card-live">JUGAR</span>
+                    </div>
+                    <div class="card-icon-wrap">
+                        <div class="card-icon">◆</div>
+                    </div>
                     <h3 class="card-title">Tycoon de Servidores</h3>
-                    <p class="card-desc">Construí tu imperio de servidores CS2, PUBG y Rust. Ganá monedas pasivas incluso cuando estés desconectado.</p>
+                    <p class="card-desc">Montá un datacenter de CS2, PUBG y Rust. Producción pasiva 24/7 y upgrades de staff.</p>
                     <div class="card-footer">
-                        <span class="card-meta">⚡ Idle / Clicker</span>
-                        <a href="../tycoon/" class="btn-play">ENTRAR ➔</a>
+                        <span class="card-meta">Progresión idle</span>
+                        <span class="btn-play">Entrar →</span>
                     </div>
-                </div>
+                </article>
 
-                <!-- 2. Casino Prophet (DISPONIBLE) -->
-                <div class="game-card active-card" onclick="location.href='../casino/'">
-                    <div class="card-glow"></div>
-                    <div class="card-tag tag-ready">🟢 JUGAR AHORA</div>
-                    <div class="card-icon">🎰</div>
+                <article class="game-card theme-casino" data-href="/games/casino/">
+                    <div class="card-bg-art"></div>
+                    <div class="card-top">
+                        <span class="card-tag">APUESTAS</span>
+                        <span class="card-live">JUGAR</span>
+                    </div>
+                    <div class="card-icon-wrap">
+                        <div class="card-icon">◈</div>
+                    </div>
                     <h3 class="card-title">Casino Prophet</h3>
-                    <p class="card-desc">Crash (curva exponencial Aviator Provably Fair), Ruleta Europea y Apertura de Cajas CS2 con carrete animado.</p>
+                    <p class="card-desc">Crash Aviator provably fair, ruleta europea y cajas CS2 con carrete animado.</p>
                     <div class="card-footer">
-                        <span class="card-meta">🎲 Apuestas & Minijuegos</span>
-                        <a href="../casino/" class="btn-play">ENTRAR ➔</a>
+                        <span class="card-meta">Crash · Ruleta · Cajas</span>
+                        <span class="btn-play">Entrar →</span>
                     </div>
-                </div>
+                </article>
 
-                <!-- 3. Trivia Party Game (DISPONIBLE) -->
-                <div class="game-card active-card" onclick="location.href='../trivia/'">
-                    <div class="card-glow"></div>
-                    <div class="card-tag tag-ready">🟢 JUGAR AHORA</div>
-                    <div class="card-icon">🎨</div>
-                    <h3 class="card-title">Trivia Party Game</h3>
-                    <p class="card-desc">Competencias en vivo estilo Kahoot de gaming, memes y la comunidad con premios de monedas reales.</p>
-                    <div class="card-footer">
-                        <span class="card-meta">🏆 Multijugador en vivo</span>
-                        <a href="../trivia/" class="btn-play">ENTRAR ➔</a>
+                <article class="game-card theme-trivia" data-href="/games/trivia/">
+                    <div class="card-bg-art"></div>
+                    <div class="card-top">
+                        <span class="card-tag">PARTY</span>
+                        <span class="card-live">JUGAR</span>
                     </div>
-                </div>
+                    <div class="card-icon-wrap">
+                        <div class="card-icon">★</div>
+                    </div>
+                    <h3 class="card-title">Trivia Party</h3>
+                    <p class="card-desc">Competencias estilo Kahoot de gaming y comunidad. El más rápido se lleva el pozo.</p>
+                    <div class="card-footer">
+                        <span class="card-meta">Multijugador en vivo</span>
+                        <span class="btn-play">Entrar →</span>
+                    </div>
+                </article>
 
-                <!-- 4. Truco Argentino & Blackjack (DISPONIBLE) -->
-                <div class="game-card active-card" onclick="location.href='../cards/'">
-                    <div class="card-glow"></div>
-                    <div class="card-tag tag-ready">🟢 JUGAR AHORA</div>
-                    <div class="card-icon">🃏</div>
-                    <h3 class="card-title">Truco & Blackjack</h3>
-                    <p class="card-desc">Mesas multijugador 1v1 de Truco Argentino (Envido/Truco) y mesas de Blackjack 21 contra la banca.</p>
-                    <div class="card-footer">
-                        <span class="card-meta">⚔️ Cartas Multijugador</span>
-                        <a href="../cards/" class="btn-play">ENTRAR ➔</a>
+                <article class="game-card theme-cards" data-href="/games/cards/">
+                    <div class="card-bg-art"></div>
+                    <div class="card-top">
+                        <span class="card-tag">CARTAS</span>
+                        <span class="card-live">JUGAR</span>
                     </div>
-                </div>
+                    <div class="card-icon-wrap">
+                        <div class="card-icon">♠</div>
+                    </div>
+                    <h3 class="card-title">Truco · UNO · BJ</h3>
+                    <p class="card-desc">Truco argentino con cantos, UNO clásico 2–6 jugadores (+4/challenge) y Blackjack 21. Pozos de monedas.</p>
+                    <div class="card-footer">
+                        <span class="card-meta">Truco · UNO · Blackjack</span>
+                        <span class="btn-play">Entrar →</span>
+                    </div>
+                </article>
 
-                <!-- 5. Prophet Survivor (DISPONIBLE) -->
-                <div class="game-card active-card" onclick="location.href='../survivor/'">
-                    <div class="card-glow"></div>
-                    <div class="card-tag tag-ready">🟢 JUGAR AHORA</div>
-                    <div class="card-icon">👾</div>
-                    <h3 class="card-title">Prophet Survivor 2D</h3>
-                    <p class="card-desc">Arcade top-down de supervivencia por oleadas en Canvas 60 FPS. Exterminá hordas, subí de nivel y ganá monedas.</p>
-                    <div class="card-footer">
-                        <span class="card-meta">🛡️ Arcade Canvas 2D</span>
-                        <a href="../survivor/" class="btn-play">ENTRAR ➔</a>
+                <article class="game-card theme-survivor featured" data-href="/games/survivor/">
+                    <div class="card-bg-art"></div>
+                    <div class="card-top">
+                        <span class="card-tag">ARCADE</span>
+                        <span class="card-live">JUGAR</span>
                     </div>
-                </div>
+                    <div class="card-icon-wrap">
+                        <div class="card-icon">◎</div>
+                    </div>
+                    <h3 class="card-title">Prophet Survivor</h3>
+                    <p class="card-desc">Roguelite top-down a 60 FPS. Oleadas, upgrades, jefes y monedas según tu récord.</p>
+                    <div class="card-footer">
+                        <span class="card-meta">Canvas 2D · WASD / touch</span>
+                        <span class="btn-play">Entrar →</span>
+                    </div>
+                </article>
             </div>
         </section>
+
+        <footer class="hub-footer">
+            <span>Prophet Bot · Economía unificada con Discord</span>
+            <span class="hub-footer-dot">·</span>
+            <span id="conn-status" class="conn-status">Conectando…</span>
+        </footer>
     </main>
 
-    <script src="../common/utils.js"></script>
-    <script src="../common/api.js"></script>
-    <script src="hub.js"></script>
+        <!-- Discord Activities (Embedded App SDK) -->
+    <script type="module" src="/games/common/discordActivity.js?v=20260811d"></script>
+    <script src="/games/common/utils.js?v=20260811d"></script>
+    <script src="/games/common/profileUI.js?v=20260811d"></script>
+    <script src="/games/common/api.js?v=20260811d"></script>
+    <script src="/games/hub/hub.js?v=20260811d"></script>
 </body>
 </html>

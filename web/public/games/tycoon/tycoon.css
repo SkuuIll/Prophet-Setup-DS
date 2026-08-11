@@ -170,7 +170,9 @@
     width: 280px;
     height: 280px;
     border-radius: 50%;
-    background: radial-gradient(circle, #2a1b4e 0%, #160f2a 100%);
+    background:
+        radial-gradient(circle at 35% 30%, rgba(179, 136, 255, 0.35) 0%, transparent 45%),
+        radial-gradient(circle, #2a1b4e 0%, #120a24 70%, #0a0614 100%);
     border: 3px solid var(--color-primary);
     color: #FFFFFF;
     display: flex;
@@ -179,37 +181,77 @@
     align-items: center;
     cursor: pointer;
     position: relative;
-    box-shadow: 0 0 35px rgba(187, 134, 252, 0.3), inset 0 0 30px rgba(187, 134, 252, 0.2);
-    transition: all 0.1s ease;
+    z-index: 2;
+    box-shadow:
+        0 0 40px rgba(187, 134, 252, 0.35),
+        inset 0 0 40px rgba(187, 134, 252, 0.18),
+        0 12px 40px rgba(0, 0, 0, 0.5);
+    transition: transform 0.12s ease, box-shadow 0.2s, border-color 0.2s;
     user-select: none;
+    -webkit-user-select: none;
+    touch-action: manipulation;
+    overflow: hidden;
+}
+
+.big-click-btn::before {
+    content: '';
+    position: absolute;
+    inset: -40%;
+    background: conic-gradient(from 0deg, transparent, rgba(179, 136, 255, 0.25), transparent 40%);
+    animation: spin 6s linear infinite;
+    opacity: 0.6;
+    pointer-events: none; /* No bloquear clicks */
+}
+
+.big-click-btn::after {
+    content: '';
+    position: absolute;
+    inset: 8px;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    pointer-events: none;
 }
 
 .big-click-btn:hover {
-    box-shadow: 0 0 50px rgba(187, 134, 252, 0.5), inset 0 0 40px rgba(187, 134, 252, 0.35);
-    border-color: #FFFFFF;
+    box-shadow: 0 0 60px rgba(187, 134, 252, 0.55), inset 0 0 50px rgba(187, 134, 252, 0.3);
+    border-color: #E0D0FF;
 }
 
 .big-click-btn:active {
-    transform: scale(0.94);
-    box-shadow: 0 0 20px rgba(187, 134, 252, 0.6);
+    transform: scale(0.93);
+    box-shadow: 0 0 24px rgba(187, 134, 252, 0.65);
+}
+
+.btn-inner-glow {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    pointer-events: none;
 }
 
 .btn-icon {
-    font-size: 4rem;
-    filter: drop-shadow(0 0 10px var(--color-primary-glow));
+    font-size: 3.6rem;
+    filter: drop-shadow(0 0 14px var(--color-primary-glow));
     margin-bottom: 8px;
+    position: relative;
+    z-index: 1;
+    animation: floatY 2.5s ease-in-out infinite;
 }
 
 .btn-text {
-    font-size: 1.1rem;
+    font-size: 1.05rem;
     font-weight: 900;
-    letter-spacing: 1px;
+    letter-spacing: 1.2px;
+    position: relative;
+    z-index: 1;
 }
 
 .btn-subtext {
-    font-size: 0.75rem;
+    font-size: 0.72rem;
     color: var(--text-dim);
     margin-top: 4px;
+    position: relative;
+    z-index: 1;
 }
 
 /* ─── Tienda y Upgrades (Derecha) ─── */
@@ -266,19 +308,22 @@
 }
 
 .store-item-card {
-    background: rgba(26, 19, 44, 0.6);
+    background: linear-gradient(135deg, rgba(26, 19, 44, 0.75), rgba(16, 10, 28, 0.85));
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: var(--radius-md);
     padding: 14px;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    transition: all 0.2s ease;
+    transition: all 0.22s ease;
+    gap: 10px;
 }
 
 .store-item-card:hover {
-    background: rgba(35, 25, 60, 0.8);
+    background: linear-gradient(135deg, rgba(40, 28, 68, 0.9), rgba(24, 14, 44, 0.95));
     border-color: var(--border-glow);
+    transform: translateX(3px);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
 }
 
 .item-left {
@@ -331,7 +376,7 @@
     background: linear-gradient(135deg, var(--color-gold), #ff9800);
     color: #000000;
     border: none;
-    padding: 8px 16px;
+    padding: 10px 16px;
     border-radius: var(--radius-sm);
     font-family: var(--font-mono);
     font-weight: 800;
@@ -340,6 +385,21 @@
     transition: all 0.2s ease;
     box-shadow: 0 4px 10px rgba(255, 215, 0, 0.25);
     white-space: nowrap;
+    flex-shrink: 0;
+    position: relative;
+    z-index: 2;
+    touch-action: manipulation;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+.btn-buy:hover:not(:disabled) {
+    filter: brightness(1.08);
+    transform: scale(1.04);
+}
+
+.btn-buy:active:not(:disabled) {
+    transform: scale(0.96);
 }
 
 .btn-buy:disabled {
@@ -347,6 +407,32 @@
     color: var(--text-dim);
     box-shadow: none;
     cursor: not-allowed;
+    filter: none;
+    transform: none;
+}
+
+.btn-buy.buying {
+    opacity: 0.7;
+    pointer-events: none;
+}
+
+.store-empty {
+    text-align: center;
+    padding: 28px 16px;
+    color: var(--text-muted);
+    font-size: 0.95rem;
+}
+
+.store-empty-hint {
+    margin-top: 8px;
+    font-size: 0.8rem;
+    color: var(--text-dim);
+}
+
+.btn-icon,
+.btn-text,
+.btn-subtext {
+    pointer-events: none; /* clicks caen en el <button> */
 }
 
 .btn-sound-toggle {
@@ -379,4 +465,136 @@
     font-weight: 900;
     color: var(--color-gold);
     text-shadow: 0 0 15px rgba(255, 215, 0, 0.4);
+}
+
+/* Prestigio */
+.prestige-panel {
+    text-align: center;
+    padding: 12px 8px;
+}
+
+.prestige-icon {
+    font-size: 2.5rem;
+    color: var(--color-gold);
+    text-shadow: 0 0 20px rgba(255, 213, 79, 0.5);
+    margin-bottom: 8px;
+}
+
+.prestige-title {
+    font-size: 1.15rem;
+    font-weight: 900;
+    margin-bottom: 10px;
+}
+
+.prestige-desc {
+    font-size: 0.88rem;
+    color: var(--text-muted);
+    line-height: 1.55;
+    margin-bottom: 16px;
+}
+
+.prestige-level-pill {
+    background: rgba(255, 213, 79, 0.1);
+    border: 1px solid rgba(255, 213, 79, 0.3);
+    border-radius: 999px;
+    padding: 10px 16px;
+    font-family: var(--font-mono);
+    font-size: 0.9rem;
+    color: var(--color-gold);
+}
+
+/* Missions / boost / synergies */
+.boost-banner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: linear-gradient(90deg, rgba(255,107,240,.2), rgba(179,136,255,.15));
+  border: 1px solid rgba(255,107,240,.4);
+  border-radius: 12px;
+  padding: 8px 14px;
+  font-weight: 800;
+  font-size: 0.85rem;
+  color: #ffb3f5;
+}
+.synergy-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.synergy-chip {
+  font-size: 0.7rem;
+  font-weight: 800;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(0,229,195,.12);
+  border: 1px solid rgba(0,229,195,.35);
+  color: var(--color-secondary);
+}
+.missions-bar {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 8px;
+}
+.mission-card {
+  background: rgba(18,12,32,.85);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.mission-card.done { border-color: rgba(105,240,174,.45); }
+.mission-card.claimed { opacity: 0.55; }
+.mission-label { font-size: 0.72rem; font-weight: 700; line-height: 1.25; }
+.mission-bar {
+  height: 5px;
+  background: rgba(255,255,255,.08);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.mission-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--color-primary), var(--color-secondary));
+}
+.mission-meta { font-size: 0.68rem; color: var(--text-dim); font-family: var(--font-mono); }
+.btn-claim {
+  border: none;
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 0.7rem;
+  font-weight: 900;
+  cursor: pointer;
+  background: linear-gradient(135deg, var(--color-gold), #ff9800);
+  color: #111;
+}
+.btn-claim:disabled {
+  background: rgba(255,255,255,.08);
+  color: var(--text-dim);
+  cursor: not-allowed;
+}
+.store-item-card.locked { opacity: 0.55; }
+.lock-hint { font-size: 0.68rem; color: var(--color-warning); display: block; margin-top: 2px; }
+.stats-mini {
+  margin-top: 12px;
+  display: grid;
+  gap: 4px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  text-align: left;
+}
+.stats-mini strong { color: #fff; font-family: var(--font-mono); }
+
+/* Discord Activity compact */
+@media (max-height: 700px) {
+  .tycoon-layout { padding: 10px 10px 16px; gap: 10px; min-height: auto; }
+  .big-click-btn { width: 160px; height: 160px; }
+  .btn-icon { font-size: 2.2rem; }
+  .btn-text { font-size: 0.8rem; }
+  .store-section { height: auto; max-height: 380px; }
+  .rate-value { font-size: 1.15rem; }
+  .missions-bar { grid-template-columns: 1fr 1fr 1fr; }
+}
+@media (max-width: 900px) {
+  .tycoon-layout { grid-template-columns: 1fr; }
 }

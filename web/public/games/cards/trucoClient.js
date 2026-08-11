@@ -108,8 +108,12 @@ function renderHand(table) {
 }
 
 // ═══ CANTOS ═══
+const btnCantoFalta = document.getElementById('btn-canto-falta');
+const btnCantoEnvido2 = document.getElementById('btn-canto-envido2');
 btnCantoEnvido.addEventListener('click', () => sendCanto('envido'));
+if (btnCantoEnvido2) btnCantoEnvido2.addEventListener('click', () => sendCanto('envido_envido'));
 btnCantoReal.addEventListener('click', () => sendCanto('real_envido'));
+if (btnCantoFalta) btnCantoFalta.addEventListener('click', () => sendCanto('falta_envido'));
 btnCantoTruco.addEventListener('click', () => sendCanto('truco'));
 btnCantoMazo.addEventListener('click', () => {
     if (confirm('¿Querés irte al mazo? Le darás los puntos en juego al rival.')) {

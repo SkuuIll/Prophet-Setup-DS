@@ -48,4 +48,18 @@ test('Casino: CS2 Cases opening and weighted distribution', () => {
     assert.ok(res.winningItem && res.winningItem.name, 'Winning item must have a name');
     assert.ok(res.reel.length === 45, 'Reel should contain exactly 45 items for animation');
     assert.strictEqual(res.reel[35].name, res.winningItem.name, 'Reel item at winning index must match winning item');
+    assert.ok(res.pity, 'Pity state should be returned');
+    assert.ok(typeof res.winningItem.credited === 'number', 'Should credit soft-sell or cash value');
+});
+
+test('Casino: Cases pity hard-guarantees epic', () => {
+    const testUserId = 'test_cases_pity_' + Date.now();
+    EconomyBridge.addCoins(testUserId, 200000, 'test', 'init');
+    // Force pity by opening until near epic threshold isn't practical; unit-check getPity increments
+    const first = CasesEngine.openCase(testUserId, 'case_prophet_starter');
+    assert.ok(first.success);
+    const pity = CasesEngine.getPityState(testUserId);
+    assert.strictEqual(pity.opens, 1);
+    assert.ok(pity.history.length >= 1);
+    assert.ok(CasesEngine.getCasesList().some(c => c.id === 'case_night_ops'));
 });

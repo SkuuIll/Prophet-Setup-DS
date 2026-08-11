@@ -76,7 +76,7 @@ body {
     height: 100%;
     width: 0%;
     background: linear-gradient(90deg, #00BFA5, #39FF14);
-    box-shadow: 0 0 10px #39FF14;
+    box-shadow: 0 0 12px rgba(57, 255, 20, 0.55);
     transition: width 0.15s ease;
 }
 
@@ -135,8 +135,9 @@ body {
 .hp-bar-fill {
     height: 100%;
     width: 100%;
-    background: linear-gradient(90deg, #D50000, #FF5252);
+    background: linear-gradient(90deg, #B71C1C, #FF5252 50%, #FF8A80);
     transition: width 0.1s linear;
+    box-shadow: 0 0 10px rgba(255, 82, 82, 0.5);
 }
 
 .hp-text {
@@ -231,27 +232,50 @@ body {
 }
 
 .upgrade-card {
-    background: rgba(22, 16, 38, 0.95);
+    background: linear-gradient(165deg, rgba(32, 22, 56, 0.98), rgba(14, 8, 28, 0.98));
     border: 2px solid var(--border-color);
     border-radius: var(--radius-md);
-    padding: 24px 16px;
+    padding: 28px 18px;
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 12px;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
     box-shadow: var(--shadow-card);
+    position: relative;
+    overflow: hidden;
+}
+
+.upgrade-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at 50% 0%, rgba(179, 136, 255, 0.15), transparent 60%);
+    opacity: 0;
+    transition: opacity 0.25s;
 }
 
 .upgrade-card:hover {
-    transform: translateY(-8px) scale(1.03);
+    transform: translateY(-10px) scale(1.04);
     border-color: var(--color-primary);
-    box-shadow: 0 0 25px rgba(187, 134, 252, 0.4);
+    box-shadow: 0 0 32px rgba(187, 134, 252, 0.45);
 }
 
+.upgrade-card:hover::before { opacity: 1; }
+
 .upgrade-icon {
-    font-size: 2.8rem;
+    font-size: 2.4rem;
+    width: 64px;
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 16px;
+    background: rgba(179, 136, 255, 0.12);
+    border: 1px solid rgba(179, 136, 255, 0.35);
+    color: var(--color-primary);
+    font-weight: 900;
 }
 
 .upgrade-name {

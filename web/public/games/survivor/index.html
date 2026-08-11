@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Prophet Survivor — Arcade 2D Roguelite</title>
-    <link rel="stylesheet" href="../common/theme.css">
-    <link rel="stylesheet" href="survivor.css">
+    <link rel="stylesheet" href="/games/common/theme.css">
+    <link rel="stylesheet" href="/games/survivor/survivor.css">
 </head>
 <body>
     <!-- Game Container & Canvas -->
@@ -36,7 +36,7 @@
                     <span>🪙</span>
                     <span id="hud-coins">0</span>
                 </div>
-                <a href="../hub/" class="btn-quit-game" title="Salir al Hub">✕</a>
+                <a href="/games/hub/" class="btn-quit-game" title="Salir al Hub">✕</a>
             </div>
 
             <!-- HP Bar (Bottom of HUD) -->
@@ -70,6 +70,7 @@
                 <h1 class="gameover-title">💀 FIN DE LA PARTIDA</h1>
                 <p class="gameover-subtitle">Tu héroe cayó ante la horda cibernética</p>
 
+                <p id="go-extra" style="text-align:center;opacity:.75;font-size:13px;margin:0 0 12px"></p>
                 <div class="gameover-stats-grid">
                     <div class="go-stat-item">
                         <span class="go-stat-label">TIEMPO</span>
@@ -119,9 +120,12 @@
         </div>
     </div>
 
-    <script src="../common/utils.js"></script>
-    <script src="../common/api.js"></script>
-    <script src="weapons.js"></script>
-    <script src="survivor.js"></script>
+        <!-- Discord Activities (Embedded App SDK) -->
+    <script type="module" src="/games/common/discordActivity.js?v=20260811d"></script>
+    <script src="/games/common/utils.js?v=20260811d"></script>
+    <script src="/games/common/profileUI.js?v=20260811d"></script>
+    <script src="/games/common/api.js?v=20260811d"></script>
+    <script src="/games/survivor/weapons.js?v=20260811d"></script>
+    <script src="/games/survivor/survivor.js?v=20260811d"></script>
 </body>
 </html>

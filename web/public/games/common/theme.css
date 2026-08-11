@@ -1,34 +1,47 @@
-/* ═══ PROPHET GAMING DESIGN SYSTEM (Cyberpunk / Dark Violet) ═══ */
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800;900&family=JetBrains+Mono:wght@500;700&display=swap');
+/* ═══ PROPHET GAMING DESIGN SYSTEM v2 — Neon Arena ═══ */
+/* Sin Google Fonts: Discord Activities bloquean hosts externos (CSP del proxy). */
+/* Outfit / JetBrains se reemplazan por system-ui + monospace nativo. */
 
 :root {
-    --bg-main: #0B0813;
-    --bg-card: rgba(22, 16, 38, 0.75);
-    --bg-card-hover: rgba(35, 25, 60, 0.9);
-    --border-color: rgba(187, 134, 252, 0.2);
-    --border-glow: rgba(187, 134, 252, 0.5);
+    --bg-main: #07050f;
+    --bg-deep: #04030a;
+    --bg-card: rgba(18, 12, 32, 0.82);
+    --bg-card-solid: #120c20;
+    --bg-card-hover: rgba(28, 18, 48, 0.95);
+    --bg-elevated: rgba(30, 20, 52, 0.9);
+    --border-color: rgba(168, 120, 255, 0.18);
+    --border-glow: rgba(168, 120, 255, 0.45);
+    --border-strong: rgba(168, 120, 255, 0.65);
 
-    --color-primary: #BB86FC;
-    --color-primary-glow: #9955FF;
-    --color-secondary: #03DAC6;
-    --color-accent: #FF73FA;
-    --color-gold: #FFD700;
+    --color-primary: #B388FF;
+    --color-primary-glow: #9B5CFF;
+    --color-secondary: #00E5C3;
+    --color-accent: #FF6BF0;
+    --color-gold: #FFD54F;
     --color-success: #69F0AE;
-    --color-danger: #EF5350;
+    --color-danger: #FF5252;
+    --color-warning: #FFAB40;
+    --color-info: #40C4FF;
 
-    --text-main: #FFFFFF;
-    --text-muted: #A098BA;
-    --text-dim: #6B6282;
+    --text-main: #F5F0FF;
+    --text-muted: #A89BC4;
+    --text-dim: #6B5F82;
 
-    --font-title: 'Outfit', sans-serif;
-    --font-mono: 'JetBrains Mono', monospace;
+    --font-title: system-ui, -apple-system, 'Segoe UI', Roboto, Ubuntu, sans-serif;
+    --font-mono: ui-monospace, 'Cascadia Code', 'SF Mono', Menlo, Consolas, monospace;
 
-    --radius-sm: 8px;
+    --radius-xs: 6px;
+    --radius-sm: 10px;
     --radius-md: 14px;
-    --radius-lg: 20px;
+    --radius-lg: 22px;
+    --radius-xl: 28px;
 
-    --shadow-glow: 0 0 25px rgba(187, 134, 252, 0.25);
-    --shadow-card: 0 10px 30px rgba(0, 0, 0, 0.5);
+    --shadow-glow: 0 0 40px rgba(155, 92, 255, 0.22);
+    --shadow-card: 0 16px 40px rgba(0, 0, 0, 0.55);
+    --shadow-inset: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+
+    --ease-spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 * {
@@ -39,46 +52,89 @@
     -webkit-tap-highlight-color: transparent;
 }
 
+html {
+    scroll-behavior: smooth;
+}
+
 body {
     background-color: var(--bg-main);
-    background-image: 
-        radial-gradient(circle at 15% 15%, rgba(187, 134, 252, 0.08) 0%, transparent 40%),
-        radial-gradient(circle at 85% 85%, rgba(3, 218, 198, 0.05) 0%, transparent 40%),
-        radial-gradient(circle at 50% 50%, rgba(255, 115, 250, 0.03) 0%, transparent 60%);
+    background-image:
+        radial-gradient(ellipse 80% 50% at 10% -10%, rgba(155, 92, 255, 0.18) 0%, transparent 55%),
+        radial-gradient(ellipse 60% 40% at 95% 10%, rgba(0, 229, 195, 0.08) 0%, transparent 50%),
+        radial-gradient(ellipse 70% 50% at 50% 110%, rgba(255, 107, 240, 0.07) 0%, transparent 55%),
+        linear-gradient(180deg, #0a0714 0%, var(--bg-main) 40%, #05030c 100%);
     background-attachment: fixed;
     color: var(--text-main);
     min-height: 100vh;
     overflow-x: hidden;
+    line-height: 1.5;
+}
+
+/* Ambient mesh grid */
+body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+        linear-gradient(rgba(168, 120, 255, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(168, 120, 255, 0.03) 1px, transparent 1px);
+    background-size: 48px 48px;
+    mask-image: radial-gradient(ellipse 70% 60% at 50% 40%, black 20%, transparent 75%);
+    pointer-events: none;
+    z-index: 0;
+}
+
+/* Soft noise grain */
+body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    opacity: 0.035;
+    pointer-events: none;
+    z-index: 9998;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+body > * {
+    position: relative;
+    z-index: 1;
 }
 
 /* ─── Scrollbar ─── */
-::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
-}
-::-webkit-scrollbar-track {
-    background: rgba(0, 0, 0, 0.2);
-}
+::-webkit-scrollbar { width: 7px; height: 7px; }
+::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.25); }
 ::-webkit-scrollbar-thumb {
-    background: var(--border-color);
-    border-radius: 4px;
+    background: linear-gradient(180deg, var(--color-primary-glow), rgba(155, 92, 255, 0.3));
+    border-radius: 8px;
 }
-::-webkit-scrollbar-thumb:hover {
-    background: var(--color-primary);
-}
+::-webkit-scrollbar-thumb:hover { background: var(--color-primary); }
 
 /* ─── Header Global ─── */
 .prophet-nav {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 16px 28px;
-    background: rgba(15, 10, 26, 0.8);
-    backdrop-filter: blur(16px);
+    padding: 10px 16px;
+    background: rgba(8, 5, 16, 0.85);
+    backdrop-filter: blur(20px) saturate(1.4);
+    -webkit-backdrop-filter: blur(20px) saturate(1.4);
     border-bottom: 1px solid var(--border-color);
     position: sticky;
     top: 0;
     z-index: 100;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+    gap: 10px;
+    min-height: 52px;
+}
+
+.user-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 2px solid var(--color-primary);
+    object-fit: cover;
+    box-shadow: 0 0 12px rgba(155, 92, 255, 0.45);
+    flex-shrink: 0;
 }
 
 .prophet-brand {
@@ -87,58 +143,83 @@ body {
     gap: 12px;
     text-decoration: none;
     color: var(--text-main);
+    transition: opacity 0.2s;
 }
 
+.prophet-brand:hover { opacity: 0.9; }
+
 .prophet-logo-glow {
-    width: 38px;
-    height: 38px;
-    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
     border: 2px solid var(--color-primary);
-    box-shadow: 0 0 15px var(--color-primary-glow);
+    box-shadow: 0 0 18px rgba(155, 92, 255, 0.55), var(--shadow-inset);
+    background-size: cover !important;
+    background-position: center !important;
+    flex-shrink: 0;
 }
 
 .prophet-title {
-    font-size: 1.25rem;
+    font-size: 1.15rem;
     font-weight: 800;
-    letter-spacing: 1px;
-    background: linear-gradient(135deg, #FFFFFF, var(--color-primary));
+    letter-spacing: 1.2px;
+    background: linear-gradient(135deg, #FFFFFF 0%, var(--color-primary) 55%, var(--color-secondary) 100%);
     -webkit-background-clip: text;
+    background-clip: text;
     -webkit-text-fill-color: transparent;
 }
 
 .prophet-user-badge {
     display: flex;
     align-items: center;
-    gap: 16px;
+    gap: 14px;
 }
 
 .prophet-balance-pill {
     display: flex;
     align-items: center;
     gap: 8px;
-    background: rgba(255, 215, 0, 0.1);
-    border: 1px solid rgba(255, 215, 0, 0.3);
-    padding: 6px 14px;
-    border-radius: 30px;
+    background: linear-gradient(135deg, rgba(255, 213, 79, 0.12), rgba(255, 152, 0, 0.08));
+    border: 1px solid rgba(255, 213, 79, 0.35);
+    padding: 7px 16px;
+    border-radius: 999px;
     font-family: var(--font-mono);
     font-size: 0.95rem;
     font-weight: 700;
     color: var(--color-gold);
-    box-shadow: 0 0 12px rgba(255, 215, 0, 0.15);
+    box-shadow: 0 0 16px rgba(255, 213, 79, 0.12), var(--shadow-inset);
+}
+
+.user-profile-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.badge-level {
+    background: linear-gradient(135deg, rgba(179, 136, 255, 0.25), rgba(255, 107, 240, 0.15));
+    border: 1px solid var(--color-primary);
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 800;
+    color: var(--color-primary);
+    letter-spacing: 0.5px;
 }
 
 /* ─── Botones ─── */
 .btn-prophet {
-    background: linear-gradient(135deg, var(--color-primary-glow), #6610f2);
+    background: linear-gradient(135deg, var(--color-primary-glow) 0%, #6C2BD9 55%, #4A1A9E 100%);
     color: #FFFFFF;
-    border: none;
-    padding: 12px 24px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    padding: 12px 26px;
     border-radius: var(--radius-md);
     font-weight: 800;
-    font-size: 1rem;
+    font-size: 0.95rem;
+    letter-spacing: 0.4px;
     cursor: pointer;
-    transition: all 0.2s ease;
-    box-shadow: 0 4px 15px rgba(153, 85, 255, 0.35);
+    transition: transform 0.2s var(--ease-out), box-shadow 0.2s, filter 0.2s;
+    box-shadow: 0 6px 22px rgba(155, 92, 255, 0.4), var(--shadow-inset);
     display: inline-flex;
     align-items: center;
     gap: 8px;
@@ -147,22 +228,156 @@ body {
 
 .btn-prophet:hover {
     transform: translateY(-2px);
-    box-shadow: 0 6px 22px rgba(153, 85, 255, 0.55);
+    box-shadow: 0 10px 30px rgba(155, 92, 255, 0.55);
+    filter: brightness(1.08);
 }
 
-.btn-prophet:active {
-    transform: scale(0.98);
+.btn-prophet:active { transform: scale(0.97); }
+
+.btn-secondary {
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--text-main);
+    border: 1px solid var(--border-color);
+    padding: 12px 22px;
+    border-radius: var(--radius-md);
+    font-weight: 700;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.btn-secondary:hover {
+    background: rgba(179, 136, 255, 0.15);
+    border-color: var(--border-glow);
+    color: #fff;
+}
+
+.btn-sound-toggle {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid var(--border-color);
+    color: #FFF;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 1.05rem;
+}
+
+.btn-sound-toggle:hover {
+    background: rgba(179, 136, 255, 0.18);
+    border-color: var(--color-primary);
+    box-shadow: 0 0 14px rgba(155, 92, 255, 0.35);
+}
+
+/* Mode tabs (casino / cards shared) */
+.mode-tab {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--border-color);
+    color: var(--text-muted);
+    padding: 12px 26px;
+    border-radius: var(--radius-md);
+    font-weight: 800;
+    font-size: 0.95rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    transition: all 0.25s var(--ease-out);
+}
+
+.mode-tab:hover {
+    background: rgba(179, 136, 255, 0.12);
+    color: #FFFFFF;
+    border-color: var(--border-glow);
+}
+
+.mode-tab.active {
+    background: linear-gradient(135deg, rgba(179, 136, 255, 0.28), rgba(0, 229, 195, 0.12));
+    border-color: var(--color-primary);
+    color: #FFFFFF;
+    box-shadow: 0 0 24px rgba(155, 92, 255, 0.28), var(--shadow-inset);
+}
+
+.mode-icon { font-size: 1.25rem; }
+
+/* ─── Forms ─── */
+.input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.input-group label {
+    font-size: 0.72rem;
+    font-weight: 800;
+    color: var(--text-dim);
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+}
+
+input[type="number"],
+input[type="text"],
+select,
+textarea {
+    background: rgba(6, 4, 14, 0.85);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    color: #FFFFFF;
+    font-family: var(--font-mono);
+    font-size: 1rem;
+    font-weight: 700;
+    padding: 11px 14px;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    width: 100%;
+}
+
+input:focus, select:focus, textarea:focus {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px rgba(155, 92, 255, 0.18);
+}
+
+input::placeholder { color: var(--text-dim); }
+
+.input-with-actions {
+    display: flex;
+    gap: 6px;
+}
+
+.input-with-actions input { flex: 1; min-width: 0; }
+
+.btn-quick {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #FFFFFF;
+    border-radius: var(--radius-sm);
+    padding: 0 14px;
+    font-weight: 800;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+}
+
+.btn-quick:hover {
+    background: rgba(179, 136, 255, 0.2);
+    border-color: var(--color-primary);
 }
 
 /* ─── Modal Glassmorphism ─── */
 .modal-overlay {
     position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
-    background: rgba(0, 0, 0, 0.75);
-    backdrop-filter: blur(8px);
+    inset: 0;
+    background: rgba(2, 1, 8, 0.78);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
     display: flex;
     justify-content: center;
     align-items: center;
@@ -170,6 +385,7 @@ body {
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.3s ease;
+    padding: 20px;
 }
 
 .modal-overlay.active {
@@ -178,18 +394,112 @@ body {
 }
 
 .modal-content {
-    background: rgba(22, 16, 38, 0.95);
+    background: linear-gradient(160deg, rgba(28, 18, 48, 0.98), rgba(12, 8, 24, 0.98));
     border: 1px solid var(--border-glow);
-    box-shadow: var(--shadow-glow), 0 20px 50px rgba(0,0,0,0.8);
+    box-shadow: var(--shadow-glow), 0 30px 60px rgba(0, 0, 0, 0.75);
     border-radius: var(--radius-lg);
-    padding: 32px;
+    padding: 36px;
     max-width: 480px;
-    width: 90%;
+    width: 100%;
     text-align: center;
-    transform: scale(0.9);
-    transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    transform: scale(0.88) translateY(12px);
+    transition: transform 0.35s var(--ease-spring);
 }
 
 .modal-overlay.active .modal-content {
-    transform: scale(1);
+    transform: scale(1) translateY(0);
+}
+
+/* ─── Shared utility ─── */
+.game-view { display: none; animation: fadeSlideIn 0.35s var(--ease-out); }
+.game-view.active { display: block; }
+
+@keyframes fadeSlideIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+}
+
+@keyframes spin {
+    100% { transform: rotate(360deg); }
+}
+
+@keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+}
+
+@keyframes floatY {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-8px); }
+}
+
+.text-green { color: var(--color-success); }
+.text-purple { color: var(--color-primary); }
+.text-gold { color: var(--color-gold); }
+.text-danger { color: var(--color-danger); }
+
+/* Toast feedback */
+.prophet-toast {
+    position: fixed;
+    bottom: 28px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: rgba(18, 12, 32, 0.95);
+    border: 1px solid var(--border-glow);
+    color: #fff;
+    padding: 12px 22px;
+    border-radius: 999px;
+    font-weight: 700;
+    font-size: 0.9rem;
+    z-index: 9999;
+    opacity: 0;
+    pointer-events: none;
+    transition: all 0.3s var(--ease-out);
+    box-shadow: var(--shadow-glow);
+    max-width: 90vw;
+}
+
+.prophet-toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}
+
+.prophet-toast.error { border-color: var(--color-danger); }
+.prophet-toast.success { border-color: var(--color-success); }
+
+@media (max-width: 640px) {
+    .prophet-nav { padding: 8px 12px; }
+    .prophet-title { font-size: 0.9rem; }
+    .mode-tab { padding: 10px 14px; font-size: 0.8rem; }
+    .prophet-balance-pill { padding: 5px 10px; font-size: 0.85rem; }
+    .user-profile-header .user-name { max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-block; }
+}
+
+/* ═══ Discord Activity / iframe compacto ═══ */
+html, body {
+    height: 100%;
+}
+
+body.activity-frame,
+html.activity-frame body {
+    min-height: 100%;
+    overflow-x: hidden;
+}
+
+/* Viewport bajo (Activity embebida en voz) */
+@media (max-height: 720px) {
+    .prophet-nav { padding: 6px 12px; min-height: 46px; }
+    .prophet-logo-glow { width: 30px; height: 30px; border-radius: 9px; }
+    .prophet-title { font-size: 0.88rem; }
+    .user-avatar { width: 28px; height: 28px; }
+}
+
+@media (max-height: 560px) {
+    .prophet-nav { padding: 4px 10px; }
+    body { font-size: 14px; }
 }

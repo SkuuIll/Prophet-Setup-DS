@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Prophet Cards — Truco Argentino & Blackjack</title>
-    <link rel="stylesheet" href="../common/theme.css">
-    <link rel="stylesheet" href="cards.css">
+    <title>Prophet Cards — Truco, UNO & Blackjack</title>
+    <link rel="stylesheet" href="/games/common/theme.css">
+    <link rel="stylesheet" href="/games/cards/cards.css">
 </head>
 <body>
     <!-- Navbar -->
     <header class="prophet-nav">
-        <a href="../hub/" class="prophet-brand">
+        <a href="/games/hub/" class="prophet-brand" id="nav-back-cards">
             <span style="font-size: 1.2rem;">◀</span>
             <div class="prophet-logo-glow" style="background: url('/assets/logo.png') center/cover;"></div>
             <span class="prophet-title">PROPHET CARDS</span>
@@ -28,11 +28,15 @@
     <nav class="cards-mode-tabs">
         <button class="mode-tab active" data-mode="truco">
             <span class="mode-icon">⚔️</span>
-            <span>TRUCO ARGENTINO</span>
+            <span>TRUCO</span>
+        </button>
+        <button class="mode-tab" data-mode="uno">
+            <span class="mode-icon">🎴</span>
+            <span>UNO</span>
         </button>
         <button class="mode-tab" data-mode="blackjack">
             <span class="mode-icon">🎰</span>
-            <span>BLACKJACK 21</span>
+            <span>BLACKJACK</span>
         </button>
     </nav>
 
@@ -41,8 +45,8 @@
         <section class="game-view active" id="view-truco">
             <!-- Truco Lobby (Crear / Unirse) -->
             <div class="cards-lobby-panel" id="truco-lobby-panel">
-                <h2 class="lobby-title">⚔️ TRUCO ARGENTINO TRADICIONAL</h2>
-                <p class="lobby-subtitle">Jugá 1v1 con mazo español, cantos de Envido, Truco y pozo de monedas.</p>
+                <h2 class="lobby-title">TRUCO ARGENTINO</h2>
+                <p class="lobby-subtitle">1v1 con mazo español, Envido, Truco y pozo de monedas. Creá una mesa o unite con el código.</p>
 
                 <div class="truco-setup-card">
                     <div class="input-group">
@@ -92,9 +96,9 @@
                     <div class="rival-zone">
                         <div class="rival-info" id="rival-info">Esperando rival...</div>
                         <div class="rival-cards-back" id="rival-cards-back">
-                            <div class="card-back"></div>
-                            <div class="card-back"></div>
-                            <div class="card-back"></div>
+                            <div class="card-back"><div class="back-inner"><span>P</span></div></div>
+                            <div class="card-back"><div class="back-inner"><span>P</span></div></div>
+                            <div class="card-back"><div class="back-inner"><span>P</span></div></div>
                         </div>
                     </div>
 
@@ -124,10 +128,12 @@
 
                 <!-- Cantos & Actions Bar -->
                 <div class="truco-actions-bar" id="truco-actions-bar">
-                    <button class="btn-action-truco" id="btn-canto-envido">📢 ENVIDO</button>
-                    <button class="btn-action-truco" id="btn-canto-real">⚡ REAL ENVIDO</button>
-                    <button class="btn-action-truco btn-gold" id="btn-canto-truco">⚔️ TRUCO</button>
-                    <button class="btn-action-truco btn-danger" id="btn-canto-mazo">🏳️ AL MAZO</button>
+                    <button class="btn-action-truco" id="btn-canto-envido">ENVIDO</button>
+                    <button class="btn-action-truco" id="btn-canto-envido2" title="Subir envido">ENVIDO²</button>
+                    <button class="btn-action-truco" id="btn-canto-real">REAL ENVIDO</button>
+                    <button class="btn-action-truco" id="btn-canto-falta">FALTA ENVIDO</button>
+                    <button class="btn-action-truco btn-gold" id="btn-canto-truco">TRUCO</button>
+                    <button class="btn-action-truco btn-danger" id="btn-canto-mazo">AL MAZO</button>
                 </div>
 
                 <!-- Canto Response Overlay (Modal flotante) -->
@@ -143,7 +149,107 @@
             </div>
         </section>
 
-        <!-- ══════════════ 2. MODO BLACKJACK 21 ══════════════ -->
+        <!-- ══════════════ 2. MODO UNO CLÁSICO ══════════════ -->
+        <section class="game-view" id="view-uno">
+            <div class="cards-lobby-panel" id="uno-lobby-panel">
+                <h2 class="lobby-title">UNO CLÁSICO</h2>
+                <p class="lobby-subtitle">
+                    2–6 jugadores · Skip, Reverse, +2, Wild, +4 con challenge · grito UNO · apuestas opcionales.
+                    Stack de +2 permitido (house rule).
+                </p>
+                <div class="truco-setup-card">
+                    <div class="input-group">
+                        <label>BUY-IN POR JUGADOR (🪙)</label>
+                        <input type="number" id="uno-bet-input" value="100" min="0" step="50">
+                    </div>
+                    <div class="input-group">
+                        <label>JUGADORES MÁXIMOS</label>
+                        <select id="uno-max-players">
+                            <option value="2">2 jugadores</option>
+                            <option value="3">3 jugadores</option>
+                            <option value="4" selected>4 jugadores</option>
+                            <option value="5">5 jugadores</option>
+                            <option value="6">6 jugadores</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label>MODO DE PARTIDA</label>
+                        <select id="uno-target-select">
+                            <option value="0" selected>Rápida — 1 mano (gana el pozo)</option>
+                            <option value="200">Puntos a 200</option>
+                            <option value="300">Puntos a 300 (clásico)</option>
+                            <option value="500">Puntos a 500</option>
+                        </select>
+                    </div>
+                    <button class="btn-prophet" id="btn-create-uno" style="width:100%;justify-content:center;margin-top:10px;">
+                        ➕ CREAR MESA UNO
+                    </button>
+                    <div class="or-divider" style="margin:16px 0;">O UNITE CON CÓDIGO</div>
+                    <div class="join-room-row">
+                        <input type="text" id="uno-room-code-input" placeholder="Código (ej: UNO-842)" maxlength="8">
+                        <button class="btn-secondary" id="btn-join-uno">UNIRSE ➔</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="uno-table-stage" id="uno-table-stage" style="display:none;">
+                <div class="uno-top-bar">
+                    <span id="uno-table-id" class="uno-code">UNO-000</span>
+                    <span id="uno-pot" class="uno-pot">Pozo: 🪙 0</span>
+                    <span id="uno-status" class="uno-status">—</span>
+                    <button class="btn-prophet" id="btn-uno-start" style="display:none;">▶ EMPEZAR</button>
+                </div>
+
+                <div id="uno-scores" class="uno-scores"></div>
+
+                <div class="uno-board">
+                    <div id="uno-opponents" class="uno-opponents"></div>
+
+                    <div class="uno-center">
+                        <div class="uno-color-banner" id="uno-color-banner">—</div>
+                        <div class="uno-piles">
+                            <div id="uno-deck-pile" class="uno-deck-pile" title="Mazo"></div>
+                            <div id="uno-discard" class="uno-discard"></div>
+                        </div>
+                        <div class="uno-actions">
+                            <button class="btn-action-bj btn-hit" id="btn-uno-draw">ROBAR</button>
+                            <button class="btn-action-bj btn-stand" id="btn-uno-pass">PASAR</button>
+                            <button class="btn-action-bj btn-double pulse" id="btn-uno-call">¡UNO!</button>
+                        </div>
+                    </div>
+
+                    <div id="uno-hand" class="uno-hand"></div>
+                    <div id="uno-log" class="uno-log"></div>
+                </div>
+
+                <!-- Color picker -->
+                <div class="uno-modal-overlay" id="uno-color-modal" style="display:none;">
+                    <div class="uno-modal-box">
+                        <h3>Elegí un color</h3>
+                        <div class="uno-color-grid">
+                            <button type="button" class="uno-color-btn red" data-uno-color="red">Rojo</button>
+                            <button type="button" class="uno-color-btn yellow" data-uno-color="yellow">Amarillo</button>
+                            <button type="button" class="uno-color-btn green" data-uno-color="green">Verde</button>
+                            <button type="button" class="uno-color-btn blue" data-uno-color="blue">Azul</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- +4 challenge -->
+                <div class="uno-modal-overlay" id="uno-challenge-modal" style="display:none;">
+                    <div class="uno-modal-box">
+                        <h3>¡Te tiraron un +4!</h3>
+                        <p style="opacity:.8;margin:0 0 12px;font-size:.9rem;">Podés aceptar y robar 4, o desafiar si creés que tenía el color.</p>
+                        <div class="uno-challenge-btns">
+                            <button class="btn-casino-action btn-bet" id="btn-uno-accept-plus4">ACEPTAR (+4)</button>
+                            <button class="btn-casino-action btn-secondary" id="btn-uno-challenge-plus4">DESAFIAR</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ══════════════ 3. MODO BLACKJACK 21 ══════════════ -->
         <section class="game-view" id="view-blackjack">
             <div class="bj-stage-card">
                 <!-- Dealer Area -->
@@ -185,20 +291,24 @@
                     </div>
 
                     <div class="bj-action-buttons" id="bj-actions-panel" style="display: none;">
-                        <button class="btn-action-bj btn-hit" id="btn-bj-hit">🃏 PEDIR CARTA (HIT)</button>
-                        <button class="btn-action-bj btn-stand" id="btn-bj-stand">✋ PLANTARSE (STAND)</button>
-                        <button class="btn-action-bj btn-double" id="btn-bj-double">💰 DOBLAR (2X)</button>
+                        <button class="btn-action-bj btn-hit" id="btn-bj-hit">PEDIR (HIT)</button>
+                        <button class="btn-action-bj btn-stand" id="btn-bj-stand">PLANTARSE</button>
+                        <button class="btn-action-bj btn-double" id="btn-bj-double">DOBLAR 2X</button>
+                        <button class="btn-action-bj btn-split" id="btn-bj-split" style="display:none;">DIVIDIR</button>
                     </div>
                 </div>
             </div>
         </section>
     </div>
 
-    <script src="../common/utils.js"></script>
-    <script src="../common/api.js"></script>
-    <script src="cards.css"></script>
-    <script src="cardsUI.js"></script>
-    <script src="trucoClient.js"></script>
-    <script src="blackjackClient.js"></script>
+        <!-- Discord Activities (Embedded App SDK) -->
+    <script type="module" src="/games/common/discordActivity.js?v=20260811d"></script>
+    <script src="/games/common/utils.js?v=20260811d"></script>
+    <script src="/games/common/profileUI.js?v=20260811d"></script>
+    <script src="/games/common/api.js?v=20260811d"></script>
+    <script src="/games/cards/cardsUI.js?v=20260811u"></script>
+    <script src="/games/cards/trucoClient.js?v=20260811u"></script>
+    <script src="/games/cards/unoClient.js?v=20260811u"></script>
+    <script src="/games/cards/blackjackClient.js?v=20260811u"></script>
 </body>
 </html>

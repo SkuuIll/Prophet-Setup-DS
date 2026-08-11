@@ -1,11 +1,13 @@
+const crypto = require('crypto');
 const EconomyBridge = require('../common/economyBridge');
+const cfg = require('../common/gamesConfig').blackjack;
 
 const BJ_SUITS = ['♠', '♥', '♦', '♣'];
 const BJ_VALUES = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
 
 class BlackjackEngine {
     constructor() {
-        this.tables = new Map();
+        this.tables = new Map(); // userId -> table (1 jugador vs banca por sesión)
     }
 
     createDeck() {
@@ -18,8 +20,9 @@ class BlackjackEngine {
                 deck.push({ suit, value, numVal });
             }
         }
+        // Fisher-Yates con crypto
         for (let i = deck.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
+            const j = crypto.randomBytes(2).readUInt16BE(0) % (i + 1);
             [deck[i], deck[j]] = [deck[j], deck[i]];
         }
         return deck;
@@ -39,42 +42,64 @@ class BlackjackEngine {
             aces--;
         }
 
-        const isBlackjack = cards.length === 2 && total === 21;
-        const isBusted = total > 21;
-
-        return { total, isBlackjack, isBusted };
+        return {
+            total,
+            isBlackjack: cards.length === 2 && total === 21,
+            isBusted: total > 21,
+            isSoft: aces > 0 && total <= 21
+        };
     }
 
-    /**
-     * Inicia una mano de Blackjack para un jugador
-     */
-    startHand(userId, amount) {
-        const bet = Math.max(10, Math.floor(Number(amount) || 10));
+    canSplit(hand) {
+        if (!hand || hand.length !== 2) return false;
+        // Mismo valor de rank (pares de 10/J/Q/K también se pueden dividir)
+        const v0 = hand[0].numVal === 10 ? 10 : hand[0].value;
+        const v1 = hand[1].numVal === 10 ? 10 : hand[1].value;
+        if (hand[0].numVal === 10 && hand[1].numVal === 10) return true;
+        return hand[0].value === hand[1].value;
+    }
 
-        const deduct = EconomyBridge.deductCoins(userId, bet, 'cards_blackjack', 'bet', `Mano de Blackjack`);
+    startHand(userId, amount) {
+        const bet = Math.floor(Number(amount) || cfg.minBet);
+        if (bet < cfg.minBet) {
+            return { success: false, error: `Apuesta mínima: 🪙 ${cfg.minBet}` };
+        }
+        if (bet > cfg.maxBet) {
+            return { success: false, error: `Apuesta máxima: 🪙 ${cfg.maxBet}` };
+        }
+
+        // Cancelar mesa previa si quedó colgada
+        if (this.tables.has(userId)) {
+            this.tables.delete(userId);
+        }
+
+        const deduct = EconomyBridge.deductCoins(userId, bet, 'cards_blackjack', 'bet', 'Mano de Blackjack');
         if (!deduct.success) {
             return { success: false, error: deduct.error || 'Saldo insuficiente' };
         }
 
         const deck = this.createDeck();
         const playerHand = [deck.pop(), deck.pop()];
-        const dealerHand = [deck.pop(), deck.pop()]; // dealerHand[1] is hidden
+        const dealerHand = [deck.pop(), deck.pop()];
 
         const playerVal = this.calculateHand(playerHand);
 
         const table = {
             userId,
             bet,
+            originalBet: bet,
             deck,
             playerHand,
             dealerHand,
-            state: 'PLAYING', // 'PLAYING', 'FINISHED'
-            result: null
+            splitHand: null,
+            activeHand: 'main', // 'main' | 'split'
+            state: 'PLAYING',
+            result: null,
+            doubled: false
         };
 
         this.tables.set(userId, table);
 
-        // Si el jugador sacó Blackjack natural
         if (playerVal.isBlackjack) {
             return this.resolveBlackjack(userId);
         }
@@ -86,7 +111,8 @@ class BlackjackEngine {
             playerScore: playerVal.total,
             dealerVisibleCard: dealerHand[0],
             balance: deduct.balance,
-            canDouble: true
+            canDouble: true,
+            canSplit: this.canSplit(playerHand)
         };
     }
 
@@ -94,15 +120,39 @@ class BlackjackEngine {
         const table = this.tables.get(userId);
         if (!table || table.state !== 'PLAYING') return { success: false, error: 'Mano no activa' };
 
+        const hand = table.activeHand === 'split' ? table.splitHand : table.playerHand;
         const card = table.deck.pop();
-        table.playerHand.push(card);
-        const playerVal = this.calculateHand(table.playerHand);
+        hand.push(card);
+        const playerVal = this.calculateHand(hand);
 
         if (playerVal.isBusted) {
-            table.state = 'FINISHED';
-            table.result = 'BUSTED';
-            this.tables.delete(userId);
+            if (table.activeHand === 'main' && table.splitHand) {
+                // Pasa a la mano split
+                table.activeHand = 'split';
+                return {
+                    success: true,
+                    card,
+                    playerHand: table.playerHand,
+                    playerScore: this.calculateHand(table.playerHand).total,
+                    splitHand: table.splitHand,
+                    splitScore: this.calculateHand(table.splitHand).total,
+                    activeHand: 'split',
+                    isBusted: true,
+                    message: 'Mano principal se pasó · jugás el split'
+                };
+            }
 
+            // Fin: bust sin split o bust del split
+            if (table.splitHand && table.activeHand === 'split') {
+                // Evaluar solo dealer vs main (si main no busted)
+                const mainVal = this.calculateHand(table.playerHand);
+                if (!mainVal.isBusted) {
+                    return this.dealerPlay(userId);
+                }
+            }
+
+            table.state = 'FINISHED';
+            this.tables.delete(userId);
             return {
                 success: true,
                 card,
@@ -111,7 +161,7 @@ class BlackjackEngine {
                 isBusted: true,
                 dealerHand: table.dealerHand,
                 dealerScore: this.calculateHand(table.dealerHand).total,
-                result: 'PERDISTE (Te pasaste de 21) 💥',
+                result: 'PERDISTE (Te pasaste de 21)',
                 payout: 0
             };
         }
@@ -120,8 +170,13 @@ class BlackjackEngine {
             success: true,
             card,
             playerHand: table.playerHand,
-            playerScore: playerVal.total,
-            isBusted: false
+            playerScore: this.calculateHand(table.playerHand).total,
+            splitHand: table.splitHand,
+            splitScore: table.splitHand ? this.calculateHand(table.splitHand).total : null,
+            activeHand: table.activeHand,
+            isBusted: false,
+            canDouble: false,
+            canSplit: false
         };
     }
 
@@ -129,27 +184,60 @@ class BlackjackEngine {
         const table = this.tables.get(userId);
         if (!table || table.state !== 'PLAYING') return { success: false, error: 'Mano no activa' };
 
+        if (table.activeHand === 'main' && table.splitHand) {
+            table.activeHand = 'split';
+            return {
+                success: true,
+                playerHand: table.playerHand,
+                playerScore: this.calculateHand(table.playerHand).total,
+                splitHand: table.splitHand,
+                splitScore: this.calculateHand(table.splitHand).total,
+                activeHand: 'split',
+                message: 'Plantado en mano principal · jugás el split'
+            };
+        }
+
         return this.dealerPlay(userId);
     }
 
     doubleDown(userId) {
         const table = this.tables.get(userId);
         if (!table || table.state !== 'PLAYING') return { success: false, error: 'Mano no activa' };
-        if (table.playerHand.length !== 2) return { success: false, error: 'Solo podés doblar en las primeras 2 cartas' };
 
-        const deduct = EconomyBridge.deductCoins(userId, table.bet, 'cards_blackjack', 'double', `Doblar apuesta en Blackjack`);
+        const hand = table.activeHand === 'split' ? table.splitHand : table.playerHand;
+        if (hand.length !== 2) return { success: false, error: 'Solo podés doblar con 2 cartas' };
+
+        const extraBet = table.activeHand === 'split' ? table.originalBet : table.originalBet;
+        const deduct = EconomyBridge.deductCoins(userId, extraBet, 'cards_blackjack', 'double', 'Doblar en Blackjack');
         if (!deduct.success) {
             return { success: false, error: deduct.error || 'Saldo insuficiente para doblar' };
         }
 
-        table.bet *= 2;
-        const card = table.deck.pop();
-        table.playerHand.push(card);
+        if (table.activeHand === 'split') {
+            table.splitBet = (table.splitBet || table.originalBet) + extraBet;
+        } else {
+            table.bet += extraBet;
+        }
 
-        const playerVal = this.calculateHand(table.playerHand);
+        const card = table.deck.pop();
+        hand.push(card);
+        const playerVal = this.calculateHand(hand);
+
         if (playerVal.isBusted) {
+            if (table.activeHand === 'main' && table.splitHand) {
+                table.activeHand = 'split';
+                return {
+                    success: true,
+                    card,
+                    playerHand: table.playerHand,
+                    playerScore: playerVal.total,
+                    splitHand: table.splitHand,
+                    activeHand: 'split',
+                    isBusted: true,
+                    balance: deduct.balance
+                };
+            }
             table.state = 'FINISHED';
-            table.result = 'BUSTED';
             this.tables.delete(userId);
             return {
                 success: true,
@@ -159,12 +247,80 @@ class BlackjackEngine {
                 isBusted: true,
                 dealerHand: table.dealerHand,
                 dealerScore: this.calculateHand(table.dealerHand).total,
-                result: 'PERDISTE (Te pasaste de 21) 💥',
-                payout: 0
+                result: 'PERDISTE (Te pasaste de 21)',
+                payout: 0,
+                balance: deduct.balance
+            };
+        }
+
+        // Tras doblar se planta automáticamente
+        if (table.activeHand === 'main' && table.splitHand) {
+            table.activeHand = 'split';
+            return {
+                success: true,
+                card,
+                playerHand: table.playerHand,
+                playerScore: playerVal.total,
+                splitHand: table.splitHand,
+                activeHand: 'split',
+                balance: deduct.balance,
+                message: 'Doble en principal · jugás el split'
             };
         }
 
         return this.dealerPlay(userId);
+    }
+
+    /**
+     * Dividir pares: segunda apuesta igual, dos manos independientes.
+     */
+    split(userId) {
+        const table = this.tables.get(userId);
+        if (!table || table.state !== 'PLAYING') return { success: false, error: 'Mano no activa' };
+        if (table.splitHand) return { success: false, error: 'Ya dividiste esta mano' };
+        if (!this.canSplit(table.playerHand)) return { success: false, error: 'No se puede dividir esta mano' };
+
+        const deduct = EconomyBridge.deductCoins(
+            userId, table.originalBet, 'cards_blackjack', 'split', 'Split de pares'
+        );
+        if (!deduct.success) {
+            return { success: false, error: deduct.error || 'Saldo insuficiente para dividir' };
+        }
+
+        const second = table.playerHand.pop();
+        table.splitHand = [second, table.deck.pop()];
+        table.playerHand.push(table.deck.pop());
+        table.splitBet = table.originalBet;
+        table.activeHand = 'main';
+
+        return {
+            success: true,
+            playerHand: table.playerHand,
+            playerScore: this.calculateHand(table.playerHand).total,
+            splitHand: table.splitHand,
+            splitScore: this.calculateHand(table.splitHand).total,
+            activeHand: 'main',
+            balance: deduct.balance,
+            canDouble: true,
+            canSplit: false
+        };
+    }
+
+    resolveHandVsDealer(hand, bet, dealerVal) {
+        const playerVal = this.calculateHand(hand);
+        if (playerVal.isBusted) {
+            return { payout: 0, msg: `Bust (${playerVal.total})` };
+        }
+        if (dealerVal.isBusted) {
+            return { payout: bet * 2, msg: `Gana ${playerVal.total} (dealer bust)` };
+        }
+        if (playerVal.total > dealerVal.total) {
+            return { payout: bet * 2, msg: `Gana ${playerVal.total} vs ${dealerVal.total}` };
+        }
+        if (playerVal.total === dealerVal.total) {
+            return { payout: bet, msg: `Push ${playerVal.total}` };
+        }
+        return { payout: 0, msg: `Pierde ${playerVal.total} vs ${dealerVal.total}` };
     }
 
     dealerPlay(userId) {
@@ -172,33 +328,28 @@ class BlackjackEngine {
         table.state = 'FINISHED';
 
         let dealerVal = this.calculateHand(table.dealerHand);
-        while (dealerVal.total < 17) {
+        while (dealerVal.total < cfg.dealerStandAt) {
             table.dealerHand.push(table.deck.pop());
             dealerVal = this.calculateHand(table.dealerHand);
         }
 
-        const playerVal = this.calculateHand(table.playerHand);
-        let payout = 0;
-        let resultMsg = '';
+        const main = this.resolveHandVsDealer(table.playerHand, table.bet, dealerVal);
+        let totalPayout = main.payout;
+        let resultMsg = main.msg;
 
-        if (dealerVal.isBusted) {
-            payout = table.bet * 2;
-            resultMsg = '¡GANASTE! (El Dealer se pasó de 21) 🎉';
-        } else if (playerVal.total > dealerVal.total) {
-            payout = table.bet * 2;
-            resultMsg = `¡GANASTE! (${playerVal.total} contra ${dealerVal.total}) 🎉`;
-        } else if (playerVal.total === dealerVal.total) {
-            payout = table.bet; // Push
-            resultMsg = 'EMPATE (Push) · Se te devuelve la apuesta 🤝';
-        } else {
-            payout = 0;
-            resultMsg = `PERDISTE (${dealerVal.total} contra ${playerVal.total}) ❌`;
+        if (table.splitHand) {
+            const splitBet = table.splitBet || table.originalBet;
+            const split = this.resolveHandVsDealer(table.splitHand, splitBet, dealerVal);
+            totalPayout += split.payout;
+            resultMsg = `Principal: ${main.msg} · Split: ${split.msg}`;
         }
 
         let newBal = 0;
-        if (payout > 0) {
-            const add = EconomyBridge.addCoins(userId, payout, 'cards_blackjack', 'win', resultMsg);
+        if (totalPayout > 0) {
+            const add = EconomyBridge.addCoins(userId, totalPayout, 'cards_blackjack', 'win', resultMsg);
             newBal = add.balance;
+        } else {
+            newBal = EconomyBridge.getUserBalance(userId).balance;
         }
 
         this.tables.delete(userId);
@@ -206,11 +357,13 @@ class BlackjackEngine {
         return {
             success: true,
             playerHand: table.playerHand,
-            playerScore: playerVal.total,
+            playerScore: this.calculateHand(table.playerHand).total,
+            splitHand: table.splitHand,
+            splitScore: table.splitHand ? this.calculateHand(table.splitHand).total : null,
             dealerHand: table.dealerHand,
             dealerScore: dealerVal.total,
             result: resultMsg,
-            payout,
+            payout: totalPayout,
             balance: newBal
         };
     }
@@ -224,12 +377,11 @@ class BlackjackEngine {
         let resultMsg = '';
 
         if (dealerVal.isBlackjack) {
-            payout = table.bet; // Push
-            resultMsg = 'EMPATE DE BLACKJACKS · Se devuelve la apuesta 🤝';
+            payout = table.bet;
+            resultMsg = 'EMPATE DE BLACKJACKS · Se devuelve la apuesta';
         } else {
-            // Paga 3:2 (ej: bet 100 -> payout 250)
-            payout = Math.floor(table.bet * 2.5);
-            resultMsg = '¡BLACKJACK NATURAL! Paga 3 a 2 👑';
+            payout = Math.floor(table.bet * cfg.blackjackPayout);
+            resultMsg = '¡BLACKJACK NATURAL! Paga 3 a 2';
         }
 
         const add = EconomyBridge.addCoins(userId, payout, 'cards_blackjack', 'blackjack_win', resultMsg);

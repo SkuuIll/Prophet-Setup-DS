@@ -4,13 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Casino Web Prophet — Crash, Ruleta & Cajas CS2</title>
-    <link rel="stylesheet" href="../common/theme.css">
-    <link rel="stylesheet" href="casino.css">
+    <link rel="stylesheet" href="/games/common/theme.css">
+    <link rel="stylesheet" href="/games/casino/casino.css">
 </head>
 <body>
     <!-- Navbar -->
     <header class="prophet-nav">
-        <a href="../hub/" class="prophet-brand">
+        <a href="/games/hub/" class="prophet-brand">
             <span style="font-size: 1.2rem;">◀</span>
             <div class="prophet-logo-glow" style="background: url('/assets/logo.png') center/cover;"></div>
             <span class="prophet-title">CASINO PROPHET</span>
@@ -198,11 +198,13 @@
         </div>
     </div>
 
-    <script src="../common/utils.js"></script>
-    <script src="../common/api.js"></script>
-    <script src="casino.css"></script>
-    <script src="crash.js"></script>
-    <script src="roulette.js"></script>
-    <script src="cases.js"></script>
+        <!-- Discord Activities (Embedded App SDK) -->
+    <script type="module" src="/games/common/discordActivity.js?v=20260811d"></script>
+    <script src="/games/common/utils.js?v=20260811d"></script>
+    <script src="/games/common/profileUI.js?v=20260811d"></script>
+    <script src="/games/common/api.js?v=20260811d"></script>
+    <script src="/games/casino/crash.js?v=20260811d"></script>
+    <script src="/games/casino/roulette.js?v=20260811d"></script>
+    <script src="/games/casino/cases.js?v=20260811d"></script>
 </body>
 </html>
