@@ -44,6 +44,9 @@ function cargarComandos() {
     for (const carpeta of carpetas) {
         const rutaCarpeta = path.join(__dirname, 'commands', carpeta);
         if (!fs.statSync(rutaCarpeta).isDirectory()) continue;
+        
+        // El bot principal NO carga los comandos de música
+        if (carpeta === 'music') continue;
 
         const archivos = fs.readdirSync(rutaCarpeta).filter(f => f.endsWith('.js'));
         for (const archivo of archivos) {
@@ -208,8 +211,7 @@ client.once('clientReady', async () => {
     const { initializeProfileSystem } = require('./modules/profileSystem');
     initializeProfileSystem();
 
-    await require('./modules/musicEngine')(client);
-    // Shoukaku ya se inicializó antes del login (ver abajo)
+    // El motor de música y Shoukaku han sido delegados al music_bot.js
 
     // ── Limpiar canales de voz temporales huérfanos al reiniciar ──
     const { stmts: dbStmts } = require('./database');
@@ -506,11 +508,7 @@ startDashboardServer(client)
     });
 
 // ═══ INICIALIZAR SHOUKAKU ANTES DEL LOGIN ═══
-// CRITICO: Shoukaku necesita interceptar paquetes raw del gateway
-// desde el momento en que el bot hace login. Si se crea después,
-// el conector pierde el handshake y nunca conecta al nodo Lavalink.
-const { crearShoukaku } = require('./modules/shoukakuEngine');
-crearShoukaku(client);
+// (Delegado a music_bot.js)
 
 // Login
 client.login(config.TOKEN).catch(err => {

@@ -248,7 +248,6 @@ module.exports = async function inicializarMusica(client) {
                         inline: true
                     },
                 )
-                .setImage(MUSIC_BANNER)
                 .setFooter({
                     text: `Prophet Music  ·  /play para agregar  ·  /queue para ver la cola`
                 })

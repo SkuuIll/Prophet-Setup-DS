@@ -6,8 +6,11 @@
 require('dotenv').config({ override: true });
 
 const config = {
-    // Token del bot (usar variable de entorno en producción)
+    // Token del bot principal (usar variable de entorno en producción)
     TOKEN: process.env.DISCORD_TOKEN,
+    
+    // Token del bot de música secundario
+    MUSIC_TOKEN: process.env.DISCORD_MUSIC_TOKEN,
 
     // ID del servidor
     GUILD_ID: process.env.GUILD_ID || '412085943936221206',

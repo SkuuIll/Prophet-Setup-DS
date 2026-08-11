@@ -52,5 +52,24 @@ module.exports = {
         env: {
             NODE_ENV: 'production',
         },
+    }, {
+        name: 'ProphetMusic',
+        script: './music_bot.js',
+        cwd: '/root/ProphetBot',
+        autorestart: true,
+        watch: false,
+        max_restarts: 10,
+        min_uptime: '10s',
+        restart_delay: 5000,
+        kill_timeout: 5000,
+        time: true,
+        log_date_format: 'YYYY-MM-DD HH:mm:ss',
+        error_file: '/root/ProphetBot/logs/music-error.log',
+        out_file: '/root/ProphetBot/logs/music-output.log',
+        merge_logs: true,
+        umask: '0077',
+        env: {
+            NODE_ENV: 'production',
+        },
     }]
 };
