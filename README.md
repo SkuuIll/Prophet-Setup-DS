@@ -2,7 +2,7 @@
 
 <img src="assets/logo.png" width="140" height="140" alt="Prophet Bot" style="border-radius: 50%;">
 
-# Prophet Bot v2.9
+# Prophet Bot v3.0
 
 **El asistente definitivo para Prophet Gaming.**\
 Música · Moderación · Economía · Niveles · Mini-juegos · Utilidades — todo en un solo bot.
@@ -50,7 +50,7 @@ Música · Moderación · Economía · Niveles · Mini-juegos · Utilidades — 
 | 🛡️ | **Auto-Mod Inteligente** | Detección de spam, raids, phishing, Zalgo, emoji flood y más |
 | 📊 | **Métricas en vivo** | Leaderboards de XP y economía con posición propia destacada |
 | 💾 | **SQLite** | Base de datos robusta, migrada desde JSON con transacciones atómicas |
-| 🎵 | **Multi-Plataforma** | YouTube, Spotify, SoundCloud, Apple Music, Vimeo y más |
+| 🎵 | **Multi-Bot Architecture** | Bot de música 100% independiente (`ProphetMusic`) corriendo en paralelo |
 | ⏰ | **Recordatorios** | Sistema de DM con timer flexible y hasta 10 activos por usuario |
 | 🌐 | **Traducciones** | 10 idiomas, bola mágica, definiciones, QR codes y más utilidades |
 | 🤖 | **IA Integrada** | Asistente conversacional, búsqueda semántica en historial |
@@ -62,18 +62,18 @@ Música · Moderación · Economía · Niveles · Mini-juegos · Utilidades — 
 
 ## ✨ Características
 
-### 🎵 Reproductor de Música — *Prophet Music Engine v3.0*
+### 🎵 Reproductor de Música — *Prophet Music Engine v4.0 (Dual-Bot)*
 
 <table>
 <tr><td width="50%">
 
-- Basado en **Lavalink + Shoukaku** para máxima calidad
-- Soporte: YouTube, Spotify, SoundCloud, Apple Music, Vimeo
-- Panel de control interactivo con **10 botones**
+- **Proceso Independiente:** Corre bajo su propio bot y token (`ProphetMusic`) para rendimiento 100% sin lag, sin interrumpir los comandos principales
+- Soporte Multi-Plataforma: YouTube, Spotify, SoundCloud, Apple Music, Vimeo
+- Panel de control **Ultra Compacto** con 10 botones sin spam
 - Barra de progreso visual y timestamp en tiempo real
-- Loop (canción/cola), shuffle, replay, volumen dinámico
+- Loop, shuffle, replay, volumen dinámico y filtros (`/filter`)
+- Filtro anti-spam inteligente para notificaciones de "Agregada a la cola"
 - Historial de reproducción por servidor
-- Mensajes de error y estado con embeds ricos
 
 </td><td width="50%">
 
@@ -169,7 +169,7 @@ Sistema de suscripción opcional con Mercado Pago:
 - Badges exclusivos para premium
 - Mayor límite de recordatorios
 - Acceso anticipado a nuevas funciones
-- Comandos exclusivos
+- Comandos y minijuegos sin ads ni cooldowns largos
 
 ---
 
@@ -250,7 +250,10 @@ Sistema de suscripción opcional con Mercado Pago:
 | `/setup-counting` | Juego de contar con celebraciones cada 100 |
 | `/setup-confesiones` | Canal de confesiones anónimas |
 | `/reactionroles` | Panel de auto-roles con botones |
+| `/trollnick` | Sistema de apodos tóxicos argentinos para Nivel 10+ (Con Auto-Troll) |
 | `/memoria` | Ver logs internos del bot |
+| `/botstats` | Ver estado de CPU/RAM del bot |
+| `/configurar-*` | Sistema de Alertas Automáticas (Twitch, YouTube, Servers) |
 
 ---
 
@@ -316,7 +319,8 @@ npm install
 
 # 3. Crear archivo de entorno
 cat > .env << EOF
-DISCORD_TOKEN=tu_token_aqui
+DISCORD_TOKEN=tu_token_principal_aqui
+DISCORD_MUSIC_TOKEN=tu_token_bot_musica_aqui
 GUILD_ID=id_del_servidor
 EOF
 
@@ -359,7 +363,8 @@ cd /root/ProphetBot
 npm install
 
 cat > .env << EOF
-DISCORD_TOKEN=tu_token
+DISCORD_TOKEN=tu_token_principal_aqui
+DISCORD_MUSIC_TOKEN=tu_token_bot_musica_aqui
 GUILD_ID=id_servidor
 EOF
 
@@ -528,7 +533,25 @@ El dashboard seguro (`web/secureServer.js`) incluye:
 
 ## 📝 Changelog
 
-### v2.9 — *Marzo 2026*
+### v3.0 — *Arquitectura Dual-Bot & Nuevos Sistemas*
+
+**🚀 Arquitectura Dual-Bot (Nuevo Motor PM2):**
+- **ProphetMusic Independiente**: La música ahora se ejecuta en un proceso de Node.js 100% independiente con su propio Bot (App de Discord), asegurando que los comandos de música o carga extrema nunca saturen al bot principal.
+- **Interacción fluida**: Podés escuchar música mientras el bot principal interactúa en el mismo canal (ej. `/confesion`, `/bardeo`) sin que se corte el audio.
+
+**🆕 Nuevos Sistemas y Comandos:**
+- 🎭 **Sistema Trollnick**: `/trollnick` — Asignación automática de apodos tóxicos/trols argentinos (ej: `Manco`, `Cornudo`) para usuarios nivel 10+ al conectarse a voz. Incluye modo `toggle`, forzado y restore.
+- 📡 **Monitor de Servidores**: `/monitor-servidor` — Sistema para monitorear servidores de juegos (CS2, Minecraft, Rust) y enviar alertas si se caen.
+- 🟪 **Notificaciones Twitch/YouTube**: `/configurar-twitch` y `/configurar-youtube` — Auto posteo cuando hay nuevos directos o videos.
+- 🚀 **Ascensor**: `/ascensor` — Comando rápido para mover a todos los usuarios de un canal de voz a otro.
+
+**✨ Mejoras Ultra y UX:**
+- 🎵 **Music Player v4.0**: Interfaz mucho más compacta y limpia (se removió el banner gigante).
+- 🧹 **Anti-Spam de Música**: El sistema ya no manda doble mensaje de "Agregada a la cola" si la cola estaba vacía. Los avisos de cola se auto-borran a los 12 segundos.
+- 🛡️ **Logs de Voz Inteligentes**: Arreglado el bug de `# desconocida` al borrar salas temporales. Ahora guarda nombres en texto plano (`🔊 Sala de...`).
+- 🤖 **Dashboard Staff**: Nuevo comando interno para postear la guía de los +50 comandos divididos en dos paneles.
+
+### v2.9 — *IA, Integraciones y Perfiles*
 
 **🆕 Nuevas funcionalidades:**
 - 🤖 **IA Integrada** — `/asistente` para chat con IA, `/buscar` para búsqueda semántica en historial

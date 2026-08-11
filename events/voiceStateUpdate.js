@@ -384,10 +384,10 @@ module.exports = {
                 member.client.globalVoiceSessions.set(userId, {
                     joinedAt: Date.now(),
                     messageId: msg ? msg.id : null,
-                    history: [`<#${newState.channelId}>`]
+                    history: [`🔊 ${newState.channel ? newState.channel.name : 'Canal'}`]
                 });
             } else {
-                member.client.globalVoiceSessions.set(userId, { joinedAt: Date.now(), history: [`<#${newState.channelId}>`] });
+                member.client.globalVoiceSessions.set(userId, { joinedAt: Date.now(), history: [`🔊 ${newState.channel ? newState.channel.name : 'Canal'}`] });
             }
 
         } else if (leavingVoiceLog) {
@@ -410,9 +410,10 @@ module.exports = {
                     msg = await logChannel.messages.fetch(session.messageId).catch(() => null);
                 }
 
+                const channelName = oldState.channel ? oldState.channel.name : 'Canal eliminado';
                 const desc = `> **Usuario:** ${newState.member} (\`${userId}\`)\n` +
                     `> **Estado:** 🔴 Desconectado\n` +
-                    `> **Último Canal:** <#${oldState.channelId}>\n` +
+                    `> **Último Canal:** 🔊 ${channelName}\n` +
                     (session.history && session.history.length > 1 ? `> **Movimientos:** ${session.history.join(' ➔ ')}\n` : '') +
                     `> **Conectó:** <t:${timeEntrada}:T>\n` +
                     `> **Desconectó:** <t:${timeSalida}:T>\n` +
@@ -441,7 +442,7 @@ module.exports = {
             const session = member.client.globalVoiceSessions.get(userId);
             if (session) {
                 if (!session.history) session.history = [];
-                session.history.push(`<#${newState.channelId}>`);
+                session.history.push(`🔊 ${newState.channel ? newState.channel.name : 'Canal'}`);
                 if (session.history.length > 6) session.history = session.history.slice(-6); // Mantener últimos 6
 
                 if (session.messageId) {
