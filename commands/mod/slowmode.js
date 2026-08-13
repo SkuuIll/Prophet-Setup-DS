@@ -13,7 +13,11 @@ module.exports = {
     async execute(interaction) {
         const segundos = interaction.options.getInteger('segundos');
 
-        await interaction.channel.setRateLimitPerUser(segundos);
+        try {
+            await interaction.channel.setRateLimitPerUser(segundos);
+        } catch (error) {
+            return interaction.reply({ content: '> ❌ **Error** — No se pudo modificar el modo lento. Revisa que tenga permisos de Administrar Canales.', ephemeral: true });
+        }
 
         // Formatear duración
         let duracion;

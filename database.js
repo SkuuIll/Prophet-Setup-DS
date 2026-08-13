@@ -147,6 +147,36 @@ db.exec(`
         timestamp INTEGER
     );
 
+    CREATE TABLE IF NOT EXISTS user_notes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id TEXT NOT NULL,
+        title TEXT NOT NULL,
+        content TEXT NOT NULL,
+        category TEXT DEFAULT 'general',
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER
+    );
+
+    CREATE TABLE IF NOT EXISTS todo_lists (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        category TEXT DEFAULT 'general',
+        created_at INTEGER NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS todo_items (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        list_id INTEGER NOT NULL,
+        task TEXT NOT NULL,
+        priority TEXT DEFAULT 'media',
+        completed INTEGER DEFAULT 0,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER,
+        completed_at INTEGER,
+        FOREIGN KEY (list_id) REFERENCES todo_lists(id)
+    );
+
     CREATE TABLE IF NOT EXISTS survivor_scores (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id TEXT NOT NULL,
@@ -441,6 +471,7 @@ db.exec(`
 
 // ─── COLUMN MIGRATIONS (safe, idempotent) ───
 function ensureColumn(table, column, definition) {
+    if (!/^[a-zA-Z0-9_]+$/.test(table)) throw new Error(`Invalid table name: ${table}`);
     const columns = db.prepare(`PRAGMA table_info(${table})`).all();
     if (!columns.some(item => item.name === column)) {
         db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);

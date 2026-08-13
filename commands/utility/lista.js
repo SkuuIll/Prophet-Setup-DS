@@ -92,27 +92,6 @@ module.exports = {
         const subcommand = interaction.options.getSubcommand();
         const userId = interaction.user.id;
 
-        // Crear tablas si no existen
-        db.exec(`
-            CREATE TABLE IF NOT EXISTS todo_lists (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id TEXT NOT NULL,
-                name TEXT NOT NULL,
-                category TEXT DEFAULT 'general',
-                created_at INTEGER NOT NULL
-            );
-            CREATE TABLE IF NOT EXISTS todo_items (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                list_id INTEGER NOT NULL,
-                task TEXT NOT NULL,
-                priority TEXT DEFAULT 'media',
-                completed INTEGER DEFAULT 0,
-                created_at INTEGER NOT NULL,
-                completed_at INTEGER,
-                FOREIGN KEY (list_id) REFERENCES todo_lists(id)
-            )
-        `);
-
         switch (subcommand) {
             case 'crear':
                 return this.crearLista(interaction, userId);

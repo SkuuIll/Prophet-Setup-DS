@@ -52,7 +52,12 @@ module.exports = {
             return interaction.editReply({ content: '> ⚠️ **Sin resultados** — No se encontraron mensajes que coincidan con los filtros.' });
         }
 
-        const borrados = await interaction.channel.bulkDelete(mensajes, true);
+        let borrados;
+        try {
+            borrados = await interaction.channel.bulkDelete(mensajes, true);
+        } catch (error) {
+            return interaction.editReply({ content: '> ❌ **Error** — No se pudieron borrar los mensajes. Revisa mis permisos o asegúrate de que no tengan más de 14 días.' });
+        }
 
         const filtrosAplicados = [];
         if (usuario) filtrosAplicados.push(`👤 ${usuario.tag}`);

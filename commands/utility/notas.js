@@ -74,19 +74,6 @@ module.exports = {
         const subcommand = interaction.options.getSubcommand();
         const userId = interaction.user.id;
 
-        // Crear tabla si no existe
-        db.exec(`
-            CREATE TABLE IF NOT EXISTS user_notes (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id TEXT NOT NULL,
-                title TEXT NOT NULL,
-                content TEXT NOT NULL,
-                category TEXT DEFAULT 'general',
-                created_at INTEGER NOT NULL,
-                updated_at INTEGER
-            )
-        `);
-
         switch (subcommand) {
             case 'crear':
                 return this.crearNota(interaction, userId);
