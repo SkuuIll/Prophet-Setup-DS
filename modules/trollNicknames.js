@@ -448,6 +448,38 @@ async function applyAllTrollNicknames(guild, force = false) {
 }
 
 /**
+ * Restaurar los apodos originales de todos los miembros que tienen apodo trol registrado
+ */
+async function restoreAllTrollNicknames(guild) {
+    if (!guild) return { success: false, total: 0, restored: 0, errors: [] };
+
+    const rows = stmts.getAllTrollNickData();
+    let restored = 0;
+    const errors = [];
+
+    for (const row of rows) {
+        try {
+            const member = await guild.members.fetch(row.user_id).catch(() => null);
+            if (member) {
+                const res = await restoreNickname(member);
+                if (res.success) {
+                    restored++;
+                } else {
+                    errors.push({ user: member.user?.tag || row.user_id, error: res.reason });
+                }
+            } else {
+                stmts.removeTrollNickData(row.user_id);
+            }
+            await new Promise(r => setTimeout(r, 200));
+        } catch (e) {
+            errors.push({ user: row.user_id, error: e.message });
+        }
+    }
+
+    return { success: true, total: rows.length, restored, errors };
+}
+
+/**
  * Obtener lista de todos los apodos trol disponibles
  */
 function getTrollNicknamesList() {
@@ -467,5 +499,6 @@ module.exports = {
     applyTrollNickname,
     applyAllTrollNicknames,
     restoreNickname,
+    restoreAllTrollNicknames,
     getTrollNicknamesList
 };

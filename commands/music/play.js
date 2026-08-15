@@ -10,17 +10,17 @@ module.exports = {
 
     async execute(interaction, client) {
         if (!client.player) {
-            return interaction.reply({ content: '❌ Sistema de música no inicializado.', ephemeral: true });
+            return interaction.reply({ content: '❌ Sistema de música no inicializado.', flags: 64 });
         }
 
         const voiceChannel = interaction.member.voice.channel;
         if (!voiceChannel) {
-            return interaction.reply({ content: '❌ Tenés que estar en un canal de voz.', ephemeral: true });
+            return interaction.reply({ content: '❌ Tenés que estar en un canal de voz.', flags: 64 });
         }
 
         const permissions = voiceChannel.permissionsFor(interaction.client.user);
         if (!permissions.has('Connect') || !permissions.has('Speak')) {
-            return interaction.reply({ content: '❌ Necesito permisos para entrar y hablar en ese canal.', ephemeral: true });
+            return interaction.reply({ content: '❌ Necesito permisos para entrar y hablar en ese canal.', flags: 64 });
         }
 
         await interaction.deferReply();
@@ -53,7 +53,17 @@ module.exports = {
                 `${JSON.stringify(track.title)} (${resolved.videoId || resolved.playlistId || resolved.source})` +
                 `${resolved.kind === 'playlist' ? ` [${resolved.tracks.length} temas]` : ''}`
             );
-            await interaction.deleteReply().catch(() => { });
+
+            // Acreditar respuesta para que Discord cierre el estado "pensando..."
+            await interaction.editReply({
+                content: `> 🎵 **Petición procesada:** [${track.title}](${track.url})`
+            }).catch(() => { });
+
+            // Eliminar la confirmación temporal tras unos segundos para dejar limpio el chat
+            setTimeout(() => {
+                interaction.deleteReply().catch(() => { });
+            }, 3000);
+
             return;
 
         } catch (error) {

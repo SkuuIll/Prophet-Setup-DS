@@ -84,6 +84,9 @@ function runYtDlpJson(target, {
 } = {}) {
     return new Promise((resolve, reject) => {
         const child = spawnFn('yt-dlp', [
+            '--js-runtimes', 'node',
+            '--extractor-args', 'youtube:player_client=web,mweb,tv',
+            '--force-ipv4',
             '--dump-single-json',
             '--flat-playlist',
             '--playlist-end', String(playlistEnd),

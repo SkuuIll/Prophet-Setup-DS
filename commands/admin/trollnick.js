@@ -16,6 +16,7 @@ const {
     applyTrollNickname,
     applyAllTrollNicknames,
     restoreNickname,
+    restoreAllTrollNicknames,
     getTrollNicknamesList,
     canManageMember
 } = require('../../modules/trollNicknames');
@@ -43,6 +44,10 @@ module.exports = {
                         .setDescription('Usuario a quien restaurar el apodo')
                         .setRequired(true)
                 )
+        )
+        .addSubcommand(sub =>
+            sub.setName('restore-all')
+                .setDescription('↩️ Restaura los apodos originales de TODOS los miembros con apodo trol')
         )
         .addSubcommand(sub =>
             sub.setName('toggle')
@@ -88,14 +93,14 @@ module.exports = {
             if (!member) {
                 return interaction.reply({
                     content: '❌ No se pudo encontrar al miembro en el servidor.',
-                    ephemeral: true
+                    flags: 64
                 });
             }
 
             if (!canManageMember(member)) {
                 return interaction.reply({
                     content: `❌ No tengo permisos suficientes para cambiar el apodo de **${member.user.tag}** (es el dueño del servidor o tiene un rol igual/superior al mío).`,
-                    ephemeral: true
+                    flags: 64
                 });
             }
 
@@ -133,11 +138,11 @@ module.exports = {
             if (!member) {
                 return interaction.reply({
                     content: '❌ No se pudo encontrar al miembro en el servidor.',
-                    ephemeral: true
+                    flags: 64
                 });
             }
 
-            await interaction.deferReply({ ephemeral: true });
+            await interaction.deferReply({ flags: 64 });
             const result = await restoreNickname(member);
 
             if (result.success) {
@@ -155,6 +160,24 @@ module.exports = {
             }
         }
 
+        if (subcommand === 'restore-all') {
+            await interaction.deferReply();
+            const result = await restoreAllTrollNicknames(interaction.guild);
+
+            const embed = new EmbedBuilder()
+                .setColor(config.COLORES?.EXITO || 0x69F0AE)
+                .setTitle('↩️  Restauración Masiva de Apodos')
+                .setDescription(
+                    `> 📊 **Registros de apodos trol encontrados:** \`${result.total}\`\n` +
+                    `> ✅ **Apodos restaurados con éxito:** \`${result.restored}\`\n` +
+                    (result.errors.length > 0 ? `> ⚠️ **Omitidos/Errores:** \`${result.errors.length}\` (rol superior o permisos)` : '')
+                )
+                .setFooter({ text: 'Prophet Gaming' })
+                .setTimestamp();
+
+            return interaction.editReply({ embeds: [embed] });
+        }
+
         if (subcommand === 'toggle') {
             const explicit = interaction.options.getBoolean('activado');
             const current = isTrollEnabled();
@@ -162,16 +185,29 @@ module.exports = {
 
             setTrollEnabled(newState);
 
+            let extraInfo = '';
+            if (!newState) {
+                await interaction.deferReply();
+                const res = await restoreAllTrollNicknames(interaction.guild);
+                if (res.restored > 0) {
+                    extraInfo = `\n\n> ↩️ **${res.restored} apodo(s) restaurado(s)** automáticamente a su nombre original.`;
+                }
+            }
+
             const embed = new EmbedBuilder()
                 .setColor(newState ? (config.COLORES?.EXITO || 0x69F0AE) : (config.COLORES?.ERROR || 0xEF5350))
                 .setTitle(`🎭  Sistema de Apodos Trol: ${newState ? 'ACTIVADO ✅' : 'DESACTIVADO ❌'}`)
                 .setDescription(
-                    `> El cambio automático de apodos al conectarse para usuarios de **Nivel ${getMinLevel()}+** ` +
-                    `está ahora **${newState ? 'HABILITADO' : 'DESHABILITADO'}**.`
+                    `> El cambio automático de apodos al conectarse a voz para usuarios de **Nivel ${getMinLevel()}+** ` +
+                    `está ahora **${newState ? 'HABILITADO' : 'DESHABILITADO'}**.\n` +
+                    `> Estado persistido: \`${newState ? 'true' : 'false'}\`${extraInfo}`
                 )
                 .setFooter({ text: 'Prophet Gaming' })
                 .setTimestamp();
 
+            if (!newState) {
+                return interaction.editReply({ embeds: [embed] });
+            }
             return interaction.reply({ embeds: [embed] });
         }
 
@@ -182,7 +218,7 @@ module.exports = {
             const embed = new EmbedBuilder()
                 .setColor(config.COLORES?.PRINCIPAL || 0xBB86FC)
                 .setTitle('📈  Nivel Mínimo Actualizado')
-                .setDescription(`> Ahora se requiere **Nivel ${actual} o superior** para recibir apodos trols automáticos al conectarse.`)
+                .setDescription(`> Ahora se requiere **Nivel ${actual} o superior** para recibir apodos trols automáticos al conectarse a voz.`)
                 .setFooter({ text: 'Prophet Gaming' })
                 .setTimestamp();
 
@@ -207,7 +243,7 @@ module.exports = {
                 .setFooter({ text: 'Prophet Gaming  ·  Cultura Gamer Argentina' })
                 .setTimestamp();
 
-            return interaction.reply({ embeds: [embed], ephemeral: true });
+            return interaction.reply({ embeds: [embed], flags: 64 });
         }
 
         if (subcommand === 'all') {

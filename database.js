@@ -1623,6 +1623,9 @@ const stmts = {
     removeTrollNickData(userId) {
         return db.prepare('DELETE FROM troll_nicknames WHERE user_id = ?').run(userId);
     },
+    getAllTrollNickData() {
+        return db.prepare('SELECT * FROM troll_nicknames').all();
+    },
 
     // ─── PROPHET GAMES HUB & SESSIONS ───
     createGameSession(token, userId, ttlMs = 3600000) {

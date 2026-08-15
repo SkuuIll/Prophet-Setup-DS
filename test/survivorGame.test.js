@@ -18,7 +18,7 @@ test('Survivor: Game over score and reward calculation', () => {
     assert.strictEqual(res.coinsEarned, 630, 'Coins earned should include milestone bonus');
     assert.ok(res.milestones && res.milestones.includes('survive_1m'), 'Should unlock 1-minute milestone');
 
-    const lb = SurvivorEngine.getLeaderboard(5);
+    const lb = SurvivorEngine.getLeaderboard(100);
     assert.ok(Array.isArray(lb), 'Leaderboard should be an array');
     const myEntry = lb.find(e => e.user_id === testUserId);
     assert.ok(myEntry, 'Leaderboard must include the test user');

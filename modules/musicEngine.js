@@ -66,59 +66,62 @@ module.exports = async function inicializarMusica(client) {
             }
         });
 
-        // ═══ HOOK: Usar yt-dlp para obtener el stream de audio ═══
-        // discord-player v7 usa un registro global para onBeforeCreateStream
+        // ═══ HOOK: Usar yt-dlp para obtener el stream de audio en tiempo real ═══
         const { onBeforeCreateStream } = require('discord-player');
 
         if (!module.exports._hookRegistered) {
             module.exports._hookRegistered = true;
             onBeforeCreateStream(async (track, queryType, queue) => {
-                if (!track.url || !track.url.includes('youtube.com/watch')) {
+                const url = track.url || track.raw?.url;
+                if (!url || (!url.includes('youtube.com') && !url.includes('youtu.be'))) {
                     return null;
                 }
 
-            try {
-                console.log(`🎵 [yt-dlp] Obteniendo stream para: ${track.title}`);
+                try {
+                    console.log(`🎵 [yt-dlp] Transmitiendo audio en tiempo real para: ${track.title}`);
 
-                // Obtener URL directa de audio con yt-dlp
-                const audioUrl = await new Promise((resolve, reject) => {
-                    const proc = spawn('yt-dlp', [
-                        '-f', 'bestaudio[ext=webm]/bestaudio',
-                        '--get-url',
+                    const ytdlpProc = spawn('yt-dlp', [
+                        '--js-runtimes', 'node',
+                        '--extractor-args', 'youtube:player_client=web,mweb,tv',
+                        '-f', 'bestaudio/ba/140/251/18/best',
+                        '-o', '-',
                         '--no-warnings',
                         '--force-ipv4',
-                        track.url
+                        url
                     ]);
 
-                    let stdout = '';
-                    let stderr = '';
-                    proc.stdout.on('data', d => stdout += d.toString());
-                    proc.stderr.on('data', d => stderr += d.toString());
-                    proc.on('close', code => {
-                        if (code === 0 && stdout.trim()) {
-                            resolve(stdout.trim().split('\n')[0]);
-                        } else {
-                            reject(new Error(`yt-dlp falló (code ${code}): ${stderr}`));
+                    ytdlpProc.stderr.on('data', (d) => {
+                        const str = d.toString();
+                        if (str.includes('ERROR:')) {
+                            console.error(`❌ [yt-dlp error] ${str.trim()}`);
                         }
                     });
-                    proc.on('error', reject);
 
-                    // Timeout de 15 segundos
-                    setTimeout(() => { proc.kill(); reject(new Error('yt-dlp timeout')); }, 15000);
-                });
+                    ytdlpProc.on('error', (err) => {
+                        console.error(`❌ [yt-dlp process error] ${err.message}`);
+                    });
 
-                console.log(`🎵 [yt-dlp] URL obtenida OK, pasando a discord-player...`);
+                    const stream = ytdlpProc.stdout;
 
-                // Retornar la URL directa — discord-player se encarga de FFmpeg
-                return {
-                    stream: audioUrl,
-                    type: 'url',
-                };
-            } catch (err) {
-                console.error(`❌ [yt-dlp] Error: ${err.message}`);
-                return null; // fallback al extractor por defecto
-            }
-        });
+                    // Cerrar el subproceso limpiamente cuando el stream termine o se cierre
+                    const cleanup = () => {
+                        if (!ytdlpProc.killed) {
+                            try {
+                                ytdlpProc.kill('SIGKILL');
+                            } catch (_) { }
+                        }
+                    };
+
+                    stream.on('close', cleanup);
+                    stream.on('end', cleanup);
+                    stream.on('error', cleanup);
+
+                    return stream;
+                } catch (err) {
+                    console.error(`❌ [yt-dlp] Error creando stream: ${err.message}`);
+                    return null;
+                }
+            });
         }
 
         // ═══════════════════════════════════════════════════════════
@@ -351,7 +354,7 @@ module.exports = async function inicializarMusica(client) {
                     if (i.member.voice.channelId && i.member.voice.channelId !== i.guild.members.me?.voice?.channelId) {
                         return i.reply({
                             content: '> ❌ **Acceso denegado** — Tenés que estar en el mismo canal de voz para controlar la música.',
-                            ephemeral: true
+                            flags: 64
                         });
                     }
 
@@ -359,7 +362,7 @@ module.exports = async function inicializarMusica(client) {
                     if (!currentQueue || (!currentQueue.isPlaying() && i.customId !== 'music_queue')) {
                         return i.reply({
                             content: '> ❌ **Sin reproducción activa** — No hay nada sonando en este momento.',
-                            ephemeral: true
+                            flags: 64
                         });
                     }
 
@@ -367,7 +370,7 @@ module.exports = async function inicializarMusica(client) {
                         case 'music_prev': {
                             const hist = musicHistory.get(guildId) || [];
                             if (hist.length === 0) {
-                                return i.reply({ content: '> ❌ No hay temas anteriores en el historial.', ephemeral: true });
+                                return i.reply({ content: '> ❌ No hay temas anteriores en el historial.', flags: 64 });
                             }
                             const prevTrack = hist.pop();
                             musicHistory.set(guildId, hist);
@@ -375,7 +378,7 @@ module.exports = async function inicializarMusica(client) {
                             currentQueue.node.skip();
                             await i.reply({
                                 content: `> ⏮️ **Volviendo a:** ${prevTrack.title}`,
-                                ephemeral: true
+                                flags: 64
                             });
                             break;
                         }
@@ -388,7 +391,7 @@ module.exports = async function inicializarMusica(client) {
                                 content: wasPaused
                                     ? '> ▶️ **Reproducción reanudada**'
                                     : '> ⏸️ **Música pausada**',
-                                ephemeral: true
+                                flags: 64
                             });
                             break;
                         }
@@ -397,7 +400,7 @@ module.exports = async function inicializarMusica(client) {
                             const skippedTrack = currentQueue.currentTrack;
                             await i.reply({
                                 content: `> ⏭️ **Saltada:** ${skippedTrack?.title || 'Canción'}\n> Saltada por ${i.user}`,
-                                ephemeral: true
+                                flags: 64
                             });
                             currentQueue.node.skip();
                             break;
@@ -407,7 +410,7 @@ module.exports = async function inicializarMusica(client) {
                             currentQueue.delete();
                             await i.reply({
                                 content: '> ⏹️ **Reproducción detenida** — Nos vemos la próxima 👋',
-                                ephemeral: true
+                                flags: 64
                             });
                             break;
                         }
@@ -416,7 +419,7 @@ module.exports = async function inicializarMusica(client) {
                             currentQueue.node.seek(0);
                             await i.reply({
                                 content: `> 🔄 **Reiniciando:** ${currentQueue.currentTrack?.title}`,
-                                ephemeral: true
+                                flags: 64
                             });
                             break;
                         }
@@ -430,7 +433,7 @@ module.exports = async function inicializarMusica(client) {
                             const nextMode = (currentQueue.repeatMode + 1) % 3;
                             currentQueue.setRepeatMode(nextMode);
                             await actualizarNowPlaying(currentQueue);
-                            await i.reply({ content: modeNames[nextMode], ephemeral: true });
+                            await i.reply({ content: modeNames[nextMode], flags: 64 });
                             break;
                         }
 
@@ -439,7 +442,7 @@ module.exports = async function inicializarMusica(client) {
                             await actualizarNowPlaying(currentQueue);
                             await i.reply({
                                 content: '> 🔀 **Cola mezclada** — El orden fue aleatorizado',
-                                ephemeral: true
+                                flags: 64
                             });
                             break;
                         }
@@ -509,14 +512,14 @@ module.exports = async function inicializarMusica(client) {
                                 .setFooter({ text: 'Prophet Music  ·  Cola de reproducción' })
                                 .setTimestamp();
 
-                            await i.reply({ embeds: [queueEmbed], ephemeral: true });
+                            await i.reply({ embeds: [queueEmbed], flags: 64 });
                             break;
                         }
                     }
                 } catch (err) {
                     console.error('Error en botón de música:', err.message);
                     if (!i.replied && !i.deferred) {
-                        await i.reply({ content: '> ⚠️ Ocurrió un error al procesar la acción.', ephemeral: true }).catch(() => { });
+                        await i.reply({ content: '> ⚠️ Ocurrió un error al procesar la acción.', flags: 64 }).catch(() => { });
                     }
                 }
             });

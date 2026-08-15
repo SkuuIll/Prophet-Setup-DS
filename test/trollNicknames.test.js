@@ -11,7 +11,8 @@ const {
     setMinLevel,
     canManageMember,
     shouldApplyTrollNickname,
-    restoreNickname
+    restoreNickname,
+    restoreAllTrollNicknames
 } = require('../modules/trollNicknames');
 const { stmts } = require('../database');
 
@@ -122,3 +123,44 @@ test('restoreNickname restaura apodo original y limpia la base de datos', async 
     assert.equal(nicknameSetTo, 'OriginalPlayer');
     assert.equal(stmts.getTrollNickData(testUserId), null);
 });
+
+test('restoreAllTrollNicknames procesa múltiples miembros y limpia la base de datos', async () => {
+    const userA = 'test_user_a_1';
+    const userB = 'test_user_b_2';
+
+    stmts.saveTrollNickData(userA, 'GamerA', 'TrollA', Date.now());
+    stmts.saveTrollNickData(userB, 'GamerB', 'TrollB', Date.now());
+
+    const restoredMap = new Map();
+    const mockGuild = {
+        members: {
+            fetch: async (id) => {
+                if (id === userA || id === userB) {
+                    return {
+                        id,
+                        user: { bot: false, username: id },
+                        guild: {
+                            ownerId: 'owner',
+                            channels: { cache: new Map() },
+                            members: { me: { permissions: { has: () => true }, roles: { highest: { position: 99 } } } }
+                        },
+                        roles: { highest: { position: 1 } },
+                        setNickname: async (nick) => {
+                            restoredMap.set(id, nick);
+                        }
+                    };
+                }
+                return null;
+            }
+        }
+    };
+
+    const res = await restoreAllTrollNicknames(mockGuild);
+    assert.equal(res.success, true);
+    assert.ok(res.restored >= 2);
+    assert.equal(restoredMap.get(userA), 'GamerA');
+    assert.equal(restoredMap.get(userB), 'GamerB');
+    assert.equal(stmts.getTrollNickData(userA), null);
+    assert.equal(stmts.getTrollNickData(userB), null);
+});
+
