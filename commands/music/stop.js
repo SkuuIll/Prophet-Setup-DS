@@ -14,7 +14,7 @@ module.exports = {
         if (voiceChannel && botChannelId && voiceChannel.id !== botChannelId) {
             return interaction.reply({
                 content: '> ❌ **Canal incorrecto** — Tenés que estar en el mismo canal de voz.',
-                ephemeral: true
+                flags: 64
             });
         }
 
@@ -23,7 +23,7 @@ module.exports = {
         if (!queue) {
             return interaction.reply({
                 content: '> ❌ **Sin reproducción** — No hay nada sonando en este momento.',
-                ephemeral: true
+                flags: 64
             });
         }
 

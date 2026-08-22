@@ -306,7 +306,14 @@ async function expandUrlSafely(rawUrl) {
             };
         }
 
-        currentUrl = await validatePublicHttpUrl(new URL(location, currentUrl).toString());
+        let nextLocationUrl;
+        try {
+            nextLocationUrl = new URL(location, currentUrl).toString();
+        } catch {
+            throw new Error('La redirección apunta a una URL inválida');
+        }
+
+        currentUrl = await validatePublicHttpUrl(nextLocationUrl);
         redirects += 1;
     }
 

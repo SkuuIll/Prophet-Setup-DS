@@ -5,7 +5,6 @@ const config = require('../config');
 const { stmts } = require('../database');
 const { procesarXPVoz } = require('../modules/leveling');
 const { trackVoiceMinutes, updateDailyQuestProgress } = require('../modules/profileSystem');
-const { applyTrollNickname, restoreNickname } = require('../modules/trollNicknames');
 
 // Lock para evitar creaciones duplicadas simultáneas
 const creatingChannelFor = new Set();
@@ -19,6 +18,19 @@ module.exports = {
         if (!member || member.user.bot) return;
         const userId = member.id;
         const guild = member.guild;
+
+        // Auto-sincronización de fuente del clan al conectar a voz
+        try {
+            const { applyClanFont, isAutoClanFontEnabled, getClanFontStyle, convertText, canManageMember } = require('../modules/clanFont');
+            if (isAutoClanFontEnabled() && canManageMember(member)) {
+                const style = getClanFontStyle();
+                const current = member.nickname || member.displayName;
+                const expected = convertText(current, style);
+                if (member.nickname !== expected) {
+                    applyClanFont(member, style, 'Sincronización activa de fuente en canal de voz', true).catch(() => {});
+                }
+            }
+        } catch (_) {}
 
         // Función ayudante para procesar nivel visualmente
         const manejarSubidaDeNivel = async (member, resultado) => {
@@ -112,13 +124,7 @@ module.exports = {
                     channelId: newState.channelId
                 });
             }
-
-            // Aplicar apodo trol argentino automáticamente si es nivel 10+
-            applyTrollNickname(newState.member || member, 'Conexión a canal de voz (Nivel 10+ Troll)').catch(() => {});
         } else if (leavingVoice) {
-            // Restaurar apodo original al desconectarse del canal de voz
-            restoreNickname(oldState.member || member).catch(() => {});
-
             // Al salir: dar XP por el tiempo acumulado
             const session = member.client.voiceSessions.get(userId);
             if (session) {

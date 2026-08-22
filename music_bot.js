@@ -98,7 +98,7 @@ client.on('interactionCreate', async (interaction) => {
 cargarComandosMusica();
 
 // ═══ INICIO ═══
-client.once('ready', async () => {
+client.once('clientReady', async () => {
     console.log('═══════════════════════════════════════');
     console.log(`  🎵 Prophet Music Bot`);
     console.log(`  📡 ${client.user.tag}`);

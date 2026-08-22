@@ -467,6 +467,14 @@ db.exec(`
         last_applied INTEGER NOT NULL DEFAULT 0,
         applied_count INTEGER NOT NULL DEFAULT 0
     );
+
+    CREATE TABLE IF NOT EXISTS font_nicknames (
+        user_id TEXT PRIMARY KEY,
+        original_display_name TEXT,
+        applied_font_nickname TEXT,
+        font_style TEXT DEFAULT 'small-caps',
+        applied_at INTEGER NOT NULL DEFAULT 0
+    );
 `);
 
 // ─── COLUMN MIGRATIONS (safe, idempotent) ───
@@ -1625,6 +1633,36 @@ const stmts = {
     },
     getAllTrollNickData() {
         return db.prepare('SELECT * FROM troll_nicknames').all();
+    },
+
+    // ─── ESTILOS DE FUENTE DEL CLAN (SMALL CAPS / OTROS) ───
+    getFontNickData(userId) {
+        return db.prepare('SELECT * FROM font_nicknames WHERE user_id = ?').get(userId) || null;
+    },
+    saveFontNickData(userId, originalDisplayName, appliedFontNickname, fontStyle = 'small-caps', timestamp = Date.now(), overwriteOriginal = false) {
+        const existing = db.prepare('SELECT * FROM font_nicknames WHERE user_id = ?').get(userId);
+        const original = (!overwriteOriginal && existing?.original_display_name !== undefined && existing?.original_display_name !== null)
+            ? existing.original_display_name
+            : originalDisplayName;
+
+        db.prepare(`
+            INSERT INTO font_nicknames (user_id, original_display_name, applied_font_nickname, font_style, applied_at)
+            VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT(user_id) DO UPDATE SET
+                original_display_name = ?,
+                applied_font_nickname = excluded.applied_font_nickname,
+                font_style = excluded.font_style,
+                applied_at = excluded.applied_at
+        `).run(userId, original, appliedFontNickname, fontStyle, timestamp, original);
+    },
+    removeFontNickData(userId) {
+        return db.prepare('DELETE FROM font_nicknames WHERE user_id = ?').run(userId);
+    },
+    getAllFontNickData() {
+        return db.prepare('SELECT * FROM font_nicknames').all();
+    },
+    clearAllFontNickData() {
+        return db.prepare('DELETE FROM font_nicknames').run();
     },
 
     // ─── PROPHET GAMES HUB & SESSIONS ───

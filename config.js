@@ -227,10 +227,10 @@ const config = {
 
     // Sistema de Apodos Trol Argentinos (Nivel 10+)
     TROLL_NICKNAMES: {
-        ENABLED: true,             // Activar/desactivar sistema globalmente
+        ENABLED: false,            // Activar/desactivar sistema globalmente
         MIN_LEVEL: 10,             // Nivel mínimo requerido para aplicar apodo trol
         COOLDOWN: 30 * 60 * 1000,  // Cooldown entre cambios automáticos (30 minutos)
-        LOG_CHANGES: true,         // Registrar cambios en el canal de logs
+        LOG_CHANGES: false,        // Registrar cambios en el canal de logs
     }
 };
 

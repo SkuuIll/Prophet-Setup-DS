@@ -14,7 +14,7 @@ module.exports = {
         if (!queue || !queue.isPlaying()) {
             return interaction.reply({
                 content: '> ❌ **Sin reproducción** — No hay nada sonando en este momento.',
-                ephemeral: true
+                flags: 64
             });
         }
 
@@ -22,14 +22,14 @@ module.exports = {
         if (!voiceChannel || voiceChannel.id !== interaction.guild.members.me.voice.channelId) {
             return interaction.reply({
                 content: '> ❌ **Canal incorrecto** — Tenés que estar en el mismo canal de voz que el bot para hacer esto.',
-                ephemeral: true
+                flags: 64
             });
         }
 
         if (queue.tracks.toArray().length < 2) {
             return interaction.reply({
                 content: '> ❌ **Pocas canciones** — Necesitás al menos 2 canciones en la cola para mezclarla.',
-                ephemeral: true
+                flags: 64
             });
         }
 

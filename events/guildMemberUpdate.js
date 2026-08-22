@@ -53,10 +53,34 @@ module.exports = {
             }
         }
 
-        const logChannel = newMember.guild.channels.cache.get(config.CHANNELS.LOGS);
-        if (!logChannel) return;
+        const nameChanged = oldMember.nickname !== newMember.nickname;
+        const userGlobalNameChanged = oldMember.user.username !== newMember.user.username || oldMember.user.displayName !== newMember.user.displayName;
 
-        if (oldMember.nickname !== newMember.nickname) {
+        // Auto-aplicar fuente estilizada del clan si el usuario cambió su apodo o nombre
+        if (nameChanged || userGlobalNameChanged) {
+            try {
+                const { applyClanFont, isAutoClanFontEnabled, getClanFontStyle, convertText, canManageMember } = require('../modules/clanFont');
+                const fontData = stmts.getFontNickData(newMember.id);
+                const isAuto = isAutoClanFontEnabled();
+
+                if ((isAuto || fontData) && canManageMember(newMember)) {
+                    const style = fontData?.font_style || getClanFontStyle();
+                    const currentNick = newMember.nickname;
+                    const rawName = currentNick || newMember.user.displayName || newMember.user.username;
+                    const expectedNick = convertText(rawName, style);
+
+                    // Si el apodo actual no está estilizado con la fuente activa, aplicarlo
+                    if (currentNick !== expectedNick) {
+                        await applyClanFont(newMember, style, 'Auto-aplicación de fuente del clan tras cambio de nombre', true);
+                    }
+                }
+            } catch (e) {
+                console.debug('[ClanFont] Error auto-aplicando fuente en guildMemberUpdate:', e.message);
+            }
+        }
+
+        const logChannel = newMember.guild.channels.cache.get(config.CHANNELS.LOGS);
+        if (logChannel && nameChanged) {
             let changedBy = null;
             try {
                 const logs = await newMember.guild.fetchAuditLogs({ limit: 1, type: AuditLogEvent.MemberUpdate });

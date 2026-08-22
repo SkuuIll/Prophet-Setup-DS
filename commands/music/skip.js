@@ -12,14 +12,14 @@ module.exports = {
         if (!voiceChannel) {
             return interaction.reply({
                 content: '> ❌ **Sin canal** — Tenés que estar en un canal de voz.',
-                ephemeral: true
+                flags: 64
             });
         }
 
         if (interaction.guild.members.me.voice.channelId && voiceChannel.id !== interaction.guild.members.me.voice.channelId) {
             return interaction.reply({
                 content: '> ❌ **Canal incorrecto** — Tenés que estar en el mismo canal de voz.',
-                ephemeral: true
+                flags: 64
             });
         }
 
@@ -28,7 +28,7 @@ module.exports = {
         if (!queue || !queue.isPlaying()) {
             return interaction.reply({
                 content: '> ❌ **Sin reproducción** — No hay nada sonando en este momento.',
-                ephemeral: true
+                flags: 64
             });
         }
 

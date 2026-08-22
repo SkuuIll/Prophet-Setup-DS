@@ -247,6 +247,13 @@ module.exports = {
         }
 
         if (subcommand === 'all') {
+            if (!isTrollEnabled()) {
+                return interaction.reply({
+                    content: '❌ El sistema de apodos trol está **desactivado**. Para usar esta función, primero debes activarlo con `/trollnick toggle activado:True`.',
+                    flags: 64
+                });
+            }
+
             const forzar = interaction.options.getBoolean('forzar') || false;
             await interaction.deferReply();
 

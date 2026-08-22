@@ -67,233 +67,259 @@ function sendJson(res, status, data) {
 
 // ═══ SERVIDOR HTTP PARA ASSETS Y API REST ═══
 const server = http.createServer(async (req, res) => {
-    // Headers para Discord Activities (iframe en client.discord.com)
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-    // Permitir embebido en Discord
-    res.setHeader('Content-Security-Policy',
-        "frame-ancestors https://discord.com https://*.discord.com https://discordapp.com https://*.discordapp.com https://*.discordsays.com;"
-    );
-    // Quitar X-Frame-Options si algún proxy lo pone
-    res.removeHeader('X-Frame-Options');
+    try {
+        // Headers para Discord Activities (iframe en client.discord.com)
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+        // Permitir embebido en Discord
+        res.setHeader('Content-Security-Policy',
+            "frame-ancestors https://discord.com https://*.discord.com https://discordapp.com https://*.discordapp.com https://*.discordsays.com;"
+        );
+        // Quitar X-Frame-Options si algún proxy lo pone
+        res.removeHeader('X-Frame-Options');
 
-    if (req.method === 'OPTIONS') {
-        res.writeHead(204);
-        return res.end();
-    }
+        if (req.method === 'OPTIONS') {
+            res.writeHead(204);
+            return res.end();
+        }
 
-    const parsedUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
-    let pathname = parsedUrl.pathname;
-    // Discord Activities: requests vía /.proxy/* → normalizar al path real
-    if (pathname.startsWith('/.proxy/')) {
-        pathname = pathname.slice('/.proxy'.length) || '/';
-    } else if (pathname === '/.proxy') {
-        pathname = '/';
-    }
-
-    // Log útil para depurar launches de Activity (sin body/secretos)
-    if (!pathname.match(/\.(css|js|mjs|png|jpg|svg|ico|woff2?)$/i)) {
-        console.log(`[HTTP] ${req.method} ${pathname} host=${req.headers.host || '-'} ua=${(req.headers['user-agent'] || '').slice(0, 60)}`);
-    }
-
-    // ─── API: config pública Activity ───
-    if (pathname === '/api/games/config' || pathname === '/.proxy/api/games/config') {
-        return sendJson(res, 200, DiscordActivityAuth.getPublicConfig());
-    }
-
-    // ─── API: OAuth token exchange (Discord Activities) ───
-    // Devuelve SIEMPRE sessionToken + user (no solo access_token) para no caer en demo.
-    if ((pathname === '/api/token' || pathname === '/.proxy/api/token'
-        || pathname === '/api/games/token' || pathname === '/.proxy/api/games/token')
-        && req.method === 'POST') {
+        let parsedUrl;
         try {
-            const data = await readJsonBody(req);
-            const result = await DiscordActivityAuth.createActivitySession(data.code, data.ttlMinutes || 180);
-            if (!result.success) {
-                return sendJson(res, 400, { error: result.error });
+            parsedUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+        } catch {
+            res.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8' });
+            return res.end('400 - Bad Request: URL o Host inválido');
+        }
+
+        let pathname = parsedUrl.pathname;
+        // Discord Activities: requests vía /.proxy/* → normalizar al path real
+        if (pathname.startsWith('/.proxy/')) {
+            pathname = pathname.slice('/.proxy'.length) || '/';
+        } else if (pathname === '/.proxy') {
+            pathname = '/';
+        }
+
+        // Bloquear escaneos de archivos ocultos o de configuración sensibles
+        if (pathname.includes('/.') || pathname.includes('.env') || pathname.includes('.git')) {
+            res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+            return res.end('404 - Not Found');
+        }
+
+        // Log útil para depurar launches de Activity (sin body/secretos)
+        if (!pathname.match(/\.(css|js|mjs|png|jpg|svg|ico|woff2?)$/i)) {
+            console.log(`[HTTP] ${req.method} ${pathname} host=${req.headers.host || '-'} ua=${(req.headers['user-agent'] || '').slice(0, 60)}`);
+        }
+
+        // ─── API: config pública Activity ───
+        if (pathname === '/api/games/config' || pathname === '/.proxy/api/games/config') {
+            return sendJson(res, 200, DiscordActivityAuth.getPublicConfig());
+        }
+
+        // ─── API: OAuth token exchange (Discord Activities) ───
+        // Devuelve SIEMPRE sessionToken + user (no solo access_token) para no caer en demo.
+        if ((pathname === '/api/token' || pathname === '/.proxy/api/token'
+            || pathname === '/api/games/token' || pathname === '/.proxy/api/games/token')
+            && req.method === 'POST') {
+            try {
+                const data = await readJsonBody(req);
+                const result = await DiscordActivityAuth.createActivitySession(data.code, data.ttlMinutes || 180);
+                if (!result.success) {
+                    return sendJson(res, 400, { error: result.error });
+                }
+                const eco = EconomyBridge.getUserBalance(result.user.id);
+                return sendJson(res, 200, {
+                    access_token: result.access_token,
+                    sessionToken: result.sessionToken,
+                    user: result.user,
+                    balance: eco.balance,
+                    bank: eco.bank,
+                    level: eco.level
+                });
+            } catch (e) {
+                return sendJson(res, 400, { error: e.message || 'Error OAuth' });
             }
-            const eco = EconomyBridge.getUserBalance(result.user.id);
-            return sendJson(res, 200, {
-                access_token: result.access_token,
-                sessionToken: result.sessionToken,
-                user: result.user,
-                balance: eco.balance,
-                bank: eco.bank,
-                level: eco.level
-            });
-        } catch (e) {
-            return sendJson(res, 400, { error: e.message || 'Error OAuth' });
         }
-    }
 
-    // ─── API: Activity full auth → game session ───
-    if ((pathname === '/api/games/activity-auth' || pathname === '/.proxy/api/games/activity-auth')
-        && req.method === 'POST') {
-        try {
-            const data = await readJsonBody(req);
-            const result = await DiscordActivityAuth.createActivitySession(data.code, data.ttlMinutes || 180);
-            if (!result.success) {
-                return sendJson(res, 400, { error: result.error });
+        // ─── API: Activity full auth → game session ───
+        if ((pathname === '/api/games/activity-auth' || pathname === '/.proxy/api/games/activity-auth')
+            && req.method === 'POST') {
+            try {
+                const data = await readJsonBody(req);
+                const result = await DiscordActivityAuth.createActivitySession(data.code, data.ttlMinutes || 180);
+                if (!result.success) {
+                    return sendJson(res, 400, { error: result.error });
+                }
+                const eco = EconomyBridge.getUserBalance(result.user.id);
+                return sendJson(res, 200, {
+                    sessionToken: result.sessionToken,
+                    access_token: result.access_token,
+                    user: result.user,
+                    balance: eco.balance,
+                    bank: eco.bank,
+                    level: eco.level
+                });
+            } catch (e) {
+                console.error('activity-auth error:', e);
+                return sendJson(res, 500, { error: e.message || 'Error de autenticación Activity' });
             }
-            const eco = EconomyBridge.getUserBalance(result.user.id);
-            return sendJson(res, 200, {
-                sessionToken: result.sessionToken,
-                access_token: result.access_token,
-                user: result.user,
-                balance: eco.balance,
-                bank: eco.bank,
-                level: eco.level
-            });
-        } catch (e) {
-            console.error('activity-auth error:', e);
-            return sendJson(res, 500, { error: e.message || 'Error de autenticación Activity' });
         }
-    }
 
-    // ─── API: mint session from existing Discord access_token ───
-    if ((pathname === '/api/games/session-from-access' || pathname === '/.proxy/api/games/session-from-access')
-        && req.method === 'POST') {
-        try {
-            const data = await readJsonBody(req);
-            const result = await DiscordActivityAuth.createSessionFromAccessToken(
-                data.access_token || data.accessToken,
-                data.ttlMinutes || 180
-            );
-            if (!result.success) {
-                return sendJson(res, 400, { error: result.error });
+        // ─── API: mint session from existing Discord access_token ───
+        if ((pathname === '/api/games/session-from-access' || pathname === '/.proxy/api/games/session-from-access')
+            && req.method === 'POST') {
+            try {
+                const data = await readJsonBody(req);
+                const result = await DiscordActivityAuth.createSessionFromAccessToken(
+                    data.access_token || data.accessToken,
+                    data.ttlMinutes || 180
+                );
+                if (!result.success) {
+                    return sendJson(res, 400, { error: result.error });
+                }
+                const eco = EconomyBridge.getUserBalance(result.user.id);
+                return sendJson(res, 200, {
+                    sessionToken: result.sessionToken,
+                    access_token: result.access_token,
+                    user: result.user,
+                    balance: eco.balance,
+                    bank: eco.bank,
+                    level: eco.level
+                });
+            } catch (e) {
+                return sendJson(res, 500, { error: e.message || 'Error creando sesión' });
             }
-            const eco = EconomyBridge.getUserBalance(result.user.id);
+        }
+
+        // ─── API REST sesión ───
+        if (pathname === '/api/games/session-info' || pathname === '/.proxy/api/games/session-info') {
+            const token = parsedUrl.searchParams.get('token');
+            const session = AuthManager.validateToken(token);
+            if (!session) {
+                return sendJson(res, 401, { error: 'Token inválido o expirado' });
+            }
+
+            const eco = EconomyBridge.getUserBalance(session.userId);
             return sendJson(res, 200, {
-                sessionToken: result.sessionToken,
-                access_token: result.access_token,
-                user: result.user,
+                userId: session.userId,
+                username: session.user?.username || session.userId,
+                level: eco.level,
+                xp: eco.xp,
                 balance: eco.balance,
-                bank: eco.bank,
-                level: eco.level
+                bank: eco.bank
             });
-        } catch (e) {
-            return sendJson(res, 500, { error: e.message || 'Error creando sesión' });
-        }
-    }
-
-    // ─── API REST sesión ───
-    if (pathname === '/api/games/session-info' || pathname === '/.proxy/api/games/session-info') {
-        const token = parsedUrl.searchParams.get('token');
-        const session = AuthManager.validateToken(token);
-        if (!session) {
-            return sendJson(res, 401, { error: 'Token inválido o expirado' });
         }
 
-        const eco = EconomyBridge.getUserBalance(session.userId);
-        return sendJson(res, 200, {
-            userId: session.userId,
-            username: session.user?.username || session.userId,
-            level: eco.level,
-            xp: eco.xp,
-            balance: eco.balance,
-            bank: eco.bank
+        if ((pathname === '/api/games/create-token' || pathname === '/.proxy/api/games/create-token')
+            && req.method === 'POST') {
+            try {
+                const data = await readJsonBody(req);
+                // Solo permitir create-token desde bots internos con secret
+                const internalSecret = process.env.GAMES_INTERNAL_SECRET || '';
+                if (internalSecret && data.secret !== internalSecret) {
+                    return sendJson(res, 403, { error: 'No autorizado' });
+                }
+                if (!data.userId) {
+                    return sendJson(res, 400, { error: 'Falta userId' });
+                }
+                const token = AuthManager.createSession(data.userId, data.ttlMinutes || 120);
+                return sendJson(res, 200, { token });
+            } catch (e) {
+                return sendJson(res, 400, { error: e.message || 'JSON inválido' });
+            }
+        }
+
+        // ─── STATIC: /assets/* (logo, banners del bot) ───
+        if (pathname.startsWith('/assets/')) {
+            const assetRel = path.normalize(pathname.replace(/^\/assets\//, '')).replace(/^(\.\.[\/\\])+/, '');
+            const assetPath = path.resolve(ASSETS_DIR, assetRel);
+            if (assetPath.startsWith(ASSETS_DIR) && fs.existsSync(assetPath) && fs.statSync(assetPath).isFile()) {
+                const ext = path.extname(assetPath).toLowerCase();
+                res.writeHead(200, {
+                    'Content-Type': MIME_TYPES[ext] || 'application/octet-stream',
+                    'Cache-Control': 'public, max-age=3600'
+                });
+                return fs.createReadStream(assetPath).pipe(res);
+            }
+            res.writeHead(404);
+            return res.end('asset not found');
+        }
+
+        // ─── STATIC FILES ROUTING ───
+        // Discord Activity entry "/" y rutas cortas /tycoon /casino etc.
+        const SHORT_GAMES = {
+            '/': '/games/hub/index.html',
+            '/games': '/games/hub/index.html',
+            '/games/': '/games/hub/index.html',
+            '/hub': '/games/hub/index.html',
+            '/hub/': '/games/hub/index.html',
+            '/tycoon': '/games/tycoon/index.html',
+            '/tycoon/': '/games/tycoon/index.html',
+            '/casino': '/games/casino/index.html',
+            '/casino/': '/games/casino/index.html',
+            '/trivia': '/games/trivia/index.html',
+            '/trivia/': '/games/trivia/index.html',
+            '/cards': '/games/cards/index.html',
+            '/cards/': '/games/cards/index.html',
+            '/survivor': '/games/survivor/index.html',
+            '/survivor/': '/games/survivor/index.html',
+            '/games/hub': '/games/hub/index.html',
+            '/games/hub/': '/games/hub/index.html',
+            '/games/tycoon': '/games/tycoon/index.html',
+            '/games/tycoon/': '/games/tycoon/index.html',
+            '/games/casino': '/games/casino/index.html',
+            '/games/casino/': '/games/casino/index.html',
+            '/games/trivia': '/games/trivia/index.html',
+            '/games/trivia/': '/games/trivia/index.html',
+            '/games/cards': '/games/cards/index.html',
+            '/games/cards/': '/games/cards/index.html',
+            '/games/survivor': '/games/survivor/index.html',
+            '/games/survivor/': '/games/survivor/index.html'
+        };
+        if (SHORT_GAMES[pathname]) {
+            pathname = SHORT_GAMES[pathname];
+        }
+
+        // Mapear /games/* a web/public/games/*
+        let relativePath = pathname.replace(/^\/games\//, '').replace(/^\//, '');
+        if (pathname.startsWith('/vendor/')) {
+            relativePath = pathname.replace(/^\//, '');
+        }
+        let safePath = path.normalize(relativePath).replace(/^(\.\.[\/\\])+/, '').replace(/^[/\\]+/, '');
+        let filePath = path.resolve(GAMES_DIR, safePath);
+
+        // Validar que no se salga de GAMES_DIR
+        if (!filePath.startsWith(GAMES_DIR)) {
+            res.writeHead(403, { 'Content-Type': 'text/plain; charset=utf-8' });
+            return res.end('403 - Forbidden');
+        }
+
+        // Si es directorio, buscar index.html
+        if (fs.existsSync(filePath) && fs.statSync(filePath).isDirectory()) {
+            filePath = path.join(filePath, 'index.html');
+        }
+
+        if (!fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) {
+            res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+            return res.end('404 - Prophet Games: Archivo no encontrado');
+        }
+
+        const ext = path.extname(filePath).toLowerCase();
+        const contentType = MIME_TYPES[ext] || 'application/octet-stream';
+
+        const noCache = ext === '.html' || ext === '.js' || ext === '.mjs' || ext === '.css';
+        res.writeHead(200, {
+            'Content-Type': contentType,
+            'Cache-Control': noCache ? 'no-store, no-cache, must-revalidate' : 'public, max-age=300'
         });
-    }
-
-    if ((pathname === '/api/games/create-token' || pathname === '/.proxy/api/games/create-token')
-        && req.method === 'POST') {
-        try {
-            const data = await readJsonBody(req);
-            // Solo permitir create-token desde bots internos con secret
-            const internalSecret = process.env.GAMES_INTERNAL_SECRET || '';
-            if (internalSecret && data.secret !== internalSecret) {
-                return sendJson(res, 403, { error: 'No autorizado' });
-            }
-            if (!data.userId) {
-                return sendJson(res, 400, { error: 'Falta userId' });
-            }
-            const token = AuthManager.createSession(data.userId, data.ttlMinutes || 120);
-            return sendJson(res, 200, { token });
-        } catch (e) {
-            return sendJson(res, 400, { error: e.message || 'JSON inválido' });
+        fs.createReadStream(filePath).pipe(res);
+    } catch (err) {
+        console.error('[Games Server Error]', err.message);
+        if (!res.headersSent) {
+            res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' });
+            res.end('500 - Internal Server Error');
         }
     }
-
-    // ─── STATIC: /assets/* (logo, banners del bot) ───
-    if (pathname.startsWith('/assets/')) {
-        const assetRel = path.normalize(pathname.replace(/^\/assets\//, '')).replace(/^(\.\.[\/\\])+/, '');
-        const assetPath = path.join(ASSETS_DIR, assetRel);
-        if (fs.existsSync(assetPath) && fs.statSync(assetPath).isFile()) {
-            const ext = path.extname(assetPath).toLowerCase();
-            res.writeHead(200, {
-                'Content-Type': MIME_TYPES[ext] || 'application/octet-stream',
-                'Cache-Control': 'public, max-age=3600'
-            });
-            return fs.createReadStream(assetPath).pipe(res);
-        }
-        res.writeHead(404);
-        return res.end('asset not found');
-    }
-
-    // ─── STATIC FILES ROUTING ───
-    // Discord Activity entry "/" y rutas cortas /tycoon /casino etc.
-    const SHORT_GAMES = {
-        '/': '/games/hub/index.html',
-        '/games': '/games/hub/index.html',
-        '/games/': '/games/hub/index.html',
-        '/hub': '/games/hub/index.html',
-        '/hub/': '/games/hub/index.html',
-        '/tycoon': '/games/tycoon/index.html',
-        '/tycoon/': '/games/tycoon/index.html',
-        '/casino': '/games/casino/index.html',
-        '/casino/': '/games/casino/index.html',
-        '/trivia': '/games/trivia/index.html',
-        '/trivia/': '/games/trivia/index.html',
-        '/cards': '/games/cards/index.html',
-        '/cards/': '/games/cards/index.html',
-        '/survivor': '/games/survivor/index.html',
-        '/survivor/': '/games/survivor/index.html',
-        '/games/hub': '/games/hub/index.html',
-        '/games/hub/': '/games/hub/index.html',
-        '/games/tycoon': '/games/tycoon/index.html',
-        '/games/tycoon/': '/games/tycoon/index.html',
-        '/games/casino': '/games/casino/index.html',
-        '/games/casino/': '/games/casino/index.html',
-        '/games/trivia': '/games/trivia/index.html',
-        '/games/trivia/': '/games/trivia/index.html',
-        '/games/cards': '/games/cards/index.html',
-        '/games/cards/': '/games/cards/index.html',
-        '/games/survivor': '/games/survivor/index.html',
-        '/games/survivor/': '/games/survivor/index.html'
-    };
-    if (SHORT_GAMES[pathname]) {
-        pathname = SHORT_GAMES[pathname];
-    }
-
-    // Mapear /games/* a web/public/games/*
-    // Nunca usar path absoluto en join (evita path.join(dir, '/tycoon') → '/tycoon')
-    let relativePath = pathname.replace(/^\/games\//, '').replace(/^\//, '');
-    if (pathname.startsWith('/vendor/')) {
-        relativePath = pathname.replace(/^\//, '');
-    }
-    let safePath = path.normalize(relativePath).replace(/^(\.\.[\/\\])+/, '').replace(/^[/\\]+/, '');
-    let filePath = path.join(GAMES_DIR, safePath);
-
-    // Si es directorio, buscar index.html
-    if (fs.existsSync(filePath) && fs.statSync(filePath).isDirectory()) {
-        filePath = path.join(filePath, 'index.html');
-    }
-
-    if (!fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) {
-        res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
-        return res.end('404 - Prophet Games: Archivo no encontrado');
-    }
-
-    const ext = path.extname(filePath).toLowerCase();
-    const contentType = MIME_TYPES[ext] || 'application/octet-stream';
-
-    const noCache = ext === '.html' || ext === '.js' || ext === '.mjs' || ext === '.css';
-    res.writeHead(200, {
-        'Content-Type': contentType,
-        'Cache-Control': noCache ? 'no-store, no-cache, must-revalidate' : 'public, max-age=300'
-    });
-    fs.createReadStream(filePath).pipe(res);
 });
 
 // ═══ SERVIDOR WEBSOCKET PARA JUEGOS EN TIEMPO REAL ═══
@@ -301,13 +327,24 @@ const server = http.createServer(async (req, res) => {
 const wss = new WebSocket.Server({ noServer: true });
 
 server.on('upgrade', (request, socket, head) => {
-    let { pathname } = new URL(request.url, `http://${request.headers.host || 'localhost'}`);
-    if (pathname.startsWith('/.proxy/')) pathname = pathname.slice('/.proxy'.length) || '/';
-    if (pathname === '/ws' || pathname === '/.proxy/ws') {
-        wss.handleUpgrade(request, socket, head, (ws) => {
-            wss.emit('connection', ws, request);
-        });
-    } else {
+    try {
+        let parsed;
+        try {
+            parsed = new URL(request.url, `http://${request.headers.host || 'localhost'}`);
+        } catch {
+            socket.destroy();
+            return;
+        }
+        let { pathname } = parsed;
+        if (pathname.startsWith('/.proxy/')) pathname = pathname.slice('/.proxy'.length) || '/';
+        if (pathname === '/ws' || pathname === '/.proxy/ws') {
+            wss.handleUpgrade(request, socket, head, (ws) => {
+                wss.emit('connection', ws, request);
+            });
+        } else {
+            socket.destroy();
+        }
+    } catch {
         socket.destroy();
     }
 });

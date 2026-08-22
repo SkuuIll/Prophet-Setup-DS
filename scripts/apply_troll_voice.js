@@ -8,9 +8,7 @@ const config = require('../config');
 const { stmts } = require('../database');
 const { applyTrollNickname, canManageMember, setTrollEnabled } = require('../modules/trollNicknames');
 
-// Asegurar que quede activado en base de datos
-setTrollEnabled(true);
-console.log('✅ Sistema de apodos trol marcado como ACTIVADO en la base de datos.');
+// Script de prueba manual (desactivado por defecto)
 
 const client = new Client({
     intents: [

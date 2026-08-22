@@ -162,5 +162,8 @@ test('restoreAllTrollNicknames procesa múltiples miembros y limpia la base de d
     assert.equal(restoredMap.get(userB), 'GamerB');
     assert.equal(stmts.getTrollNickData(userA), null);
     assert.equal(stmts.getTrollNickData(userB), null);
+
+    // Dejar siempre el sistema desactivado
+    setTrollEnabled(false);
 });
 

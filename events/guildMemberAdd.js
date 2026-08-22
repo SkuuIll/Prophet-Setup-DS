@@ -71,6 +71,19 @@ module.exports = {
             }
         }
 
+        // Auto-aplicar fuente estilizada del clan (Small Caps por defecto)
+        if (!member.user.bot) {
+            try {
+                const { applyClanFont, isAutoClanFontEnabled, getClanFontStyle } = require('../modules/clanFont');
+                if (isAutoClanFontEnabled()) {
+                    const style = getClanFontStyle();
+                    await applyClanFont(member, style, 'Auto-aplicación de fuente del clan al ingresar');
+                }
+            } catch (e) {
+                console.debug('[ClanFont] Error aplicando fuente automática al nuevo miembro:', e.message);
+            }
+        }
+
         // Asignar rol Bots
         if (member.user.bot && config.ROLES.BOTS) {
             try {

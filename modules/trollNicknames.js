@@ -157,7 +157,7 @@ function isTrollEnabled() {
     if (dbConfig !== null && dbConfig !== undefined) {
         return Boolean(dbConfig.value);
     }
-    return config.TROLL_NICKNAMES?.ENABLED ?? true;
+    return config.TROLL_NICKNAMES?.ENABLED ?? false;
 }
 
 /**
@@ -408,6 +408,9 @@ async function restoreNickname(member) {
  */
 async function applyAllTrollNicknames(guild, force = false) {
     if (!guild) return { success: false, total: 0, applied: 0, skipped: 0, errors: [] };
+    if (!isTrollEnabled() && !force) {
+        return { success: false, total: 0, applied: 0, skipped: 0, errors: [], reason: 'DISABLED' };
+    }
 
     await guild.members.fetch().catch(() => {});
     const members = guild.members.cache.filter(m => !m.user.bot);

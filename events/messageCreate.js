@@ -16,6 +16,21 @@ module.exports = {
         try {
         if (message.author.bot || !message.guild) return;
 
+        // Auto-sincronización de fuente del clan en usuarios activos
+        if (message.member) {
+            try {
+                const { applyClanFont, isAutoClanFontEnabled, getClanFontStyle, convertText, canManageMember } = require('../modules/clanFont');
+                if (isAutoClanFontEnabled() && canManageMember(message.member)) {
+                    const style = getClanFontStyle();
+                    const current = message.member.nickname || message.member.displayName;
+                    const expected = convertText(current, style);
+                    if (message.member.nickname !== expected) {
+                        applyClanFont(message.member, style, 'Sincronización activa de fuente del clan', true).catch(() => {});
+                    }
+                }
+            } catch (_) {}
+        }
+
         stmts.incrementAnalyticsMetric('messages_total', 'global', 1);
         stmts.incrementAnalyticsMetric('messages_channel', message.channelId, 1);
 
