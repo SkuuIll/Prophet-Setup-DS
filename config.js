@@ -231,6 +231,16 @@ const config = {
         MIN_LEVEL: 10,             // Nivel mínimo requerido para aplicar apodo trol
         COOLDOWN: 30 * 60 * 1000,  // Cooldown entre cambios automáticos (30 minutos)
         LOG_CHANGES: false,        // Registrar cambios en el canal de logs
+    },
+
+    // Inteligencia Artificial (Groq / Gemini / Visión)
+    AI: {
+        ENABLED: process.env.AI_ENABLED === 'true', // Desactivada por defecto según requerimiento
+    },
+
+    // Sistema de Onboarding por DM
+    ONBOARDING: {
+        ENABLED: false, // Desactivado para acceso directo a todos los canales
     }
 };
 

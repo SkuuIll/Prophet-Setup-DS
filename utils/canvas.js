@@ -39,6 +39,22 @@ function clipCircle(ctx, cx, cy, r) {
 }
 
 /**
+ * Descarga una imagen remota con timeout seguro y la carga en canvas.
+ * Si falla o tarda más de timeoutMs, retorna null sin colgar el event loop.
+ */
+async function loadSafeImage(url, timeoutMs = 3000) {
+    if (!url) return null;
+    try {
+        const res = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
+        if (!res.ok) return null;
+        const arrayBuf = await res.arrayBuffer();
+        return await loadImage(Buffer.from(arrayBuf));
+    } catch {
+        return null;
+    }
+}
+
+/**
  * Genera tarjeta de NIVEL premium
  */
 async function generarTarjetaNivel(user, data) {
@@ -83,8 +99,14 @@ async function generarTarjetaNivel(user, data) {
     ctx.save();
     clipCircle(ctx, AX, AY, AR);
     try {
-        const avatar = await loadImage(user.displayAvatarURL({ extension: 'png', size: 256 }));
-        ctx.drawImage(avatar, AX - AR, AY - AR, AR * 2, AR * 2);
+        const avatarUrl = user.displayAvatarURL ? user.displayAvatarURL({ extension: 'png', size: 256 }) : null;
+        const avatar = await loadSafeImage(avatarUrl, 3000);
+        if (avatar) {
+            ctx.drawImage(avatar, AX - AR, AY - AR, AR * 2, AR * 2);
+        } else {
+            ctx.fillStyle = THEME.accent;
+            ctx.fillRect(AX - AR, AY - AR, AR * 2, AR * 2);
+        }
     } catch {
         ctx.fillStyle = THEME.accent;
         ctx.fillRect(AX - AR, AY - AR, AR * 2, AR * 2);
@@ -256,8 +278,17 @@ async function generarBienvenida(member) {
     ctx.save();
     clipCircle(ctx, AX, AY, AR);
     try {
-        const avatar = await loadImage(member.user.displayAvatarURL({ extension: 'png', size: 256 }));
-        ctx.drawImage(avatar, AX - AR, AY - AR, AR * 2, AR * 2);
+        const avatarUrl = member.user?.displayAvatarURL ? member.user.displayAvatarURL({ extension: 'png', size: 256 }) : null;
+        const avatar = await loadSafeImage(avatarUrl, 3000);
+        if (avatar) {
+            ctx.drawImage(avatar, AX - AR, AY - AR, AR * 2, AR * 2);
+        } else {
+            const fb = ctx.createLinearGradient(AX - AR, AY - AR, AX + AR, AY + AR);
+            fb.addColorStop(0, THEME.accent);
+            fb.addColorStop(1, THEME.accent2);
+            ctx.fillStyle = fb;
+            ctx.fillRect(AX - AR, AY - AR, AR * 2, AR * 2);
+        }
     } catch {
         const fb = ctx.createLinearGradient(AX - AR, AY - AR, AX + AR, AY + AR);
         fb.addColorStop(0, THEME.accent);
@@ -371,8 +402,17 @@ async function generarDespedida(member) {
     ctx.save();
     clipCircle(ctx, AX, AY, AR);
     try {
-        const avatar = await loadImage(member.user.displayAvatarURL({ extension: 'png', size: 256 }));
-        ctx.drawImage(avatar, AX - AR, AY - AR, AR * 2, AR * 2);
+        const avatarUrl = member.user?.displayAvatarURL ? member.user.displayAvatarURL({ extension: 'png', size: 256 }) : null;
+        const avatar = await loadSafeImage(avatarUrl, 3000);
+        if (avatar) {
+            ctx.drawImage(avatar, AX - AR, AY - AR, AR * 2, AR * 2);
+        } else {
+            const fb = ctx.createLinearGradient(AX - AR, AY - AR, AX + AR, AY + AR);
+            fb.addColorStop(0, '#FF5252');
+            fb.addColorStop(1, '#BB86FC');
+            ctx.fillStyle = fb;
+            ctx.fillRect(AX - AR, AY - AR, AR * 2, AR * 2);
+        }
     } catch {
         const fb = ctx.createLinearGradient(AX - AR, AY - AR, AX + AR, AY + AR);
         fb.addColorStop(0, '#FF5252');

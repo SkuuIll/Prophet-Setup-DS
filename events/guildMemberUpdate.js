@@ -53,6 +53,22 @@ module.exports = {
             }
         }
 
+        // Detectar si el usuario acaba de pasar la verificación de reglas de Discord (screening)
+        if (oldMember.pending && !newMember.pending) {
+            if (config.ROLES.NUEVO) {
+                const roleObj = newMember.guild.roles.cache.get(config.ROLES.NUEVO);
+                if (roleObj) {
+                    newMember.roles.add(roleObj, 'Completó verificación de reglas de Discord').catch(() => {});
+                }
+            }
+            try {
+                const { applyClanFont, isAutoClanFontEnabled, getClanFontStyle } = require('../modules/clanFont');
+                if (isAutoClanFontEnabled()) {
+                    applyClanFont(newMember, getClanFontStyle(), 'Auto-aplicación de fuente tras completar verificación').catch(() => {});
+                }
+            } catch (_) {}
+        }
+
         const nameChanged = oldMember.nickname !== newMember.nickname;
         const userGlobalNameChanged = oldMember.user.username !== newMember.user.username || oldMember.user.displayName !== newMember.user.displayName;
 

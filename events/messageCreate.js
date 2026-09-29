@@ -196,7 +196,7 @@ module.exports = {
             return;
         }
 
-        // ═══ @MENCIÓN O RESPUESTA DIRECTA → RESPUESTA CON IA ═══
+        // ═══ @MENCIÓN O RESPUESTA DIRECTA → RESPUESTA CON IA O ASISTENTE ═══
         const esRespuesta = message.reference && message.mentions.repliedUser?.id === message.client.user.id;
         const fueMencionado = message.mentions.has(message.client.user) || esRespuesta;
         if (fueMencionado) {
@@ -207,19 +207,21 @@ module.exports = {
 
             const attachment = message.attachments.find(a => a.contentType?.startsWith('image/'));
 
-            if (!textoSinMencion && !attachment) {
-                // Mencionaron al bot sin texto y sin imagen → respuesta rápida
-                const respuestasRapidas = [
-                    `¡Acá estoy, ${message.author.username}! 👋 ¿En qué te ayudo? Podés preguntarme lo que sea.`,
-                    `¡Me llamaste? 🎮 ¿Qué necesitás?`,
-                    `¡Presente! 🤖 Preguntame lo que quieras.`,
-                    `¡Hola! ¿Cómo te puedo ayudar? También tenés /ayuda para ver todos los comandos.`,
-                ];
+            // Respuestas rápidas fijas si no hay IA o si solo mencionaron al bot
+            const respuestasRapidas = [
+                `¡Acá estoy, ${message.author.username}! 👋 ¿En qué te ayudo? Podés ver todos los comandos con \`/ayuda\`.`,
+                `¡Me llamaste, ${message.author.username}? 🎮 ¿Qué necesitás? Escribí \`/ayuda\` para ver qué puedo hacer.`,
+                `¡Presente! 🤖 Escribí \`/ayuda\` para ver todos los comandos del servidor.`,
+                `¡Hola! ¿Cómo estás? Usá \`/ayuda\` para ver los comandos de música, juegos y economía.`,
+            ];
+
+            // Si la IA está desactivada o no hay mensaje
+            if (!config.AI?.ENABLED || (!textoSinMencion && !attachment)) {
                 stmts.incrementAnalyticsMetric('ai_replies', 'mention_quick', 1);
                 return message.reply(respuestasRapidas[Math.floor(Math.random() * respuestasRapidas.length)]);
             }
 
-            // Tiene texto o imagen → usar IA
+            // Tiene texto o imagen y la IA está habilitada
             try {
                 const typing = message.channel.sendTyping();
                 const contexto = `Servidor: ${message.guild.name}, usuario: ${message.author.username}`;
@@ -259,10 +261,10 @@ module.exports = {
         }
 
         // ═══ AUTO-INTERVENCIÓN Y VISIÓN (BOT OPINA SOLO) ═══
-        // SOLO en el canal #chat (💬・chat)
+        // SOLO en el canal #chat (💬・chat) y SI la IA está habilitada
         const esCanalChat = config.CHANNELS.CHAT && message.channel.id === config.CHANNELS.CHAT;
 
-        if (esCanalChat && !message.author.bot && !message.content.startsWith('/')) {
+        if (config.AI?.ENABLED && esCanalChat && !message.author.bot && !message.content.startsWith('/')) {
             const attachment = message.attachments.find(a => a.contentType?.startsWith('image/'));
 
             // 1. Visión (Si mandan una imagen)
