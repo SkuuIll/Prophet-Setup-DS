@@ -8,6 +8,7 @@ require('dotenv').config();
 const AuthManager = require('./games/common/authManager');
 const EconomyBridge = require('./games/common/economyBridge');
 const DiscordActivityAuth = require('./games/common/discordActivityAuth');
+const { internalSecretReady, verifyInternalSecret, validDiscordUserId } = require('./games/common/internalTokenAuth');
 const TycoonEngine = require('./games/tycoon/tycoonEngine');
 const CrashEngine = require('./games/casino/crashEngine');
 const RouletteEngine = require('./games/casino/rouletteEngine');
@@ -19,6 +20,8 @@ const UnoEngine = require('./games/cards/unoEngine');
 const SurvivorEngine = require('./games/survivor/survivorEngine');
 
 const PORT = parseInt(process.env.GAMES_PORT || '3850', 10);
+// Se conserva el bind anterior; para usar un reverse proxy configurá GAMES_BIND_HOST=127.0.0.1.
+const BIND_HOST = process.env.GAMES_BIND_HOST || '0.0.0.0';
 const GAMES_DIR = path.join(__dirname, 'web', 'public', 'games');
 const ASSETS_DIR = path.join(__dirname, 'assets');
 
@@ -109,6 +112,11 @@ const server = http.createServer(async (req, res) => {
         // Log útil para depurar launches de Activity (sin body/secretos)
         if (!pathname.match(/\.(css|js|mjs|png|jpg|svg|ico|woff2?)$/i)) {
             console.log(`[HTTP] ${req.method} ${pathname} host=${req.headers.host || '-'} ua=${(req.headers['user-agent'] || '').slice(0, 60)}`);
+        }
+
+        // Endpoint de salud local para despliegues y supervisión.
+        if (pathname === '/api/games/health' && req.method === 'GET') {
+            return sendJson(res, 200, { ok: true, service: 'ProphetGames' });
         }
 
         // ─── API: config pública Activity ───
@@ -213,14 +221,17 @@ const server = http.createServer(async (req, res) => {
         if ((pathname === '/api/games/create-token' || pathname === '/.proxy/api/games/create-token')
             && req.method === 'POST') {
             try {
-                const data = await readJsonBody(req);
-                // Solo permitir create-token desde bots internos con secret
+                // La ausencia del secreto JAMÁS debe habilitar la creación anónima de sesiones.
                 const internalSecret = process.env.GAMES_INTERNAL_SECRET || '';
-                if (internalSecret && data.secret !== internalSecret) {
+                if (!internalSecretReady(internalSecret)) {
+                    return sendJson(res, 503, { error: 'Servicio interno no configurado' });
+                }
+                const data = await readJsonBody(req);
+                if (!verifyInternalSecret(internalSecret, data.secret)) {
                     return sendJson(res, 403, { error: 'No autorizado' });
                 }
-                if (!data.userId) {
-                    return sendJson(res, 400, { error: 'Falta userId' });
+                if (!validDiscordUserId(data.userId)) {
+                    return sendJson(res, 400, { error: 'userId de Discord inválido' });
                 }
                 const token = AuthManager.createSession(data.userId, data.ttlMinutes || 120);
                 return sendJson(res, 200, { token });
@@ -776,9 +787,12 @@ wss.on('close', () => {
     clearInterval(interval);
 });
 
-server.listen(PORT, () => {
+server.listen(PORT, BIND_HOST, () => {
     const cfg = DiscordActivityAuth.getPublicConfig();
-    console.log(`🎮 Prophet Games Hub & WebSocket server corriendo en el puerto ${PORT}`);
+    console.log(`🎮 Prophet Games Hub & WebSocket server corriendo en ${BIND_HOST}:${PORT}`);
+    if (BIND_HOST === '0.0.0.0' || BIND_HOST === '::') {
+        console.warn('⚠️ Games escucha en interfaces públicas. Usá HTTPS y un proxy/firewall; considerá GAMES_BIND_HOST=127.0.0.1.');
+    }
     console.log(`🌐 Acceso local: http://127.0.0.1:${PORT}/games/`);
     console.log(`🎯 Discord Activity entry: http://127.0.0.1:${PORT}/`);
     if (cfg.oauthReady) {
