@@ -4,21 +4,15 @@ const { EmbedBuilder, AttachmentBuilder } = require('discord.js');
 const config = require('../config');
 const { verificarRaid } = require('../modules/antispam');
 const { stmts } = require('../database');
-const { getChannel } = require('../utils/runtimeConfig');
+const { resolveMemberChannel, missingSendPermissions, sendWithImageFallback } = require('../utils/memberNotifications');
+const { getPersistedValue } = require('../utils/memberNotificationDiagnostics');
 
 async function resolveWelcomeChannel(guild) {
-    let ch = null;
-    const targetId = config.CHANNELS.BIENVENIDOS || '1536559906990071828';
-    if (targetId && /^\d+$/.test(targetId)) {
-        ch = guild.channels.cache.get(targetId);
-        if (!ch) {
-            ch = await guild.channels.fetch(targetId).catch(() => null);
-        }
-    }
-    if (!ch) {
-        ch = getChannel(guild, 'BIENVENIDOS') || guild.channels.cache.find(c => c.name.includes('bienvenid'));
-    }
-    return ch;
+    return resolveMemberChannel(guild, {
+        configValue: config.CHANNELS.BIENVENIDOS,
+        persistedValue: getPersistedValue('BIENVENIDOS'),
+        kind: 'welcome',
+    });
 }
 
 module.exports = {
@@ -27,10 +21,77 @@ module.exports = {
     async execute(member) {
         try {
             // Métrica de retención
-            stmts.incrementAnalyticsMetric('member_joins', 'global', 1);
+            try { stmts.incrementAnalyticsMetric('member_joins', 'global', 1); }
+            catch (error) { console.warn('[Bienvenida] No se pudo registrar métrica:', error.message); }
+
+            // La notificación se envía ANTES de tareas de roles, anti-raid
+            // y apodos: un fallo en cualquiera de ellas nunca debe ocultar el ingreso.
+            // Canal de bienvenida
+            const welcomeChannel = await resolveWelcomeChannel(member.guild);
+            if (!welcomeChannel) {
+                console.error(`[Bienvenida] No se encontró un canal para ${member.guild.id}; revisá BIENVENIDOS y permisos.`);
+            } else {
+
+            // Generar tarjeta y enviar bienvenida
+            try {
+                const missing = missingSendPermissions(welcomeChannel, member.guild);
+                if (missing.includes('ViewChannel') || missing.includes('SendMessages')) {
+                    console.error(`[Bienvenida] Sin permisos para enviar en #${welcomeChannel.name}: ${missing.join(', ')}`);
+                    return;
+                }
+                const files = [];
+                const allowImage = !missing.includes('AttachFiles') && !missing.includes('EmbedLinks');
+                if (allowImage) try {
+                    const { generarBienvenida } = require('../utils/canvas');
+                    const welcomeBuffer = await generarBienvenida(member);
+                    if (welcomeBuffer) {
+                        files.push(new AttachmentBuilder(welcomeBuffer, { name: 'bienvenida.png' }));
+                    }
+                } catch (canvasError) {
+                    console.warn('[Bienvenida] Fallback sin imagen por error en canvas:', canvasError.message);
+                }
+
+                const embed = new EmbedBuilder()
+                    .setColor(config.COLORES.PRINCIPAL || 0xBB86FC)
+                    .setTitle(`¡Bienvenido/a a la familia, ${member.user.username}!`)
+                    .setDescription(
+                        `Hola ${member}, nos alegra muchísimo tenerte acá. 👋\n\n` +
+                        `**📜 Primeros pasos:**\n` +
+                        `> 📌 Leé las **reglas** en <#${config.CHANNELS.REGLAS || '1472401285964890237'}>\n` +
+                        `> 💬 Presentate en el chat y contanos qué jugás\n` +
+                        `> 🎮 Unite a las partidas y divertite con la comunidad\n` +
+                        `> 🎵 Probá los comandos de música con \`/play\`\n\n` +
+                        `*¡Esperamos que la pases genial! Si necesitás ayuda, abrí un ticket.* 🎫`
+                    )
+                    .setFooter({ text: `Prophet Gaming  ·  Miembro #${member.guild.memberCount}` })
+                    .setTimestamp();
+
+                if (files.length > 0) {
+                    embed.setImage('attachment://bienvenida.png');
+                }
+
+                if (missing.includes('EmbedLinks')) {
+                    await welcomeChannel.send({
+                        content: `¡Bienvenido a Prophet Gaming, ${member}! Pasá por las reglas y presentate en el chat.`,
+                        allowedMentions: { users: [member.id] },
+                    });
+                } else {
+                    await sendWithImageFallback(welcomeChannel, {
+                        content: `<@${member.id}>`, embeds: [embed], files,
+                        allowedMentions: { users: [member.id] },
+                    });
+                }
+                console.log(`👋 Bienvenida enviada para ${member.user.tag} en #${welcomeChannel.name}`);
+
+            } catch (sendError) {
+                console.error(`[Bienvenida] Error enviando mensaje a #${welcomeChannel.name} (${welcomeChannel.id}):`, sendError);
+            }
+            }
 
             // Anti-raid
-            const raid = verificarRaid(member);
+            let raid = { esRaid: false };
+            try { raid = verificarRaid(member); }
+            catch (error) { console.error('[AntiRaid] Falló detección de raid:', error.message); }
             if (raid.esRaid) {
                 const logChannelId = config.CHANNELS.LOGS || '1536543207402508318';
                 const logChannel = member.guild.channels.cache.get(logChannelId) 
@@ -112,52 +173,6 @@ module.exports = {
                 }
             }
 
-            // Canal de bienvenida
-            const welcomeChannel = await resolveWelcomeChannel(member.guild);
-            if (!welcomeChannel) {
-                console.warn('[Bienvenida] No se encontró el canal de bienvenida en el servidor.');
-                return;
-            }
-
-            // Generar tarjeta y enviar bienvenida
-            try {
-                const files = [];
-                try {
-                    const { generarBienvenida } = require('../utils/canvas');
-                    const welcomeBuffer = await generarBienvenida(member);
-                    if (welcomeBuffer) {
-                        files.push(new AttachmentBuilder(welcomeBuffer, { name: 'bienvenida.png' }));
-                    }
-                } catch (canvasError) {
-                    console.warn('[Bienvenida] Fallback sin imagen por error en canvas:', canvasError.message);
-                }
-
-                const embed = new EmbedBuilder()
-                    .setColor(config.COLORES.PRINCIPAL || 0xBB86FC)
-                    .setTitle(`¡Bienvenido/a a la familia, ${member.user.username}!`)
-                    .setDescription(
-                        `Hola ${member}, nos alegra muchísimo tenerte acá. 👋\n\n` +
-                        `**📜 Primeros pasos:**\n` +
-                        `> 📌 Leé las **reglas** en <#${config.CHANNELS.REGLAS || '1472401285964890237'}>\n` +
-                        `> 💬 Presentate en el chat y contanos qué jugás\n` +
-                        `> 🎮 Unite a las partidas y divertite con la comunidad\n` +
-                        `> 🎵 Probá los comandos de música con \`/play\`\n\n` +
-                        `*¡Esperamos que la pases genial! Si necesitás ayuda, abrí un ticket.* 🎫`
-                    )
-                    .setFooter({ text: `Prophet Gaming  ·  Miembro #${member.guild.memberCount}` })
-                    .setTimestamp();
-
-                if (files.length > 0) {
-                    embed.setImage('attachment://bienvenida.png');
-                }
-
-                await welcomeChannel.send({ content: `${member}`, embeds: [embed], files });
-                console.log(`👋 Bienvenida enviada para ${member.user.tag} en #${welcomeChannel.name}`);
-
-            } catch (sendError) {
-                console.error('[Bienvenida] Error enviando mensaje a canal:', sendError.message);
-            }
-
             // Onboarding interactivo por DM (desactivado según requerimiento del usuario)
             if (config.ONBOARDING?.ENABLED) {
                 try {
@@ -183,7 +198,7 @@ module.exports = {
             }
 
         } catch (globalErr) {
-            console.error('[guildMemberAdd] Error no capturado:', globalErr.message);
+            console.error('[guildMemberAdd] Error no capturado:', globalErr);
         }
     }
 };
