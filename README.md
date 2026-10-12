@@ -21,6 +21,16 @@ Música · Moderación · Economía · Niveles · Mini-juegos · Utilidades — 
 
 ---
 
+## Despliegue automático y reparación (2026)
+
+La guía para conectar `main` con el VPS está en
+[docs/VPS_AUTO_DEPLOY.md](docs/VPS_AUTO_DEPLOY.md). Para ver las correcciones
+actuales y el plan de refactorización sin romper módulos, consultar
+[docs/REFACTOR_PLAN.md](docs/REFACTOR_PLAN.md). **El auto-update no se activa
+hasta instalar el cron una vez en el VPS.**
+
+---
+
 ## 📋 Tabla de contenidos
 
 - [Descripción](#-descripción)
