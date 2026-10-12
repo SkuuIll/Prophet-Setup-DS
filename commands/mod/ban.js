@@ -13,6 +13,14 @@ module.exports = {
         .setDefaultMemberPermissions(PermissionFlagsBits.BanMembers),
 
     async execute(interaction) {
+        // Defender también en runtime: no confiar únicamente en el permiso del slash registrado.
+        if (!interaction.inGuild?.() || !interaction.memberPermissions?.has(PermissionFlagsBits.BanMembers)) {
+            return interaction.reply({
+                content: 'No tenés permisos para ejecutar esta acción de moderación.',
+                flags: 64,
+            });
+        }
+
         const target = interaction.options.getMember('usuario');
         const razon = interaction.options.getString('razon') || 'Sin razón especificada';
         const dias = interaction.options.getInteger('dias') || 0;
