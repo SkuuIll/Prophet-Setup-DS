@@ -34,10 +34,10 @@ ni partidas. **No se considera terminado por el mero hecho de que CI esté verde
 
 | Fase | Prioridad | Qué se hará | Evidencia exigida | GitHub |
 | --- | --- | --- | --- | --- |
-| 0. Estabilización inicial | Parcial | Bienvenidas/despedidas, sesiones de Games, economía, deploy PM2, primeros tests y ayuda | PR revisado y CI + prueba funcional de aceptación | [PR #4](../pull/4) |
+| 0. Estabilización inicial | Parcial | Bienvenidas/despedidas, sesiones de Games, economía, deploy PM2, primeros tests y ayuda | PR revisado y CI + prueba funcional de aceptación | [PR #4](https://github.com/SkuuIll/Prophet-Setup-DS/pull/4) |
 | 1. Seguridad integral | P0 | Permisos, OAuth, HTTP, WebSockets, amenazas comunes, secretos, npm, firewall/proxy | Hallazgos clasificados por severidad + pruebas de regresión | [#7](../issues/7) |
 | 2. Discord end-to-end | P1 | 18 eventos, 103 archivos de comandos, botones, permisos, roles y errores | Matriz por evento/comando + ingreso/salida reales de prueba | [#8](../issues/8) |
-| 3. Datos, economía y juegos | P1 | SQLite, migraciones, saldo atómico, cada motor y frontend de juego | Restore en ensayo + integridad monetaria, tests multijugador | [#9](../issues/9), [#5](../issues/5) |
+| 3. Datos, economía y juegos | P1 | SQLite, migraciones, saldo atómico, cada motor y frontend de juego | Restore en ensayo + integridad monetaria, tests multijugador | [#9](../issues/9), [#5](https://github.com/SkuuIll/Prophet-Setup-DS/issues/5) |
 | 4. UX y redacción | P2 | Embeds, menús, botones, modales, dashboard, mobile, textos, accesibilidad | Catálogo y pruebas de flujos principales con UI consistente | [#10](../issues/10) |
 | 5. Arquitectura, música y rendimiento | P2 | Modularizar archivos grandes; Lavalink, métricas, errores, logs, memoria | Imports estables y ensayos completos de música y reinicio | [#11](../issues/11) |
 | 6. Aceptación y único despliegue final | Bloqueante | Checklist VPS y Discord, backups/restores, revisión de variables y servicios, política de auto-update | Prueba final aprobada por propietario | [#6](../issues/6) |
