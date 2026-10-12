@@ -34,7 +34,7 @@ rollback() {
         echo "Despliegue fallido (código $code). Restaurando $PREVIOUS_REV ..."
         if [[ -n "$REMOTE_REV" ]]; then
             mkdir -p data/deploy
-            printf "%s\\n" "$REMOTE_REV" > data/deploy/failed-revision
+            printf "%s\n" "$REMOTE_REV" > data/deploy/failed-revision
         fi
         git reset --hard "$PREVIOUS_REV" || true
         npm ci --no-audit || true
