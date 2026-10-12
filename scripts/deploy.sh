@@ -78,7 +78,7 @@ for attempt in {1..18}; do
                 )) ? 0 : 1);
             } catch (_) { process.exit(1); }
         });
-    ' && curl --silent --fail --connect-timeout 3 --max-time 5 "$HEALTH_URL" | grep -Eq '"ok"[[:space:]]*:[[:space:]]*true' \
+    ' && curl --silent --fail --connect-timeout 3 --max-time 5 "$HEALTH_URL" | grep -Eq '"ready"[[:space:]]*:[[:space:]]*true' \
       && curl --silent --fail --connect-timeout 3 --max-time 5 "$GAMES_HEALTH_URL" | grep -Eq '"ok"[[:space:]]*:[[:space:]]*true'; then
         healthy_checks=$((healthy_checks + 1))
         if [[ "$healthy_checks" -ge 2 ]]; then
