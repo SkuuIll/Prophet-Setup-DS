@@ -19,5 +19,6 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - run: bash -n scripts/deploy.sh scripts/auto_update.sh
       - run: npm run verify
       - run: npm run audit:prod
