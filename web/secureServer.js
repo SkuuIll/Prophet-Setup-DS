@@ -457,7 +457,12 @@ async function startDashboardServer(client) {
     const host = config.DASHBOARD.HOST;
     const port = config.DASHBOARD.PORT;
     
-    server.listen(port, host, () => {
+    // No indicar inicio correcto si el puerto está ocupado o no se puede escuchar.
+    await new Promise((resolve, reject) => {
+        const onError = error => reject(error);
+        server.once('error', onError);
+        server.listen(port, host, () => {
+            server.removeListener('error', onError);
         const protocol = servingHttps ? 'https' : 'http';
         const authMode = 'autenticación JWT + RBAC';
         
@@ -475,8 +480,10 @@ async function startDashboardServer(client) {
             console.warn('⚠️  ADVERTENCIA: El dashboard está accesible externamente sin HTTPS.');
             console.warn('   Se recomienda usar HTTPS en producción.');
         }
+            resolve();
+        });
     });
-    
+
     return server;
 }
 
