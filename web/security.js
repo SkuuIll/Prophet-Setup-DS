@@ -535,11 +535,12 @@ function cleanupRateLimits() {
     }
 }
 
-// Limpiar cada 5 minutos
-setInterval(() => {
+// Limpiar cada 5 minutos sin impedir que el proceso termine correctamente.
+const securityCleanupTimer = setInterval(() => {
     cleanupRateLimits();
     cleanupCSRFTokens();
 }, 5 * 60 * 1000);
+securityCleanupTimer.unref();
 
 // ═══════════════════════════════════════════════════
 //  VALIDACIÓN DE INPUT
