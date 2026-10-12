@@ -64,7 +64,7 @@ function authenticate(req, res, next) {
     }
     
     // Verificar sesión
-    if (!security.verifySession(verification.payload.sessionId, verification.payload.userId)) {
+    if (!security.verifySession(verification.payload.sessionId, verification.payload.userId, verification.payload.role)) {
         res.writeHead(401, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: 'Sesión no válida o expirada' }));
         return;
