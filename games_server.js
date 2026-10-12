@@ -8,6 +8,7 @@ require('dotenv').config();
 const AuthManager = require('./games/common/authManager');
 const EconomyBridge = require('./games/common/economyBridge');
 const DiscordActivityAuth = require('./games/common/discordActivityAuth');
+const { isLocalDemoAllowed } = require('./games/common/websocketSecurity');
 const { internalSecretReady, verifyInternalSecret, validDiscordUserId } = require('./games/common/internalTokenAuth');
 const TycoonEngine = require('./games/tycoon/tycoonEngine');
 const CrashEngine = require('./games/casino/crashEngine');
@@ -416,9 +417,11 @@ wss.on('connection', (ws, request) => {
     let sessionUser = null;
     // Demos solo para desarrollo local, nunca en producción ni expuestas a Internet.
     const address = request?.socket?.remoteAddress || '';
-    const localClient = ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(address);
-    const allowDemo = process.env.GAMES_DEMO_ENABLED === 'true'
-        && process.env.NODE_ENV !== 'production' && localClient;
+    const allowDemo = isLocalDemoAllowed({
+        enabled: process.env.GAMES_DEMO_ENABLED,
+        nodeEnv: process.env.NODE_ENV,
+        address,
+    });
     ws.isAlive = true;
 
     ws.on('pong', () => {
