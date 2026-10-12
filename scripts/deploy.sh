@@ -1,44 +1,56 @@
 #!/usr/bin/env bash
-
+# Despliegue seguro de TODOS los servicios. Ejecutar desde cualquier directorio.
 set -Eeuo pipefail
+umask 077
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 LOCK_FILE="${TMPDIR:-/tmp}/prophetbot-deploy.lock"
 BRANCH="${DEPLOY_BRANCH:-main}"
-PM2_APP="${PM2_APP_NAME:-ProphetBot}"
 PREVIOUS_REV=""
 UPDATED=false
+PM2_APPS=(ProphetLavalink ProphetGames ProphetMusic ProphetBot)
 
 cd "$ROOT_DIR"
+mkdir -p logs
 exec 9>"$LOCK_FILE"
 if ! flock -n 9; then
     echo "Ya hay otro despliegue de ProphetBot en curso."
     exit 1
 fi
 
+reload_services() {
+    local service
+    for service in "${PM2_APPS[@]}"; do
+        echo "Recargando PM2: $service"
+        pm2 startOrReload ecosystem.config.js --only "$service" --update-env
+    done
+}
+
 rollback() {
-    local exit_code=$?
+    local code=$?
+    trap - ERR
     if [[ "$UPDATED" == true && -n "$PREVIOUS_REV" ]]; then
-        echo "El despliegue falló; restaurando $PREVIOUS_REV..."
-        git reset --hard "$PREVIOUS_REV"
-        npm ci --no-audit
-        pm2 startOrReload ecosystem.config.js --only "$PM2_APP" --update-env || true
+        echo "Despliegue fallido (código $code). Restaurando $PREVIOUS_REV ..."
+        git reset --hard "$PREVIOUS_REV" || true
+        npm ci --no-audit || true
+        reload_services || true
     fi
-    exit "$exit_code"
+    exit "$code"
 }
 trap rollback ERR
 
 if [[ -n "$(git status --porcelain)" ]]; then
-    echo "El árbol Git tiene cambios. Se cancela para no sobrescribir trabajo local."
+    echo "Repositorio con cambios locales: se cancela para conservarlos."
     exit 1
 fi
 
 PREVIOUS_REV="$(git rev-parse HEAD)"
 npm run db:backup
 git fetch origin "$BRANCH"
-
 REMOTE_REV="$(git rev-parse "origin/$BRANCH")"
+
 if [[ "$REMOTE_REV" != "$PREVIOUS_REV" ]]; then
+    # Nunca sobrescribir ramas locales divergentes.
     git merge --ff-only "$REMOTE_REV"
     UPDATED=true
 fi
@@ -46,24 +58,40 @@ fi
 npm ci --no-audit
 npm run verify
 npm run audit:prod
-pm2 startOrReload ecosystem.config.js --only "$PM2_APP" --update-env
+reload_services
 
+# Verificar tanto procesos PM2 como endpoints; dos lecturas consecutivas
+# evitan considerar sano un proceso en reinicio continuo.
 HEALTH_URL="${DASHBOARD_HEALTH_URL:-http://127.0.0.1:3789/api/health}"
-if [[ "$HEALTH_URL" == https://* ]]; then
-    CURL_TLS=(-k)
-else
-    CURL_TLS=()
-fi
-
-for attempt in {1..12}; do
-    if curl --silent --show-error --fail "${CURL_TLS[@]}" "$HEALTH_URL" | grep -Eq '"ok"[[:space:]]*:[[:space:]]*true'; then
-        pm2 save
-        trap - ERR
-        echo "Despliegue validado en $REMOTE_REV."
-        exit 0
+GAMES_HEALTH_URL="${GAMES_HEALTH_URL:-http://127.0.0.1:3850/api/games/health}"
+healthy_checks=0
+for attempt in {1..18}; do
+    if pm2 jlist | node -e '
+        let input = "";
+        process.stdin.on("data", chunk => input += chunk);
+        process.stdin.on("end", () => {
+            try {
+                const apps = JSON.parse(input);
+                const names = ["ProphetBot", "ProphetLavalink", "ProphetMusic", "ProphetGames"];
+                process.exit(names.every(name => apps.some(app =>
+                    app.name === name && app.pm2_env?.status === "online"
+                )) ? 0 : 1);
+            } catch (_) { process.exit(1); }
+        });
+    ' && curl --silent --fail --connect-timeout 3 --max-time 5 "$HEALTH_URL" | grep -Eq '"ok"[[:space:]]*:[[:space:]]*true' \
+      && curl --silent --fail --connect-timeout 3 --max-time 5 "$GAMES_HEALTH_URL" | grep -Eq '"ok"[[:space:]]*:[[:space:]]*true'; then
+        healthy_checks=$((healthy_checks + 1))
+        if [[ "$healthy_checks" -ge 2 ]]; then
+            pm2 save
+            trap - ERR
+            echo "Despliegue verificado de los cuatro procesos en $REMOTE_REV."
+            exit 0
+        fi
+    else
+        healthy_checks=0
     fi
     sleep 5
 done
 
-echo "El proceso no superó el health check."
+echo "Falló la comprobación de salud. Consultá pm2 logs y logs/auto-update.log."
 false
