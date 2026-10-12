@@ -27,7 +27,7 @@ La guía para conectar `main` con el VPS está en
 [docs/VPS_AUTO_DEPLOY.md](docs/VPS_AUTO_DEPLOY.md). Para ver las correcciones
 actuales y el plan de refactorización sin romper módulos, consultar
 [docs/REFACTOR_PLAN.md](docs/REFACTOR_PLAN.md). **El auto-update no se activa
-hasta instalar el cron una vez en el VPS.**
+hasta instalar el cron una vez en el VPS.**\n\nPara comprobar los banners de entrada y salida: `/probar-notificaciones`\n(requiere gestionar el servidor). No registra ingresos ni bajas ficticias.
 
 ---
 
