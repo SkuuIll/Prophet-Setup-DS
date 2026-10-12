@@ -711,27 +711,42 @@ class TycoonEngine {
         };
     }
 
-    static syncPassiveGains(userId, addedCoins) {
+    static syncPassiveGains(userId, _clientClaimedCoins) {
+        // Nunca acreditar saldo a partir de una cifra enviada por el navegador:
+        // la producción y el tiempo transcurrido son propiedad del servidor.
         const save = this._getSave(userId);
-        const amt = Math.max(0, Math.floor(Number(addedCoins) || 0));
-        if (amt <= 0) return { success: true, coins: Math.floor(save.local_coins) };
-
         const now = Date.now();
-        const elapsedSec = Math.max(1, Math.floor((now - (save.last_active || now)) / 1000));
-        const rates = this.calculateProduction(save.servers, save.admins, save.prestige, save.meta);
-        const clickValue = Math.max(1, Math.floor(1 * rates.multiplier * rates.clickMult));
-        const maxReasonable = Math.ceil(
-            (rates.productionPerSec + rates.autoClicksPerSec * clickValue) * elapsedSec * 2.5 + 150
-        );
-        const capped = Math.min(amt, maxReasonable, cfg.maxSyncCoinsPerTick);
+        const elapsed = Math.max(0, now - (save.last_active || now));
+        const elapsedSec = Math.floor(elapsed / 1000);
 
-        save.local_coins += capped;
-        save.meta.stats.totalEarned += capped;
-        save.meta.stats.lifetimeEarned += capped;
-        this._bumpMissions(save.meta, 'earned', capped);
+        // Evita que repetir sync miles de veces por segundo genere saldo gratis.
+        if (elapsedSec < 1) {
+            return { success: true, coins: Math.floor(save.local_coins), applied: 0 };
+        }
+
+        const rates = this.calculateProduction(save.servers, save.admins, save.prestige, save.meta);
+        const clickValue = Math.max(1, Math.floor(rates.multiplier * rates.clickMult));
+        const productionPerSec = Math.max(0,
+            rates.productionPerSec + rates.autoClicksPerSec * clickValue);
+        if (!Number.isFinite(productionPerSec) || productionPerSec <= 0) {
+            return { success: true, coins: Math.floor(save.local_coins), applied: 0 };
+        }
+
+        const cappedSeconds = Math.min(elapsedSec, cfg.offlineMaxHours * 3600);
+        const earned = Math.floor(cappedSeconds * productionPerSec);
+        const cap = Math.max(0, Number(cfg.maxSyncCoinsPerTick) || 0);
+        const applied = Math.max(0, Math.min(earned, cap));
+        if (!Number.isSafeInteger(applied) || applied === 0) {
+            return { success: true, coins: Math.floor(save.local_coins), applied: 0 };
+        }
+
+        save.local_coins += applied;
+        save.meta.stats.totalEarned += applied;
+        save.meta.stats.lifetimeEarned += applied;
+        this._bumpMissions(save.meta, 'earned', applied);
         save.last_active = now;
         this._persist(userId, save);
-        return { success: true, coins: Math.floor(save.local_coins), applied: capped };
+        return { success: true, coins: Math.floor(save.local_coins), applied };
     }
 
     static doPrestige(userId) {
