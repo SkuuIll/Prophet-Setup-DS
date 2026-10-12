@@ -6,6 +6,26 @@
 const { stmts } = require('../../database');
 const cfg = require('../common/gamesConfig').tycoon;
 
+const clickUsage = new Map();
+const CLICK_WINDOW_MS = 1000;
+const MAX_CLICKS_PER_SECOND = 30;
+
+function allowServerClicks(userId, requested, now = Date.now()) {
+    const previous = clickUsage.get(userId);
+    const entry = !previous || now - previous.startedAt >= CLICK_WINDOW_MS
+        ? { startedAt: now, used: 0 } : previous;
+    const accepted = Math.max(0, Math.min(requested, MAX_CLICKS_PER_SECOND - entry.used));
+    entry.used += accepted;
+    clickUsage.set(userId, entry);
+    // Mantener el limiter acotado aun con muchos usuarios intermitentes.
+    if (clickUsage.size > 2000) {
+        for (const [id, state] of clickUsage) {
+            if (now - state.startedAt > CLICK_WINDOW_MS * 2) clickUsage.delete(id);
+        }
+    }
+    return accepted;
+}
+
 // ─── SERVIDORES (generadores) ───
 const SERVERS_CONFIG = {
     vps_entry: {
@@ -506,7 +526,14 @@ class TycoonEngine {
     }
 
     static processClick(userId, clientClickCount = 1) {
-        const count = Math.min(Math.max(1, Math.floor(clientClickCount)), 15);
+        const rawCount = Number(clientClickCount);
+        if (!Number.isFinite(rawCount) || rawCount < 1) {
+            return { success: false, error: 'Cantidad de clics inválida' };
+        }
+        const count = allowServerClicks(userId, Math.min(15, Math.floor(rawCount)));
+        if (count === 0) {
+            return { success: false, error: 'Demasiados clics por segundo. Esperá un momento.' };
+        }
         const save = this._getSave(userId);
         const rates = this.calculateProduction(save.servers, save.admins, save.prestige, save.meta);
 
