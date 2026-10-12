@@ -1,5 +1,6 @@
 const crypto = require('crypto');
 const { stmts } = require('../../database');
+const { normalizeSessionMinutes } = require('./internalTokenAuth');
 
 // Metadata de sesión en memoria (username/avatar de Discord Activity)
 const sessionMeta = new Map(); // token -> { username, avatar, globalName }
@@ -10,7 +11,7 @@ class AuthManager {
      */
     static createSession(userId, ttlMinutes = 120, meta = {}) {
         const rawToken = crypto.randomBytes(32).toString('hex');
-        const ttlMs = ttlMinutes * 60 * 1000;
+        const ttlMs = normalizeSessionMinutes(ttlMinutes) * 60 * 1000;
         stmts.createGameSession(rawToken, userId, ttlMs);
         if (meta && (meta.username || meta.avatar || meta.globalName)) {
             sessionMeta.set(rawToken, {
