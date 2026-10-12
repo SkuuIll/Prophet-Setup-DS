@@ -67,3 +67,29 @@ El archivo de PM2 compartido por el propietario muestra cuatro procesos online,
 el registro de 93 comandos en el bot principal y tráfico de escáneres a Games.
 No hay evidencia en esos logs de la totalidad de los fallos funcionales
 reportados. No se ha inspeccionado el filesystem real ni el .env del VPS.
+
+## Tercera ronda: economía de juegos y consistencia de ayuda
+
+- **Tycoon**: ganancias pasivas calculadas exclusivamente por el servidor a partir
+  de tiempo y producción; no se acepta la cantidad reclamada por el frontend.
+  Antispam de clics por usuario (30 clics/segundo) y límites a números inválidos.
+- **Economía compartida**: solo cantidades positivas, finitas y enteras seguras;
+  números negativos no se convierten automáticamente en créditos positivos.
+- **Crash**: no marcar un cashout como cobrado si falla la acreditación SQLite.
+- **Ruleta**: validar el tipo de ficha, cantidad y límites antes de cobrar una
+  apuesta; los tipos desconocidos ya no descuentan dinero silenciosamente.
+- **Menú `/ayuda`**: sustituidos comandos inexistentes por los nombres
+  realmente registrados (por ejemplo `/ranking tipo:eco` y `/ranking tipo:xp`).
+
+### Límites de esta auditoría
+
+Se han inspeccionado rutas y archivos de varios subsistemas, pero NO se ha
+revisado manualmente cada uno de los cientos de archivos del repositorio y
+GitHub Actions NO es una prueba de integración de Discord o del VPS.
+Todavía es necesario comprobar in situ los eventos del gateway, accesos reales,
+mensajes, permalinks, música, OAuth, partidas, datos históricos y rutas web.
+Tampoco se han corregido los cuatro gitlinks de juegos sin `.gitmodules`
+(incidencia #5) ni toda vulnerabilidad no crítica en npm. No fusionar ni
+desplegar en producción sin evaluar los cambios de comportamiento de Tycoon
+y del modo demo de Games.
+
