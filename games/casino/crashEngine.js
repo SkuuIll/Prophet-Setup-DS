@@ -230,16 +230,20 @@ class CrashEngine {
                 return { success: false, error: '¡Demasiado tarde! La nave ya explotó' };
             }
 
-            // Marcar cashedOut ANTES de acreditar (idempotencia)
-            bet.cashedOut = true;
             const winAmount = Math.floor(bet.amount * mult);
-            bet.cashoutMultiplier = mult;
-            bet.winAmount = winAmount;
-
+            // La operación SQLite es síncrona; el lock por usuario ya impide
+            // cashouts duplicados. No marcar como cobrada una apuesta si la
+            // acreditación falló (ej.: DB bloqueada o saldo inválido).
             const add = EconomyBridge.addCoins(
                 userId, winAmount, 'casino_crash', 'win',
                 `Cashout ${mult}x · Ronda #${this.roundId}`
             );
+            if (!add.success) {
+                return { success: false, error: add.error || 'No se pudieron acreditar las monedas. Reintentá el cobro.' };
+            }
+            bet.cashedOut = true;
+            bet.cashoutMultiplier = mult;
+            bet.winAmount = winAmount;
 
             this.broadcast({
                 type: 'crash:player_cashout',
