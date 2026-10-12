@@ -41,8 +41,8 @@ async function exchangeCodeForToken(code) {
             error: 'Falta DISCORD_CLIENT_ID o DISCORD_CLIENT_SECRET en el servidor'
         };
     }
-    if (!code) {
-        return { success: false, error: 'Falta code OAuth' };
+    if (typeof code !== 'string' || !code || code.length > 2048) {
+        return { success: false, error: 'Código OAuth inválido' };
     }
 
     const body = new URLSearchParams({
@@ -55,7 +55,8 @@ async function exchangeCodeForToken(code) {
     const res = await fetch(`${DISCORD_API.replace('/v10', '')}/oauth2/token`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body
+        body,
+        signal: AbortSignal.timeout(8000),
     });
 
     const data = await res.json().catch(() => ({}));
@@ -80,17 +81,21 @@ async function exchangeCodeForToken(code) {
  * Obtiene el usuario de Discord con el access_token (server-side, confiable).
  */
 async function fetchDiscordUser(accessToken) {
+    if (typeof accessToken !== 'string' || accessToken.length < 8 || accessToken.length > 4096) {
+        return { success: false, error: 'Token de Discord inválido' };
+    }
     const res = await fetch(`${DISCORD_API}/users/@me`, {
         headers: {
             Authorization: `Bearer ${accessToken}`,
             'Content-Type': 'application/json'
-        }
+        },
+        signal: AbortSignal.timeout(8000),
     });
     if (!res.ok) {
         return { success: false, error: 'No se pudo obtener el usuario de Discord' };
     }
     const user = await res.json();
-    if (!user?.id) {
+    if (typeof user?.id !== 'string' || !/^\d{17,20}$/.test(user.id)) {
         return { success: false, error: 'Respuesta de usuario inválida' };
     }
     return { success: true, user };
