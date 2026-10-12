@@ -30,6 +30,22 @@
 - Dependencias: cambios compatibles con los PR de Dependabot #1 (undici) y
   #3 (brace-expansion), sin alterar las otras dependencias.
 
+## Segunda ronda: eventos y superficie de aplicaciones
+
+- Bienvenidas y despedidas: resolución por ID persistido/nombre del canal,
+  diagnóstico de permisos, envío anticipado, fallback sin imagen, mensajes
+  más claros y comando `/probar-notificaciones` para un administrador.
+- Listener de eventos: manejo explícito de errores de promesas asincrónicas;
+  corregido el fallo del log de roles cuando no existe canal LOGS.
+- Juegos: el modo demo público ya no permite entrar a WebSockets en producción;
+  mensajes WS limitados y sesiones comprobadas tras autenticarse.
+- Dashboard: no confiar en `X-Forwarded-For` del cliente externo para el
+  rate limiting; evitar respuestas dobles cuando un JSON supera el máximo.
+- Menú de ayuda: guías más coherentes y respuestas privadas al intentar
+  manejar un menú de otra persona.
+- Pruebas unitarias de resolución de canales, fallback sin banner, proxy
+  HTTP y políticas de WebSocket.
+
 ## Próximas etapas que requieren datos de ejecución y pruebas reales
 
 1. **Integración**: pruebas en un servidor Discord de ensayo de slash commands,
