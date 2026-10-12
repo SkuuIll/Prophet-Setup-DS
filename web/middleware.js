@@ -14,10 +14,15 @@ const { URL } = require('url');
  */
 function getClientInfo(req) {
     const forwarded = req.headers['x-forwarded-for'];
-    const trustProxy = process.env.TRUST_PROXY === 'true';
-    const ipAddress = trustProxy && forwarded
-        ? forwarded.split(',')[0].trim() 
-        : req.socket.remoteAddress || 'unknown';
+    const peer = String(req.socket?.remoteAddress || 'unknown').replace(/^::ffff:/, '');
+    // No confiar en X-Forwarded-For enviado directamente por clientes externos.
+    // El reverse proxy de ProphetBot debe escuchar en loopback local.
+    const trustedPeer = ['127.0.0.1', '::1'].includes(peer);
+    const trustProxy = process.env.TRUST_PROXY === 'true' && trustedPeer;
+    const reported = trustProxy && typeof forwarded === 'string'
+        ? forwarded.split(',')[0].trim() : '';
+    const validForwardedIp = require('node:net').isIP(reported) !== 0;
+    const ipAddress = validForwardedIp ? reported : peer;
     
     return {
         ipAddress: ipAddress.replace(/^::ffff:/, ''),
@@ -429,10 +434,12 @@ function parseJsonBody(maxSize = 64 * 1024) {
         
         let raw = '';
         let size = 0;
+        let rejected = false;
         
         req.on('data', chunk => {
             size += chunk.length;
-            if (size > maxSize) {
+            if (size > maxSize && !rejected) {
+                rejected = true;
                 res.writeHead(413, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify({ error: 'Payload demasiado grande' }));
                 req.destroy();
@@ -442,6 +449,7 @@ function parseJsonBody(maxSize = 64 * 1024) {
         });
         
         req.on('end', () => {
+            if (rejected || res.writableEnded) return;
             if (!raw) {
                 req.body = {};
                 return next();
@@ -457,6 +465,7 @@ function parseJsonBody(maxSize = 64 * 1024) {
         });
         
         req.on('error', error => {
+            if (rejected || res.writableEnded || res.destroyed) return;
             res.writeHead(400, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: error.message }));
         });
