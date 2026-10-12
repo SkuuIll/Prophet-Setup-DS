@@ -500,3 +500,4 @@
 "web/secureServer.js","js","propio/config","P0","si","pendiente_de_revision_completa","no_verificado_en_ejecucion_real","Modificado en PR 4; CI no equivale a revision manual completa"
 "web/security.js","js","propio/config","P0","si","pendiente_de_revision_completa","no_verificado_en_ejecucion_real","Modificado en PR 4; CI no equivale a revision manual completa"
 "web/server.js","js","propio/config","P2","no","pendiente_de_revision_completa","no_verificado_en_ejecucion_real",""
+"docs/FILE_REVIEW_INVENTORY.csv","csv","propio/config","P3","si","pendiente_de_revision_completa","no_verificado_en_ejecucion_real","Inventario creado en PR 4; verificar periódicamente nuevos archivos"
