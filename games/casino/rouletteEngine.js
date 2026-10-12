@@ -77,15 +77,29 @@ class RouletteEngine {
         return { won, multiplier, payout: won ? amt * multiplier : 0 };
     }
 
+    static isValidBetType(type) {
+        if (typeof type !== 'string') return false;
+        if (/^(red|black|even|odd|low|high|dozen_[123]|col_[123])$/.test(type)) return true;
+        if (/^straight:(?:[0-9]|[12][0-9]|3[0-6])$/.test(type)) return true;
+        const split = /^split:(\d{1,2})-(\d{1,2})$/.exec(type);
+        if (!split) return false;
+        const a = Number(split[1]);
+        const b = Number(split[2]);
+        return a >= 0 && a <= 36 && b >= 0 && b <= 36 && a !== b;
+    }
+
     static spin(userId, bets) {
-        if (!Array.isArray(bets) || bets.length === 0) {
-            return { success: false, error: 'Debés colocar al menos una apuesta en el paño' };
+        if (!Array.isArray(bets) || bets.length === 0 || bets.length > 64) {
+            return { success: false, error: 'La tirada requiere entre 1 y 64 fichas válidas.' };
         }
 
         let totalBet = 0;
         for (const b of bets) {
+            if (!b || !this.isValidBetType(b.type)) {
+                return { success: false, error: 'Tipo de apuesta inválido. Revisá las fichas seleccionadas.' };
+            }
             const amt = Math.floor(Number(b.amount));
-            if (isNaN(amt) || amt < cfg.minBetRouletteCell) {
+            if (!Number.isSafeInteger(amt) || amt < cfg.minBetRouletteCell) {
                 return { success: false, error: `Apuesta mínima por casillero: 🪙 ${cfg.minBetRouletteCell}` };
             }
             totalBet += amt;
