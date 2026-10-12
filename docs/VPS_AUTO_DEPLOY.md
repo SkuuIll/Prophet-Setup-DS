@@ -121,3 +121,32 @@ No se mueven decenas de archivos ni se renombra masivamente `commands/`,
 de imports en el servidor productivo. La estructura actual queda documentada
 en `docs/REFACTOR_PLAN.md`; el traslado de módulos se puede hacer en fases
 con pruebas de integración y respaldo.
+
+## Reparación de banners y notificaciones de miembros
+
+El bot principal necesita el intent `GuildMembers` ya declarado en `index.js`.
+Comprobá en **Discord Developer Portal → Bot → Privileged Gateway Intents**
+que esté habilitado **Server Members Intent** (sin compartir el token del bot).
+El bot debe tener acceso al canal configurado como **BIENVENIDOS** y permisos
+**Ver canal**, **Enviar mensajes**, **Insertar enlaces** y **Adjuntar archivos**.
+
+Esta versión revisa al iniciar el canal de bienvenida y el de logs, busca
+alternativas por nombre si el ID guardado en SQLite quedó obsoleto y deja
+mensajes precisos en la salida de ProphetBot. En el servidor Discord un
+administrador puede ejecutar:
+- `/probar-notificaciones tipo:bienvenida`
+- `/probar-notificaciones tipo:despedida`
+
+Ambos comandos mandan una **vista previa** al canal real, sin alterar métricas
+de miembros ni crear/sacar usuarios. Si la vista previa funciona pero un
+ingreso real no produce mensaje, hay que comprobar que el evento
+`guildMemberAdd` efectivamente llegue desde el Gateway de Discord. Si falla
+solo la imagen, revisá el módulo nativo `canvas` y el permiso
+`AttachFiles`.
+
+## WebSockets de juegos
+
+Los mensajes WebSocket tienen tamaño máximo de 64 KiB y los tokens de sesión
+expirados dejan de autorizar acciones. El modo demo está deshabilitado salvo
+configuración explícita `GAMES_DEMO_ENABLED=true`, ambiente de desarrollo y
+cliente desde loopback; nunca en el VPS de producción.
