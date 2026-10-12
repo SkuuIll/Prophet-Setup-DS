@@ -9,6 +9,7 @@ const AuthManager = require('./games/common/authManager');
 const EconomyBridge = require('./games/common/economyBridge');
 const DiscordActivityAuth = require('./games/common/discordActivityAuth');
 const { isLocalDemoAllowed } = require('./games/common/websocketSecurity');
+const { resolvePublicFile } = require('./games/common/publicFilePath');
 const { internalSecretReady, verifyInternalSecret, validDiscordUserId } = require('./games/common/internalTokenAuth');
 const TycoonEngine = require('./games/tycoon/tycoonEngine');
 const CrashEngine = require('./games/casino/crashEngine');
@@ -45,22 +46,41 @@ const MIME_TYPES = {
 
 function readJsonBody(req) {
     return new Promise((resolve, reject) => {
-        let body = '';
+        const chunks = [];
+        let size = 0;
+        let rejected = false;
+        const rejectOnce = error => {
+            if (rejected) return;
+            rejected = true;
+            reject(error);
+        };
         req.on('data', chunk => {
-            body += chunk;
-            if (body.length > 1e6) {
-                reject(new Error('Body demasiado grande'));
-                req.destroy();
+            if (rejected) return;
+            size += chunk.length;
+            if (size > 64 * 1024) {
+                rejectOnce(new Error('Body demasiado grande (máx. 64 KiB)'));
+                // Dejar terminar la lectura; la respuesta de error debe llegar al cliente.
+                req.resume();
+                return;
             }
+            chunks.push(chunk);
         });
         req.on('end', () => {
+            if (rejected) return;
             try {
-                resolve(body ? JSON.parse(body) : {});
-            } catch (e) {
-                reject(new Error('JSON inválido'));
+                const body = Buffer.concat(chunks).toString('utf8');
+                const parsed = body ? JSON.parse(body) : {};
+                if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+                    rejectOnce(new Error('Se esperaba un objeto JSON'));
+                    return;
+                }
+                resolve(parsed);
+            } catch {
+                rejectOnce(new Error('JSON inválido'));
             }
         });
-        req.on('error', reject);
+        req.on('error', rejectOnce);
+        req.on('aborted', () => rejectOnce(new Error('Solicitud interrumpida')));
     });
 }
 
@@ -246,9 +266,9 @@ const server = http.createServer(async (req, res) => {
 
         // ─── STATIC: /assets/* (logo, banners del bot) ───
         if (pathname.startsWith('/assets/')) {
-            const assetRel = path.normalize(pathname.replace(/^\/assets\//, '')).replace(/^(\.\.[\/\\])+/, '');
-            const assetPath = path.resolve(ASSETS_DIR, assetRel);
-            if (assetPath.startsWith(ASSETS_DIR) && fs.existsSync(assetPath) && fs.statSync(assetPath).isFile()) {
+            const assetRel = pathname.slice('/assets/'.length);
+            const assetPath = resolvePublicFile(ASSETS_DIR, assetRel);
+            if (assetPath) {
                 const ext = path.extname(assetPath).toLowerCase();
                 res.writeHead(200, {
                     'Content-Type': MIME_TYPES[ext] || 'application/octet-stream',
@@ -300,21 +320,8 @@ const server = http.createServer(async (req, res) => {
         if (pathname.startsWith('/vendor/')) {
             relativePath = pathname.replace(/^\//, '');
         }
-        let safePath = path.normalize(relativePath).replace(/^(\.\.[\/\\])+/, '').replace(/^[/\\]+/, '');
-        let filePath = path.resolve(GAMES_DIR, safePath);
-
-        // Validar que no se salga de GAMES_DIR
-        if (!filePath.startsWith(GAMES_DIR)) {
-            res.writeHead(403, { 'Content-Type': 'text/plain; charset=utf-8' });
-            return res.end('403 - Forbidden');
-        }
-
-        // Si es directorio, buscar index.html
-        if (fs.existsSync(filePath) && fs.statSync(filePath).isDirectory()) {
-            filePath = path.join(filePath, 'index.html');
-        }
-
-        if (!fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) {
+        const filePath = resolvePublicFile(GAMES_DIR, relativePath);
+        if (!filePath) {
             res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
             return res.end('404 - Prophet Games: Archivo no encontrado');
         }
