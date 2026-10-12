@@ -36,8 +36,7 @@ module.exports = {
             try {
                 const missing = missingSendPermissions(welcomeChannel, member.guild);
                 if (missing.includes('ViewChannel') || missing.includes('SendMessages')) {
-                    console.error(`[Bienvenida] Sin permisos para enviar en #${welcomeChannel.name}: ${missing.join(', ')}`);
-                    return;
+                    throw new Error(`Sin permisos para enviar en #${welcomeChannel.name}: ${missing.join(', ')}`);
                 }
                 const files = [];
                 const allowImage = !missing.includes('AttachFiles') && !missing.includes('EmbedLinks');
@@ -53,15 +52,15 @@ module.exports = {
 
                 const embed = new EmbedBuilder()
                     .setColor(config.COLORES.PRINCIPAL || 0xBB86FC)
-                    .setTitle(`¡Bienvenido/a a la familia, ${member.user.username}!`)
+                    .setTitle(`¡Bienvenido a Prophet Gaming, ${member.user.username.slice(0, 80)}!`)
                     .setDescription(
-                        `Hola ${member}, nos alegra muchísimo tenerte acá. 👋\n\n` +
-                        `**📜 Primeros pasos:**\n` +
-                        `> 📌 Leé las **reglas** en <#${config.CHANNELS.REGLAS || '1472401285964890237'}>\n` +
-                        `> 💬 Presentate en el chat y contanos qué jugás\n` +
+                        `¡Qué bueno que te sumaste, ${member}! 🎉\n\n` +
+                        `**Para empezar:**\n` +
+                        `> 📜 Conocé las reglas del servidor antes de participar.\n` +
+                        `> 💬 Presentate en el chat y contanos qué juegos te gustan.\n` +
                         `> 🎮 Unite a las partidas y divertite con la comunidad\n` +
                         `> 🎵 Probá los comandos de música con \`/play\`\n\n` +
-                        `*¡Esperamos que la pases genial! Si necesitás ayuda, abrí un ticket.* 🎫`
+                        `*¿Necesitás una mano? Nuestro equipo de moderación está para ayudarte.*`
                     )
                     .setFooter({ text: `Prophet Gaming  ·  Miembro #${member.guild.memberCount}` })
                     .setTimestamp();
