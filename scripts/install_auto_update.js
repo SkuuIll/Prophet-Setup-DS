@@ -37,4 +37,4 @@ if (result.status !== 0) {
     process.exit(1);
 }
 console.log(`Autoactualización de ${root} instalada. Intervalo: ${interval} min.`);
-console.log('La primera actualización ocurre después de un commit fusionado a main.');
+console.log('Solo se despliega cuando origin/main avanza y las comprobaciones pasan.');
