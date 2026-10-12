@@ -75,6 +75,9 @@ const server = http.createServer(async (req, res) => {
         res.setHeader('Access-Control-Allow-Origin', '*');
         res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
         res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+        res.setHeader('X-Content-Type-Options', 'nosniff');
+        res.setHeader('Referrer-Policy', 'no-referrer');
+        if (req.url?.includes('/api/')) res.setHeader('Cache-Control', 'no-store');
         // Permitir embebido en Discord
         res.setHeader('Content-Security-Policy',
             "frame-ancestors https://discord.com https://*.discord.com https://discordapp.com https://*.discordapp.com https://*.discordsays.com;"
@@ -335,7 +338,8 @@ const server = http.createServer(async (req, res) => {
 
 // ═══ SERVIDOR WEBSOCKET PARA JUEGOS EN TIEMPO REAL ═══
 // Acepta /ws y /.proxy/ws (proxy de Discord Activities)
-const wss = new WebSocket.Server({ noServer: true });
+// Limitar consumo de memoria ante clientes maliciosos o errores del frontend.
+const wss = new WebSocket.Server({ noServer: true, maxPayload: 64 * 1024, perMessageDeflate: false });
 
 server.on('upgrade', (request, socket, head) => {
     try {
@@ -408,8 +412,13 @@ UnoEngine.setPersonalBroadcast((tableId, buildForUser) => {
     });
 });
 
-wss.on('connection', (ws) => {
+wss.on('connection', (ws, request) => {
     let sessionUser = null;
+    // Demos solo para desarrollo local, nunca en producción ni expuestas a Internet.
+    const address = request?.socket?.remoteAddress || '';
+    const localClient = ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(address);
+    const allowDemo = process.env.GAMES_DEMO_ENABLED === 'true'
+        && process.env.NODE_ENV !== 'production' && localClient;
     ws.isAlive = true;
 
     ws.on('pong', () => {
@@ -422,6 +431,12 @@ wss.on('connection', (ws) => {
 
             // 1. Autenticación Inicial
             if (data.type === 'auth') {
+                // Al cambiar de cuenta, nunca conservar salas o partidas anteriores.
+                sessionUser = null;
+                ws.userId = null;
+                ws.currentRoomId = null;
+                ws.currentTableId = null;
+                ws.currentUnoTableId = null;
                 const rawToken = data.token;
                 const session = AuthManager.validateToken(rawToken);
 
@@ -438,7 +453,7 @@ wss.on('connection', (ws) => {
 
                 if (!session) {
                     // Demo solo si el cliente lo pide explícitamente (browser local)
-                    if (rawToken === 'demo_token' || !rawToken) {
+                    if (allowDemo && (rawToken === 'demo_token' || !rawToken)) {
                         const demoName = clientHintName && clientHintName !== 'Demo'
                             ? clientHintName
                             : 'Demo';
@@ -508,7 +523,17 @@ wss.on('connection', (ws) => {
 
             // Exigir autenticación para el resto de acciones
             if (!sessionUser) {
-                ws.send(JSON.stringify({ type: 'error', message: 'No autenticado. Envía { type: "auth", token: "..." } primero' }));
+                ws.send(JSON.stringify({ type: 'error', message: 'No autenticado. Enviá primero tu token de sesión.' }));
+                return;
+            }
+
+            if (sessionUser.token && !AuthManager.validateToken(sessionUser.token)) {
+                sessionUser = null;
+                ws.userId = null;
+                ws.currentRoomId = null;
+                ws.currentTableId = null;
+                ws.currentUnoTableId = null;
+                ws.send(JSON.stringify({ type: 'auth_error', message: 'Tu sesión expiró. Volvé a abrir la Activity.' }));
                 return;
             }
 
