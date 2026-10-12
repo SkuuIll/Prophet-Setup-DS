@@ -11,6 +11,14 @@ Modernizar, asegurar, ordenar y documentar todas las funcionalidades de Prophet 
 sin perder saldos, configuraciones, comandos, datos de usuarios, roles, mensajes
 ni partidas. **No se considera terminado por el mero hecho de que CI esté verde.**
 
+## Informe de seguridad de la fase P0
+
+Las primeras comprobaciones y las rutas HTTP revisadas están registradas en
+[`SECURITY_AUDIT.md`](SECURITY_AUDIT.md). Se corrigieron controles de
+autoasignación de roles, defensa de comandos de moderación, sesiones antiguas
+del dashboard, rutas estáticas de Games y límites de OAuth/JSON; la fase P0
+**sigue abierta**.
+
 ## Estado comprobado
 
 - Inventario Git en esta rama antes de crear este plan: **496 archivos rastreados**
