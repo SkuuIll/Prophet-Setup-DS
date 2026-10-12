@@ -1286,6 +1286,7 @@ function unblockIp(ipAddress, unblockedBy = null) {
 // ═══════════════════════════════════════════════════
 
 module.exports = {
+    initSecurityTables,
     // Configuración
     SECURITY_CONFIG,
     ROLES,
