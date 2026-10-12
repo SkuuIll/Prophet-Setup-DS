@@ -168,7 +168,7 @@ function verificarRaid(member) {
 }
 
 // Limpiar caché cada 60 segundos (antes cada 5 min, genera menos acumulación de memoria)
-setInterval(() => {
+const antiSpamCleanupTimer = setInterval(() => {
     const ahora = Date.now();
     for (const [key, historial] of mensajesRecientes) {
         const filtrado = historial.filter(t => ahora - t < 60000);
@@ -179,5 +179,6 @@ setInterval(() => {
         }
     }
 }, 60000);
+antiSpamCleanupTimer.unref();
 
 module.exports = { verificarSpam, verificarRaid };
