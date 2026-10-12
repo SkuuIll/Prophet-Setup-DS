@@ -20,6 +20,16 @@ module.exports = {
     once: false,
     async execute(member) {
         try {
+            // Asignar rol Bots si es bot
+            if (member.user.bot) {
+                if (config.ROLES.BOTS) {
+                    try {
+                        await member.roles.add(config.ROLES.BOTS, 'Bot detectado');
+                    } catch (e) { console.debug('[Bienvenida] Error asignando rol Bots:', e.message); }
+                }
+                return;
+            }
+
             // Métrica de retención
             try { stmts.incrementAnalyticsMetric('member_joins', 'global', 1); }
             catch (error) { console.warn('[Bienvenida] No se pudo registrar métrica:', error.message); }
@@ -124,16 +134,6 @@ module.exports = {
                 } catch (e) {
                     console.error('[AntiRaid] Error ajustando nivel de verificación:', e.message);
                 }
-            }
-
-            // Asignar rol Bots si es bot
-            if (member.user.bot) {
-                if (config.ROLES.BOTS) {
-                    try {
-                        await member.roles.add(config.ROLES.BOTS, 'Bot detectado');
-                    } catch (e) { console.debug('[Bienvenida] Error asignando rol Bots:', e.message); }
-                }
-                return;
             }
 
             // Asignar rol Nuevo (si el miembro no está pendiente de screening de reglas)
