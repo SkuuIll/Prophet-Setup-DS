@@ -24,7 +24,7 @@ Música · Moderación · Economía · Niveles · Mini-juegos · Utilidades — 
 ## Despliegue automático y reparación (2026)
 
 **Plan general de trabajo:** [Plan maestro de Prophet Bot](docs/MASTER_PLAN.md).
-El [inventario de revisión](docs/FILE_REVIEW_INVENTORY.csv) permite seguir
+El [informe inicial de seguridad](docs/SECURITY_AUDIT.md) explica las\nrutas, problemas encontrados y riesgos pendientes.\nEl [inventario de revisión](docs/FILE_REVIEW_INVENTORY.csv) permite seguir
 archivo por archivo qué falta examinar. Las correcciones de la primera etapa
 están registradas en [REFACTOR_PLAN.md](docs/REFACTOR_PLAN.md).
 
