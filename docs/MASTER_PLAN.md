@@ -27,6 +27,17 @@ del dashboard, rutas estáticas de Games y límites de OAuth/JSON; la fase P0
 - Proxy del dashboard: rate limiting basado en el último salto de X-Forwarded-For cuando se confía explícitamente en un proxy local.
 - **Importante:** los cambios nuevos en `main` tienen pruebas que se validan con GitHub Actions. Una CI verde no reemplaza el ensayo real en VPS/Discord.
 
+## Correcciones de consistencia adicionales en main
+
+- Banco: depósitos/retiros condicionados y transaccionales; valores negativos e inválidos rechazados.
+- /pay: transferencias de emisor a receptor en una sola transacción y prevención de confirmaciones duplicadas.
+- /daily y /work: premio y cooldown comprobados/guardados en la misma transacción SQLite.
+- /gamble: resultado de la apuesta ajustado en una única transacción, antes de mostrar la animación.
+- Tests unitarios de saldo, banco, transferencias, cooldown y renovación de JWT.
+- Smoke HTTP que arranca el servidor real de Games y verifica health, hub, secreto interno ausente y bloqueo de .env.
+- Issue #5: tres orígenes de gitlinks identificados por SHA y Pacman aún sin origen confirmado; no se ha restaurado este contenido.
+- **Sin evidencia de pruebas E2E reales en la VPS o servidor de Discord.** La versión no debe declararse finalizada por solo pasar CI.
+
 ## Estado comprobado
 
 - Inventario Git en esta rama antes de crear este plan: **496 archivos rastreados**
