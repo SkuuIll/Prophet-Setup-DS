@@ -11,7 +11,7 @@ module.exports = {
         const denied = ensureMusicController(interaction);
         if (denied) return interaction.reply(denied);
         const queue = useQueue(interaction.guild.id);
-        if (!queue || !queue.isPlaying()) {
+        if (!queue || !queue.currentTrack) {
             return interaction.reply(musicNotice('Sin reproducción', 'No hay una sesión de música activa. Empezá usando /play.'));
         }
         const isPaused = queue.node.isPaused();
