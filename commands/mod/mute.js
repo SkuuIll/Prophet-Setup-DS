@@ -1,83 +1,92 @@
-// ═══ COMANDO: /mute ═══
-const { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits } = require('discord.js');
+const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
+const { makeEmbed, notice } = require('../../utils/discordUI');
 const { stmts } = require('../../database');
 const config = require('../../config');
 
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('mute')
-        .setDescription('🔇 Silenciar a un usuario temporalmente')
-        .addUserOption(o => o.setName('usuario').setDescription('Usuario a silenciar').setRequired(true))
-        .addIntegerOption(o => o.setName('minutos').setDescription('Duración en minutos').setRequired(true).setMinValue(1).setMaxValue(10080))
-        .addStringOption(o => o.setName('razon').setDescription('Razón del silencio'))
+        .setDescription('Silenciar temporalmente a un miembro')
+        .addUserOption(option => option.setName('usuario').setDescription('Miembro sobre el que actuar').setRequired(true))
+        .addStringOption(option => option.setName('razon').setDescription('Motivo de la medida').setMaxLength(450))
+        .addIntegerOption(option => option.setName('minutos').setDescription('Duración del silencio (1-10080 minutos)').setMinValue(1).setMaxValue(10080).setRequired(true))
         .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers),
-
     async execute(interaction) {
-        // Defender también en runtime: no confiar únicamente en el permiso del slash registrado.
         if (!interaction.inGuild?.() || !interaction.memberPermissions?.has(PermissionFlagsBits.ModerateMembers)) {
-            return interaction.reply({
-                content: 'No tenés permisos para ejecutar esta acción de moderación.',
-                flags: 64,
-            });
+            return interaction.reply(notice({
+                title: 'No tenés permisos',
+                description: 'Necesitás permisos de moderación para utilizar /mute.',
+                tone: 'error',
+            }));
+        }
+        const target = interaction.options.getMember('usuario');
+        const reason = interaction.options.getString('razon')?.trim() || 'No se indicó un motivo';
+        const minutes = interaction.options.getInteger('minutos');
+        if (!Number.isInteger(minutes) || minutes < 1 || minutes > 10080) {
+            return interaction.reply(notice({ title: 'Duración incorrecta', description: 'Elegí de 1 a 10080 minutos.', tone: 'error' }));
         }
 
-        const target = interaction.options.getMember('usuario');
-        const minutos = interaction.options.getInteger('minutos');
-        const razon = interaction.options.getString('razon') || 'Sin razón especificada';
+        if (!target) {
+            return interaction.reply(notice({ title: 'Miembro no encontrado', description: 'La persona debe pertenecer al servidor.', tone: 'warning' }));
+        }
+        if (target.id === interaction.user.id) {
+            return interaction.reply(notice({ title: 'Acción no permitida', description: 'No podés aplicar esta medida sobre vos mismo.', tone: 'error' }));
+        }
+        if (!target.moderatable) {
+            return interaction.reply(notice({
+                title: 'Jerarquía o permisos insuficientes',
+                description: 'No puedo aplicar esta medida a ese miembro. Revisá los permisos y la posición de los roles del bot.',
+                tone: 'error',
+            }));
+        }
 
-        if (!target) return interaction.reply({ content: '> ❌ **Error** — Usuario no encontrado.', ephemeral: true });
-        if (!target.moderatable) return interaction.reply({ content: '> ❌ **Error** — No tengo permisos para silenciar a este usuario.', ephemeral: true });
-
-        // Formatear duración legible
-        let duracionTexto = `${minutos} minutos`;
-        if (minutos >= 1440) duracionTexto = `${Math.floor(minutos / 1440)}d ${Math.floor((minutos % 1440) / 60)}h`;
-        else if (minutos >= 60) duracionTexto = `${Math.floor(minutos / 60)}h ${minutos % 60}m`;
-
-        // DM al usuario
         try {
-            const dmEmbed = new EmbedBuilder()
-                .setColor(config.COLORES.WARN || 0xFFB74D)
-                .setAuthor({ name: '🔇  Has sido silenciado' })
-                .setDescription(
-                    `Has sido silenciado en **${interaction.guild.name}**.\n\n` +
-                    `> **Duración:** ${duracionTexto}\n` +
-                    `> **Motivo:** ${razon}`
-                )
-                .setFooter({ text: 'Prophet  ·  Moderación' })
-                .setTimestamp();
-            await target.user.send({ embeds: [dmEmbed] });
-        } catch { /* DMs desactivados */ }
+            await target.timeout(minutes * 60000, reason);
+        } catch (error) {
+            console.error('[Moderación /mute]', error);
+            return interaction.reply(notice({
+                title: 'No se pudo completar la medida',
+                description: 'Discord rechazó la operación. Comprobá roles y permisos e intentá nuevamente.',
+                tone: 'error',
+            }));
+        }
 
-        await target.timeout(minutos * 60000, razon);
-
-        stmts.addLog('MUTE', {
-            userId: target.id,
-            userTag: target.user.tag,
-            mod: interaction.user.tag,
-            duration: duracionTexto,
-            reason: razon
+        // Notificar solo después de completar la operación real.
+        const resultEmbed = makeEmbed({
+            title: 'Miembro silenciado',
+            tone: 'warning',
+            description: '**Miembro:** ' + target.user.tag + '\n**Motivo:** ' + reason
+                + '\n**Moderador:** ' + interaction.user.tag + '\n**Duración:** ' + minutes + ' minutos',
+            footer: 'Moderación · Operación completada',
+            iconURL: target.user.displayAvatarURL?.(),
         });
-
-        const embed = new EmbedBuilder()
-            .setColor(config.COLORES.WARN || 0xFFB74D)
-            .setAuthor({ name: '🔇  USUARIO SILENCIADO' })
-            .setDescription(
-                `> **Usuario:** \`${target.user.tag}\` (\`${target.id}\`)\n` +
-                `> **Moderador:** ${interaction.user}\n` +
-                `> **Duración:** \`${duracionTexto}\`\n` +
-                `> **Motivo:** *${razon}*\n\n` +
-                `> ⏰ Se desilenciará <t:${Math.floor((Date.now() + minutos * 60000) / 1000)}:R>`
-            )
-            .setThumbnail(target.user.displayAvatarURL({ size: 64 }))
-            .setFooter({ text: 'Prophet  ·  Moderación' })
-            .setTimestamp();
-
-        await interaction.reply({ embeds: [embed] });
-
-        // Log dual: canal general + canal de reportes/mod
-        const logChannel = interaction.guild.channels.cache.get(config.CHANNELS.LOGS);
-        const modChannel = interaction.guild.channels.cache.get(config.CHANNELS.LOGS);
-        if (logChannel) logChannel.send({ embeds: [embed] }).catch(() => {});
-        if (modChannel && modChannel.id !== logChannel?.id) modChannel.send({ embeds: [embed] }).catch(() => {});
-    }
+        const response = { embeds: [resultEmbed], allowedMentions: { parse: [] } };
+        await interaction.reply(response);
+        try {
+            await target.user.send({
+                embeds: [makeEmbed({
+                    title: 'Medida de moderación en ' + interaction.guild.name,
+                    tone: 'warning',
+                    description: 'Fuiste silenciado del servidor.\n**Motivo:** ' + reason
+                        + '\n**Moderador:** ' + interaction.user.tag + '\n**Duración:** ' + minutes + ' minutos',
+                    footer: 'Prophet Gaming · Moderación',
+                })],
+                allowedMentions: { parse: [] },
+            });
+        } catch {
+            // La privacidad del usuario puede bloquear los mensajes directos.
+        }
+        try {
+            stmts.addLog('MUTE', {
+                userId: target.id, userTag: target.user.tag,
+                mod: interaction.user.tag, reason, duration: minutes,
+            });
+        } catch (error) {
+            console.error('[Moderación /mute] No se pudo guardar el log:', error);
+        }
+        const logs = interaction.guild.channels.cache.get(config.CHANNELS.LOGS);
+        if (logs && logs.id !== interaction.channelId) {
+            logs.send(response).catch(err => console.warn('[Moderación /mute] No se pudo publicar log:', err.message));
+        }
+    },
 };
