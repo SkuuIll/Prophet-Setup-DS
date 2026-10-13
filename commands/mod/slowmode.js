@@ -13,7 +13,7 @@ module.exports = {
         if (!interaction.inGuild?.() || !interaction.memberPermissions?.has(PermissionFlagsBits.ManageChannels)) {
             return interaction.reply(notice({
                 title: 'Sin permisos',
-                description: 'Necesitás administrar canales para usar /slowmode.',
+                description: 'No tenés permisos para administrar canales para usar /slowmode.',
                 tone: 'error',
             }));
         }

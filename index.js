@@ -29,6 +29,9 @@ const client = new Client({
         Partials.Reaction,
         Partials.GuildMember,
     ],
+    rest: {
+        makeRequest: async (url, init) => fetch(url, init),
+    },
 });
 
 // ═══ COLECCIONES ═══

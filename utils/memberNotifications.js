@@ -59,13 +59,26 @@ async function resolveMemberChannel(guild, { configValue, persistedValue, kind =
     });
 }
 
-async function sendWithImageFallback(channel, payload, { log = console } = {}) {
+async function sendWithImageFallback(channel, payload, { log = console, uploadTimeoutMs = 6000 } = {}) {
+    if (!payload.files?.length) {
+        return channel.send(payload);
+    }
+
     try {
-        return await channel.send(payload);
+        let timer;
+        const uploadPromise = channel.send(payload);
+        const timeoutPromise = new Promise((_, reject) => {
+            timer = setTimeout(() => reject(new Error('Image upload timed out')), uploadTimeoutMs);
+        });
+
+        try {
+            return await Promise.race([uploadPromise, timeoutPromise]);
+        } finally {
+            clearTimeout(timer);
+        }
     } catch (error) {
         log.error?.(`[Notificaciones] Falló envío en #${channel.name || channel.id}: ${error.message}`);
-        if (!payload.files?.length) throw error;
-        // Descartar la imagen si falla su subida, sin silenciar los errores.
+        // Descartar la imagen si falla su subida o timeout, sin silenciar los errores.
         const embeds = payload.embeds?.map(e => {
             const copy = typeof e.toJSON === 'function' ? e.toJSON() : { ...e };
             delete copy.image;

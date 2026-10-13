@@ -8,8 +8,8 @@ module.exports = {
         .setName('mute')
         .setDescription('Silenciar temporalmente a un miembro')
         .addUserOption(option => option.setName('usuario').setDescription('Miembro sobre el que actuar').setRequired(true))
-        .addStringOption(option => option.setName('razon').setDescription('Motivo de la medida').setMaxLength(450))
         .addIntegerOption(option => option.setName('minutos').setDescription('Duración del silencio (1-10080 minutos)').setMinValue(1).setMaxValue(10080).setRequired(true))
+        .addStringOption(option => option.setName('razon').setDescription('Motivo de la medida').setMaxLength(450))
         .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers),
     async execute(interaction) {
         if (!interaction.inGuild?.() || !interaction.memberPermissions?.has(PermissionFlagsBits.ModerateMembers)) {

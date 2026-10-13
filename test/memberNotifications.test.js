@@ -60,19 +60,23 @@ test('Detecta falta de permisos para imagen y embeds', () => {
     assert.deepEqual(missing, ['ViewChannel', 'SendMessages', 'EmbedLinks', 'AttachFiles']);
 });
 
-test('Si falla la subida de imagen se reintenta como embed sin imagen', async () => {
+test('Si la subida de imagen excede el timeout se reintenta como embed sin imagen', async () => {
     const payloads = [];
     const ch = channel('123456789012345678', 'bienvenidos', async payload => {
         payloads.push(payload);
-        if (payload.files?.length) throw new Error('Attachment upload failed');
+        if (payload.files?.length) {
+            // Simular petición colgada que excede el timeout
+            await new Promise(r => setTimeout(r, 100));
+        }
         return { id: 'message' };
     });
     const sent = await sendWithImageFallback(ch, {
         embeds: [{ title: 'Bienvenida', image: { url: 'attachment://bienvenida.png' } }],
         files: [{ name: 'bienvenida.png' }],
-    }, { log: silent });
+    }, { log: silent, uploadTimeoutMs: 20 });
     assert.equal(sent.id, 'message');
     assert.equal(payloads.length, 2);
     assert.deepEqual(payloads[1].files, []);
     assert.equal(payloads[1].embeds[0].image, undefined);
 });
+
