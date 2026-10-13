@@ -58,8 +58,8 @@ module.exports = {
 
     async handleModal(interaction) {
         const targetUserId = interaction.customId.replace('pay_modal_', '');
-        const rawAmount = interaction.fields.getTextInputValue('amount');
-        const amount = Number.parseInt(rawAmount.replace(/[^0-9]/g, ''), 10);
+        const rawAmount = interaction.fields.getTextInputValue('amount').trim();
+        const amount = /^\d{1,15}$/.test(rawAmount) ? Number(rawAmount) : NaN;
         const currency = config.ECONOMIA?.CURRENCY || '💰';
 
         if (!Number.isSafeInteger(amount) || amount <= 0) {
@@ -92,16 +92,14 @@ module.exports = {
             });
         }
 
-        const removed = stmts.removeMoney(interaction.user.id, amount, 'balance');
-        if (!removed) {
+        const transfer = stmts.transferMoney(interaction.user.id, targetUser.id, amount);
+        if (!transfer.success) {
             return interaction.reply({
-                content: '❌ No se pudo procesar la transferencia. Intentá de nuevo.',
-                ephemeral: true
+                content: '❌ No se pudo procesar la transferencia: ' + (transfer.error || 'comprobá tu saldo') + '.',
+                flags: 64
             });
         }
-
-        stmts.addMoney(targetUser.id, amount, 'balance');
-        const updatedSender = stmts.getEconomy(interaction.user.id);
+        const updatedSender = { balance: transfer.balance };
 
         try {
             await targetUser.send({
