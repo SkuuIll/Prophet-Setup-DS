@@ -79,8 +79,8 @@ async function handleRefresh(req, res) {
     try {
         const { refreshToken } = req.body || {};
         
-        if (!refreshToken) {
-            middleware.sendError(res, 400, 'Refresh token requerido');
+        if (typeof refreshToken !== 'string' || refreshToken.length < 16 || refreshToken.length > 4096) {
+            middleware.sendError(res, 400, 'Refresh token inválido');
             return;
         }
         
@@ -99,33 +99,43 @@ async function handleRefresh(req, res) {
         }
 
         const now = Date.now();
-        const previousSession = _db.prepare('SELECT id FROM dashboard_sessions WHERE refresh_token_hash = ?').get(refreshTokenHash);
-
-        _db.prepare('UPDATE refresh_tokens SET revoked = 1, revoked_at = ? WHERE id = ?')
-            .run(now, tokenRecord.id);
-
-        if (previousSession?.id) {
-            _db.prepare('DELETE FROM dashboard_sessions WHERE id = ?').run(previousSession.id);
-        }
-        
         const newSessionId = security.generateSecureToken(32);
         const newRefreshToken = security.generateRefreshToken();
         const newRefreshTokenHash = require('crypto').createHash('sha256').update(newRefreshToken).digest('hex');
         const refreshExpirySeconds = security.parseExpiry(security.SECURITY_CONFIG.REFRESH_TOKEN_EXPIRY);
         const accessExpirySeconds = security.parseExpiry(security.SECURITY_CONFIG.JWT_EXPIRY);
         const sessionExpiry = now + refreshExpirySeconds * 1000;
+
+        // Consumir el refresh token y registrar el reemplazo en una única
+        // transacción: dos requests concurrentes no pueden rotarlo dos veces.
+        const rotate = _db.transaction(() => {
+            const result = _db.prepare(
+                'UPDATE refresh_tokens SET revoked = 1, revoked_at = ? WHERE id = ? AND revoked = 0 AND expires_at > ?'
+            ).run(now, tokenRecord.id, now);
+            if (result.changes !== 1) return false;
+
+            _db.prepare('DELETE FROM dashboard_sessions WHERE refresh_token_hash = ?')
+                .run(refreshTokenHash);
+
+            _db.prepare(`
+                INSERT INTO dashboard_sessions (id, user_id, refresh_token_hash, ip_address, user_agent, created_at, expires_at, last_activity_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            `).run(newSessionId, tokenRecord.user_id, newRefreshTokenHash, ipAddress, userAgent, now, sessionExpiry, now);
+
+            _db.prepare(`
+                INSERT INTO refresh_tokens (id, user_id, token_hash, expires_at, created_at)
+                VALUES (?, ?, ?, ?, ?)
+            `).run(security.generateSecureToken(16), tokenRecord.user_id, newRefreshTokenHash, sessionExpiry, now);
+            return true;
+        });
+
+        if (!rotate()) {
+            middleware.sendError(res, 401, 'El refresh token ya fue utilizado');
+            return;
+        }
+
         const csrfToken = security.generateCSRFToken(newSessionId);
-        
-        _db.prepare(`
-            INSERT INTO dashboard_sessions (id, user_id, refresh_token_hash, ip_address, user_agent, created_at, expires_at, last_activity_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        `).run(newSessionId, tokenRecord.user_id, newRefreshTokenHash, ipAddress, userAgent, now, sessionExpiry, now);
-        
-        _db.prepare(`
-            INSERT INTO refresh_tokens (id, user_id, token_hash, expires_at, created_at)
-            VALUES (?, ?, ?, ?, ?)
-        `).run(security.generateSecureToken(16), tokenRecord.user_id, newRefreshTokenHash, sessionExpiry, now);
-        
+
         const jwt = security.generateJWT({
             userId: tokenRecord.user_id,
             username: tokenRecord.username,
