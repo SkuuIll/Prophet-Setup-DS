@@ -1,6 +1,7 @@
 // ═══ COMANDO: /play ═══ (Versión discord-player)
 const { SlashCommandBuilder } = require('discord.js');
 const { buildDiscordPlaylist, resolveMusicQuery } = require('../../utils/musicResolver');
+const { notice, makeEmbed } = require('../../utils/discordUI');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -10,17 +11,30 @@ module.exports = {
 
     async execute(interaction, client) {
         if (!client.player) {
-            return interaction.reply({ content: '❌ Sistema de música no inicializado.', flags: 64 });
+            return interaction.reply(notice({
+                title: 'Música temporalmente no disponible',
+                description: 'El reproductor todavía no terminó de iniciarse. Probá nuevamente en unos segundos.',
+                tone: 'warning',
+            }));
         }
 
-        const voiceChannel = interaction.member.voice.channel;
+        const voiceChannel = interaction.member?.voice?.channel
+            || interaction.guild?.members?.cache?.get(interaction.user.id)?.voice?.channel;
         if (!voiceChannel) {
-            return interaction.reply({ content: '❌ Tenés que estar en un canal de voz.', flags: 64 });
+            return interaction.reply(notice({
+                title: 'Conectate a un canal de voz',
+                description: 'Entrá a un canal de voz del servidor y después usá /play.',
+                tone: 'warning',
+            }));
         }
 
-        const permissions = voiceChannel.permissionsFor(interaction.client.user);
-        if (!permissions.has('Connect') || !permissions.has('Speak')) {
-            return interaction.reply({ content: '❌ Necesito permisos para entrar y hablar en ese canal.', flags: 64 });
+        const permissions = voiceChannel.permissionsFor?.(interaction.client.user);
+        if (!permissions?.has('Connect') || !permissions?.has('Speak')) {
+            return interaction.reply(notice({
+                title: 'Faltan permisos de voz',
+                description: 'Necesito permisos para conectarme y hablar en ese canal. Consultá al Staff.',
+                tone: 'error',
+            }));
         }
 
         await interaction.deferReply();
@@ -56,26 +70,31 @@ module.exports = {
 
             // Acreditar respuesta para que Discord cierre el estado "pensando..."
             await interaction.editReply({
-                content: `> 🎵 **Petición procesada:** [${track.title}](${track.url})`
-            }).catch(() => { });
-
-            // Eliminar la confirmación temporal tras unos segundos para dejar limpio el chat
-            setTimeout(() => {
-                interaction.deleteReply().catch(() => { });
-            }, 3000);
+                embeds: [makeEmbed({
+                    title: 'Tema agregado',
+                    description: 'Tu petición de música se procesó correctamente.\n**Canción:** '
+                        + String(track?.title || 'Tema solicitado').slice(0, 160),
+                    tone: 'music',
+                    footer: 'Prophet Music · /queue para ver la cola',
+                })],
+            }).catch(err => console.warn('[Music /play] No se pudo confirmar la canción:', err.message));
 
             return;
 
         } catch (error) {
-            console.error(`Play error para ${JSON.stringify(queryOriginal)}:`, error.message);
+            console.error('[Music /play] Error al resolver o reproducir:', error);
             const extractorCount = client.player?.extractors?.store?.size || 0;
-            const safeQuery = queryOriginal.replace(/`/g, 'ˋ').slice(0, 300);
-            const safeDetail = String(error.message || 'Error desconocido').replace(/`/g, 'ˋ').slice(0, 900);
-            let errorMsg = `❌ No se pudo encontrar ni reproducir: \`${safeQuery}\`\nDetalle: ${safeDetail}`;
-            if (extractorCount === 0) {
-                errorMsg += `\n⚠️ **No hay extractores de música cargados.** Reiniciá el bot con \`./install.sh\` en la VPS.`;
-            }
-            return interaction.editReply({ content: errorMsg });
+            const description = extractorCount === 0
+                ? 'El reproductor todavía no tiene fuentes de audio disponibles. Avisale al Staff para que revise el servicio de música.'
+                : 'No se pudo reproducir esa canción. Probá con otro tema o volvé a intentarlo más tarde.';
+            return interaction.editReply({
+                embeds: [makeEmbed({
+                    title: 'No se pudo reproducir el tema',
+                    description,
+                    tone: 'error',
+                    footer: 'Prophet Music · Si continúa, avisá al Staff',
+                })],
+            });
         }
     }
 };
