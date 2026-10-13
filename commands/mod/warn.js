@@ -2,13 +2,14 @@
 const { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits } = require('discord.js');
 const { stmts } = require('../../database');
 const config = require('../../config');
+const { notice } = require('../../utils/discordUI');
 
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('warn')
         .setDescription('⚠️ Advertir a un usuario')
         .addUserOption(o => o.setName('usuario').setDescription('Usuario a advertir').setRequired(true))
-        .addStringOption(o => o.setName('razon').setDescription('Razón de la advertencia').setRequired(true))
+        .addStringOption(o => o.setName('razon').setDescription('Razón de la advertencia').setRequired(true).setMaxLength(400))
         .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers),
 
     async execute(interaction) {
@@ -23,7 +24,13 @@ module.exports = {
         const target = interaction.options.getMember('usuario');
         const razon = interaction.options.getString('razon');
 
-        if (!target) return interaction.reply({ content: '> ❌ **Error** — Usuario no encontrado.', ephemeral: true });
+        if (!target || target.id === interaction.user.id) {
+            return interaction.reply(notice({
+                title: 'Miembro inválido',
+                description: 'Elegí otro miembro del servidor para registrar una advertencia.',
+                tone: 'error',
+            }));
+        }
 
         stmts.addWarn(target.id, interaction.user.id, razon);
         const warns = stmts.countWarns(target.id);
@@ -57,28 +64,33 @@ module.exports = {
             .setFooter({ text: 'Prophet  ·  Moderación' })
             .setTimestamp();
 
-        // Acciones automáticas
+        // Mostrar sanciones automáticas SOLO cuando Discord las confirma.
         if (warns.total >= config.MODERACION.WARNS_PARA_KICK) {
-            embed.addFields({
-                name: '🚨 Acción automática',
-                value: `> **KICK AUTOMÁTICO** — Acumuló ${warns.total} advertencias.`
-            });
-            try { await target.kick(`Auto-kick: ${warns.total} warns`); } catch (e) { }
+            try {
+                if (!target.kickable) throw new Error('El bot no puede expulsar este rol');
+                await target.kick('Auto-kick: ' + warns.total + ' warns');
+                embed.addFields({ name: 'Acción automática', value: 'Expulsión aplicada por acumulación de advertencias.' });
+            } catch (error) {
+                console.error('[Warn] No se pudo expulsar automáticamente:', error);
+                embed.addFields({ name: 'Acción pendiente', value: 'El Staff debe revisar una sanción automática que no pudo ejecutarse.' });
+            }
         } else if (warns.total >= config.MODERACION.WARNS_PARA_MUTE) {
-            const durMin = config.MODERACION.MUTE_DURACION / 60000;
-            embed.addFields({
-                name: '🔇 Acción automática',
-                value: `> **MUTE AUTOMÁTICO** — ${durMin} min por ${warns.total} advertencias.`
-            });
-            try { await target.timeout(config.MODERACION.MUTE_DURACION, `Auto-mute: ${warns.total} warns`); } catch (e) { }
+            try {
+                if (!target.moderatable) throw new Error('El bot no puede silenciar este rol');
+                await target.timeout(config.MODERACION.MUTE_DURACION, 'Auto-mute: ' + warns.total + ' warns');
+                embed.addFields({ name: 'Acción automática', value: 'Silenciamiento temporal aplicado.' });
+            } catch (error) {
+                console.error('[Warn] No se pudo silenciar automáticamente:', error);
+                embed.addFields({ name: 'Acción pendiente', value: 'El Staff debe revisar una sanción automática que no pudo ejecutarse.' });
+            }
         }
 
-        await interaction.reply({ embeds: [embed] });
+        await interaction.reply({ embeds: [embed], allowedMentions: { parse: [] } });
 
         // Log dual: canal general + canal de mod
         const logChannel = interaction.guild.channels.cache.get(config.CHANNELS.LOGS);
         const modChannel = interaction.guild.channels.cache.get(config.CHANNELS.LOGS);
-        if (logChannel) logChannel.send({ embeds: [embed] }).catch(() => {});
+        if (logChannel) logChannel.send({ embeds: [embed], allowedMentions: { parse: [] } }).catch(err => console.warn('[Warn] No se pudo enviar log:', err.message));
         if (modChannel && modChannel.id !== logChannel?.id) modChannel.send({ embeds: [embed] }).catch(() => {});
     }
 };
