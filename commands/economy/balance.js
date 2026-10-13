@@ -1,77 +1,53 @@
-// ═══ COMANDO: /balance ═══
-const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder } = require('discord.js');
 const { stmts } = require('../../database');
 const config = require('../../config');
+const { makeEmbed, walletFields } = require('../../utils/discordUI');
 
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('balance')
-        .setDescription('💰 Ver tu saldo actual o el de otro usuario')
+        .setDescription('Consultá tu cartera o la de otra persona')
         .addUserOption(o => o.setName('usuario').setDescription('Usuario a consultar')),
 
     async execute(interaction) {
         const target = interaction.options.getUser('usuario') || interaction.user;
         const eco = stmts.getEconomy(target.id);
-        const currency = config.ECONOMIA.CURRENCY;
-        const total = eco.balance + eco.bank;
+        const currency = config.ECONOMIA?.CURRENCY || '💰';
+        const cash = Number(eco.balance || 0);
+        const bank = Number(eco.bank || 0);
+        const total = cash + bank;
+        const percentage = total > 0 ? Math.round(cash / total * 100) : 0;
+        const blocks = Math.min(10, Math.max(0, Math.round(percentage / 10)));
+        const bar = '▰'.repeat(blocks) + '▱'.repeat(10 - blocks);
 
-        // Barra visual de distribución efectivo vs banco
-        const barLength = 12;
-        const balPct = total > 0 ? Math.round((eco.balance / total) * barLength) : 0;
-        const bankPct = barLength - balPct;
-        const barra = '🟢'.repeat(Math.min(balPct, barLength)) + '🔵'.repeat(Math.max(bankPct, 0));
-
-        const getRangoLabel = (t) => {
-            if (t <= 0) return '🪨 Sin fondos';
-            if (t < 1000) return '🌱 Empezando';
-            if (t < 5000) return '💵 En crecimiento';
-            if (t < 20000) return '💰 Próspero';
-            if (t < 100000) return '💎 Adinerado';
-            return '👑 Magnate del servidor';
-        };
-
-        // Posición en ranking
-        let rankPos = '??';
+        let ranking = 'Fuera del top 200';
         try {
-            const allUsers = stmts.getTop(200);
-            const sorted = allUsers.map(u => {
-                const e = stmts.getEconomy(u.id);
-                return { id: u.id, total: (e?.balance || 0) + (e?.bank || 0) };
-            }).sort((a, b) => b.total - a.total);
-            const pos = sorted.findIndex(u => u.id === target.id) + 1;
-            rankPos = pos > 0 ? `#${pos}` : 'Sin ranking';
-        } catch { }
+            // Una consulta SQL, en lugar de 200 accesos separados a la base.
+            const list = stmts.getEcoTop(200);
+            const position = list.findIndex(row => row.id === target.id);
+            if (position >= 0) ranking = '#' + (position + 1);
+        } catch (error) {
+            console.warn('[Balance] No se pudo consultar el ranking:', error.message);
+            ranking = 'No disponible';
+        }
 
-        const isSelf = target.id === interaction.user.id;
-        const titleSuffix = isSelf ? 'Tu Cartera' : `Cartera de ${target.username}`;
+        const tip = total === 0
+            ? 'Empezá con /daily o /work para ganar tus primeras monedas.'
+            : cash > bank
+                ? 'Podés guardar parte de tu efectivo con /deposit.'
+                : 'Consultá /shop para descubrir en qué usar tus monedas.';
 
-        // Tip dinámico
-        const tip = total < 1000
-            ? '💡 *Usá `/daily` y `/work` para empezar a ganar.*'
-            : total < 10000
-            ? '💡 *Depositá en el banco con `/deposit` para proteger tus coins.*'
-            : total < 50000
-            ? '💡 *Probá suerte en `/gamble` o `/blackjack` para multiplicar.*'
-            : '💡 *Visitá `/shop` para gastar tus riquezas.*';
-
-        const embed = new EmbedBuilder()
-            .setColor(config.COLORES.PRINCIPAL || 0xBB86FC)
-            .setAuthor({ name: `💰  ${titleSuffix}`, iconURL: target.displayAvatarURL() })
-            .setDescription(
-                `\`\`\`\n` +
-                `  💵 Efectivo  │  ${currency} ${eco.balance.toLocaleString()}\n` +
-                `  🏦 Banco     │  ${currency} ${eco.bank.toLocaleString()}\n` +
-                `  ─────────────┼──────────────\n` +
-                `  💎 Total     │  ${currency} ${total.toLocaleString()}\n` +
-                `\`\`\`` +
-                `\nDistribución: ${barra}\n` +
-                `> 🟢 Efectivo · 🔵 Banco\n\n` +
-                `> ${getRangoLabel(total)}  ·  📊 Ranking: **${rankPos}**\n\n` +
-                `> ${tip}`
-            )
-            .setFooter({ text: 'Prophet Economy  ·  /daily /work /gamble /shop' })
-            .setTimestamp();
-
-        await interaction.reply({ embeds: [embed] });
+        const embed = makeEmbed({
+            title: target.id === interaction.user.id ? 'Tu cartera' : 'Cartera de ' + target.username,
+            description: '**Distribución del saldo**\n'
+                + 'Efectivo  `' + bar + '`  ' + percentage + '%\n'
+                + 'Banco: ' + (100 - percentage) + '%\n\n'
+                + '**Ranking económico:** ' + ranking + '\n'
+                + '**Sugerencia:** ' + tip,
+            fields: walletFields(cash, bank, currency),
+            footer: 'Economía · /daily · /work · /deposit · /withdraw',
+            iconURL: target.displayAvatarURL?.(),
+        });
+        return interaction.reply({ embeds: [embed] });
     }
 };
