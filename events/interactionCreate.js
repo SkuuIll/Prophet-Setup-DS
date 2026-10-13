@@ -1,6 +1,7 @@
 const { EmbedBuilder, PermissionFlagsBits, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const config = require('../config');
 const { getSelfAssignableRoleError } = require('../utils/selfAssignableRoles');
+const { canExecuteRegisteredCommand } = require('../utils/commandPermissions');
 const { stmts } = require('../database');
 const { abrirTicket, cerrarTicket } = require('../modules/tickets');
 const { participarSorteo } = require('../modules/giveaways');
@@ -65,6 +66,13 @@ module.exports = {
             if (interaction.isChatInputCommand()) {
                 const comando = client.commands.get(interaction.commandName);
                 if (!comando) return;
+
+                if (!canExecuteRegisteredCommand(comando.data, interaction.memberPermissions)) {
+                    return interaction.reply({
+                        content: 'No tenés los permisos necesarios para ejecutar este comando.',
+                        flags: 64,
+                    });
+                }
 
                 const canalesPermitidos = [config.CHANNELS.COMANDOS_BOT, config.CHANNELS.STAFF].filter(Boolean);
                 const miembroStaff = esStaff(interaction.member);
