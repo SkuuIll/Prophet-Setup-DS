@@ -5,6 +5,8 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits, ChannelType } = require('discord.js');
 const { stmts } = require('../database');
 const config = require('../config');
+const { notice, makeEmbed } = require('../utils/discordUI');
+const openingTickets = new Set();
 
 /**
  * Crear el embed + botón para abrir tickets
@@ -42,6 +44,23 @@ async function crearPanelTickets(channel) {
  * Abrir un ticket
  */
 async function abrirTicket(interaction) {
+    const key = String(interaction.guild?.id || 'unknown') + ':' + interaction.user.id;
+    if (openingTickets.has(key)) {
+        return interaction.reply(notice({
+            title: 'Ticket en preparación',
+            description: 'Ya estamos preparando tu solicitud. No hace falta que pulses otra vez.',
+            tone: 'warning',
+        }));
+    }
+    openingTickets.add(key);
+    try {
+        return await abrirTicketSinDuplicados(interaction);
+    } finally {
+        openingTickets.delete(key);
+    }
+}
+
+async function abrirTicketSinDuplicados(interaction) {
     // Si ya respondieron a la interacción (ej. doble click rápido), salir
     if (interaction.replied || interaction.deferred) return;
 
@@ -51,7 +70,8 @@ async function abrirTicket(interaction) {
     // Verificar si ya tiene ticket abierto por nombre de canal (simple check)
     // OJO: Esto puede fallar si el usuario cambia de nombre, pero para MVP está bien.
     // Una mejora sería buscar en la DB si el usuario tiene un ticket activo.
-    const existingChannel = guild.channels.cache.find(c => c.topic === `Ticket de ${user.id}` || c.name === `ticket-${user.username.toLowerCase().replace(/[^a-z0-9]/g, '')}`);
+    const existingChannel = guild.channels.cache.find(c => c.type === ChannelType.GuildText
+        && c.topic === `Ticket de ${user.id}`);
 
     if (existingChannel) {
         return interaction.reply({ content: `❌ Ya tenés un ticket abierto: ${existingChannel}`, ephemeral: true });
@@ -107,7 +127,12 @@ async function abrirTicket(interaction) {
         });
 
         // Guardar en DB
-        stmts.addTicket(ticketChannel.id, user.id);
+        try {
+            stmts.addTicket(ticketChannel.id, user.id);
+        } catch (error) {
+            await ticketChannel.delete('No se pudo registrar el ticket en la base de datos').catch(() => {});
+            throw error;
+        }
 
         // Embed de bienvenida dentro del ticket
         const embed = new EmbedBuilder()
@@ -134,7 +159,14 @@ async function abrirTicket(interaction) {
 
         await ticketChannel.send({ content: `${user} | <@&${config.ROLES.STAFF || config.ROLES.MODERADOR || user.id}>`, embeds: [embed], components: [row] });
 
-        await interaction.editReply({ content: `✅ Ticket creado correctamente: ${ticketChannel}` });
+        await interaction.editReply({
+            embeds: [makeEmbed({
+                title: 'Ticket creado',
+                description: 'Tu consulta privada está lista en ' + ticketChannel + '. Describí ahí tu problema para que el Staff pueda ayudarte.',
+                tone: 'success',
+                footer: 'Soporte',
+            })],
+        });
 
         // Log
         const logChannel = guild.channels.cache.get(config.CHANNELS.LOGS);
@@ -164,7 +196,12 @@ async function cerrarTicket(interaction) {
         return interaction.reply({ content: '❌ Este canal no es un ticket.', ephemeral: true });
     }
 
-    await interaction.reply({ content: '🔒 Cerrando ticket en 5 segundos...' });
+    await interaction.reply(notice({
+        title: 'Preparando cierre',
+        description: 'Estoy guardando el historial de este ticket antes de cerrarlo.',
+        tone: 'info',
+    }));
+    let archived = false;
 
     try {
         const user = await interaction.client.users.fetch(ticket.user_id);
@@ -193,7 +230,8 @@ async function cerrarTicket(interaction) {
                 .setColor(config.COLORES.ERROR)
                 .setDescription(`🎫 **Ticket cerrado** por ${interaction.user.tag} (usuario: <@${ticket.user_id}>)`)
                 .setTimestamp();
-            await logChannel.send({ embeds: [logEmbed], files: [attachment] });
+            await logChannel.send({ embeds: [logEmbed], files: [attachment], allowedMentions: { parse: [] } });
+            archived = true;
         }
     } catch (e) {
         console.error('Error generando transcript HTML:', e.message);
@@ -210,15 +248,40 @@ async function cerrarTicket(interaction) {
                 .setColor(config.COLORES.ERROR)
                 .setDescription(`🎫 **Ticket cerrado** por ${interaction.user.tag} (usuario: <@${ticket.user_id}>)\n${fallback ? '*Historial de respaldo adjunto en texto.*' : '*No fue posible exportar el historial.*'}`)
                 .setTimestamp();
-            await logChannel.send({
-                embeds: [logEmbed],
-                ...(fallback ? { files: [fallback] } : {}),
-            }).catch(error => console.error('Error enviando log de ticket:', error.message));
+            if (fallback) {
+                try {
+                    await logChannel.send({
+                        embeds: [logEmbed], files: [fallback], allowedMentions: { parse: [] },
+                    });
+                    archived = true;
+                } catch (error) {
+                    console.error('Error enviando respaldo de ticket:', error);
+                }
+            }
         }
     }
 
+    if (!archived) {
+        return interaction.editReply({
+            embeds: [makeEmbed({
+                title: 'No pude archivar la conversación',
+                description: 'Para no perder el historial, el ticket **permanecerá abierto**. Avisá al Staff para que revise el canal de logs.',
+                tone: 'error',
+                footer: 'Soporte · Historial protegido',
+            })],
+        }).catch(() => {});
+    }
+
+    await interaction.editReply({
+        embeds: [makeEmbed({
+            title: 'Ticket archivado',
+            description: 'Guardé una copia del historial para el Staff. Este canal se cerrará en unos segundos.',
+            tone: 'success',
+            footer: 'Soporte',
+        })],
+    }).catch(() => {});
     stmts.deleteTicket(channel.id);
-    setTimeout(() => channel.delete('Ticket cerrado').catch(() => { }), 5000);
+    setTimeout(() => channel.delete('Ticket archivado').catch(() => {}), 5000).unref?.();
 }
 
 module.exports = { crearPanelTickets, abrirTicket, cerrarTicket };
