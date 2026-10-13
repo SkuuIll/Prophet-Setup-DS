@@ -19,7 +19,8 @@ for (const name of commands) {
         };
         await command.execute(interaction);
         assert.equal(replies.length, 1);
-        assert.match(String(replies[0].content), /permisos/i);
+        const denialText = replies[0].content || replies[0].embeds?.[0]?.toJSON().description || '';
+        assert.match(String(denialText), /permisos/i);
         assert.equal(replies[0].flags || (replies[0].ephemeral ? 64 : 0), 64,
             'Denegaciones de moderación deben ser privadas');
     });
