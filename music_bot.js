@@ -83,7 +83,7 @@ client.on('interactionCreate', async (interaction) => {
             } catch (error) {
                 // Errores técnicos solo en logs privados, jamás en embeds públicos:
                 // pueden contener endpoints, rutas o detalles de autenticación.
-                console.error(`[ProphetMusic /\${interaction.commandName}]`, error);
+                console.error('[ProphetMusic /' + interaction.commandName + ']', error);
                 const reply = notice({
                     title: 'No pudimos reproducir la música',
                     description: 'Ocurrió un inconveniente al ejecutar /' + interaction.commandName
