@@ -1,5 +1,6 @@
 // ═══ COMANDO: /8ball mejorado ═══
-const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder } = require('discord.js');
+const { makeEmbed } = require('../../utils/discordUI');
 const config = require('../../config');
 
 const RESPUESTAS = {
@@ -45,47 +46,26 @@ const ICONOS = {
 const TIPOS = ['positivo', 'positivo', 'positivo', 'positivo', 'neutro', 'neutro', 'negativo', 'negativo', 'negativo', 'negativo'];
 
 module.exports = {
-    data: new SlashCommandBuilder()
-        .setName('8ball')
-        .setDescription('🎱 Consultá a la bola mágica del Prophet')
-        .addStringOption(o =>
-            o.setName('pregunta')
-                .setDescription('Tu pregunta (mejor si termina en ?)')
-                .setRequired(true)
-                .setMaxLength(200)),
-
+    data: new SlashCommandBuilder().setName('8ball')
+        .setDescription('Preguntale a la bola mágica del Prophet')
+        .addStringOption(o => o.setName('pregunta').setDescription('Tu pregunta')
+            .setRequired(true).setMaxLength(200)),
     async execute(interaction) {
-        await interaction.deferReply();
-
-        // Animación "consultando..."
-        await interaction.editReply({
-            embeds: [new EmbedBuilder()
-                .setColor(0x4A148C)
-                .setAuthor({ name: '🎱  Bola Mágica · Prophet' })
-                .setDescription('> 🔮 *Consultando las fuerzas del universo...*\n> ⏳ Un momento...')
-            ]
+        const question = interaction.options.getString('pregunta');
+        const kind = TIPOS[Math.floor(Math.random() * TIPOS.length)];
+        const pool = RESPUESTAS[kind];
+        const answer = pool[Math.floor(Math.random() * pool.length)];
+        return interaction.reply({
+            embeds: [makeEmbed({
+                title: 'La bola mágica responde',
+                description: '**Tu pregunta:** ' + question
+                    + '\n\n**Respuesta:** ' + answer,
+                tone: kind === 'positivo' ? 'success'
+                    : kind === 'negativo' ? 'error' : 'warning',
+                footer: 'Diversión · Respuesta aleatoria, no es una predicción',
+                iconURL: interaction.user.displayAvatarURL?.(),
+            })],
+            allowedMentions: { parse: [] },
         });
-
-        await new Promise(r => setTimeout(r, 2000));
-
-        const pregunta = interaction.options.getString('pregunta');
-        const tipo = TIPOS[Math.floor(Math.random() * TIPOS.length)];
-        const pool = RESPUESTAS[tipo];
-        const respuesta = pool[Math.floor(Math.random() * pool.length)];
-        const icono = ICONOS[tipo];
-
-        await interaction.editReply({
-            embeds: [new EmbedBuilder()
-                .setColor(COLORES[tipo])
-                .setAuthor({ name: '🎱  Bola Mágica · Prophet Fun' })
-                .setDescription(
-                    `**Pregunta:**\n> *${pregunta}*\n\n` +
-                    `**La bola dice:**\n> ## ${respuesta}`
-                )
-                .addFields({ name: '📊 Veredicto', value: `${icono} ${tipo.charAt(0).toUpperCase() + tipo.slice(1)}`, inline: true })
-                .setFooter({ text: `Consultado por ${interaction.user.username}  ·  Prophet Fun` })
-                .setTimestamp()
-            ]
-        });
-    }
+    },
 };
