@@ -2,8 +2,8 @@
 
 **Fecha de corte:** 12 de octubre de 2026  
 **Repositorio:** `SkuuIll/Prophet-Setup-DS`  
-**Rama de trabajo:** `fix/stabilize-security-deploy-20261012` (PR #4)  
-**Producción:** no desplegar ni activar la actualización automática hasta completar la aceptación final del propietario.
+**Rama de trabajo:** `main` (PR #4 fusionado el 12 de octubre de 2026, commit `707a69c`). No crear nuevas ramas para este trabajo.  
+**Producción:** código consolidado en `main`; la VPS permanece en su instalación anterior hasta que el propietario realice un despliegue supervisado y valide los cuatro servicios.
 
 ## Objetivo
 
@@ -18,6 +18,14 @@ Las primeras comprobaciones y las rutas HTTP revisadas están registradas en
 autoasignación de roles, defensa de comandos de moderación, sesiones antiguas
 del dashboard, rutas estáticas de Games y límites de OAuth/JSON; la fase P0
 **sigue abierta**.
+
+## Avances posteriores a la integración en main
+
+- PR #4 fusionado con 63 archivos cambiados y 88/88 tests en la revisión de origen.
+- Sesiones de dashboard: renovación de refresh tokens transaccional, deduplicación de peticiones desde el navegador y prueba de reutilización.
+- Economía: transferencias `/pay` atómicas, saldos de apuestas y bancos protegidos ante concurrencia, importes negativos y desbordamientos; pruebas de regresión adicionales.
+- Proxy del dashboard: rate limiting basado en el último salto de X-Forwarded-For cuando se confía explícitamente en un proxy local.
+- **Importante:** los cambios nuevos en `main` tienen pruebas que se validan con GitHub Actions. Una CI verde no reemplaza el ensayo real en VPS/Discord.
 
 ## Estado comprobado
 
@@ -50,9 +58,7 @@ del dashboard, rutas estáticas de Games y límites de OAuth/JSON; la fase P0
 | 5. Arquitectura, música y rendimiento | P2 | Modularizar archivos grandes; Lavalink, métricas, errores, logs, memoria | Imports estables y ensayos completos de música y reinicio | [#11](../issues/11) |
 | 6. Aceptación y único despliegue final | Bloqueante | Checklist VPS y Discord, backups/restores, revisión de variables y servicios, política de auto-update | Prueba final aprobada por propietario | [#6](../issues/6) |
 
-**Nota de enlaces:** las incidencias reales están en
-`https://github.com/SkuuIll/Prophet-Setup-DS/issues/<número>`; no mover ramas
-de producción ni fusionar PRs automáticamente durante estas fases.
+**Política del propietario:** todos los cambios nuevos van directamente a `main`. No crear ramas secundarias; la instalación actual en `/root/ProphetBot` solo cambia cuando el propietario realice el despliegue. El repositorio de ensayo en `/root/ProphetBot-Revision` se clonó desde la antigua rama y debe cambiarse a `main` antes de sincronizarse.
 
 ## Matriz de revisión de archivos
 
