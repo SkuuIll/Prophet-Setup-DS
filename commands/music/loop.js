@@ -1,61 +1,22 @@
-// ═══ COMANDO: /loop ═══
-const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder } = require('discord.js');
 const { useQueue } = require('discord-player');
-const config = require('../../config');
+const { makeEmbed } = require('../../utils/discordUI');
+const { ensureMusicController, musicNotice } = require('../../utils/musicAccess');
 
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('loop')
-        .setDescription('🔁 Cambiar el modo de repetición de la música')
-        .addIntegerOption(o => o.setName('modo').setDescription('Modo de repetición')
-            .setRequired(true)
-            .addChoices(
-                { name: 'Desactivado (Normal)', value: 0 },
-                { name: 'Repetir Track Actual', value: 1 },
-                { name: 'Repetir Toda la Cola', value: 2 }
-            )),
-
-    async execute(interaction, client) {
+        .setDescription('Cambiar el modo de repetición').addIntegerOption(o => o.setName('modo').setDescription('Cómo repetir la música').setRequired(true).addChoices({ name: 'Sin repetir', value: 0 }, { name: 'Repetir canción', value: 1 }, { name: 'Repetir cola', value: 2 })),
+    async execute(interaction) {
+        const denied = ensureMusicController(interaction);
+        if (denied) return interaction.reply(denied);
         const queue = useQueue(interaction.guild.id);
-
         if (!queue || !queue.isPlaying()) {
-            return interaction.reply({
-                content: '> ❌ **Sin reproducción** — No hay nada sonando en este momento.',
-                flags: 64
-            });
+            return interaction.reply(musicNotice('Sin reproducción', 'No hay una sesión de música activa. Empezá usando /play.'));
         }
-
-        const voiceChannel = interaction.member.voice.channel;
-        if (!voiceChannel || voiceChannel.id !== interaction.guild.members.me.voice.channelId) {
-            return interaction.reply({
-                content: '> ❌ **Canal incorrecto** — Tenés que estar en el mismo canal de voz que el bot para hacer esto.',
-                flags: 64
-            });
-        }
-
         const mode = interaction.options.getInteger('modo');
         queue.setRepeatMode(mode);
-
-        const modeNames = [
-            '> ▷ **Loop desactivado** — Reproducción normal',
-            '> 🔂 **Loop activado (Track)** — Se repetirá la canción actual infinitamente',
-            '> 🔁 **Loop activado (Cola)** — Se repetirá toda la cola infinitamente'
-        ];
-
-        const embed = new EmbedBuilder()
-            .setColor(config.COLORES.INFO || 0x42A5F5)
-            .setDescription(modeNames[mode])
-            .setFooter({ text: 'Prophet Music' });
-
-        await interaction.reply({ embeds: [embed] });
-
-        // Actualizar el player message si existe (musicEngine lo maneja)
-        try {
-            const musicEngine = require('../../modules/musicEngine');
-            // Check si la función para actualizar embeds está expuesta
-            if (typeof musicEngine.actualizarNowPlaying === 'function') {
-                await musicEngine.actualizarNowPlaying(queue);
-            }
-        } catch (e) { }
-    }
+        const descriptions = ['Las canciones se reproducen una vez.', 'Repetiré la canción actual.', 'Repetiré toda la cola.'];
+        return interaction.reply({ embeds: [makeEmbed({ title: 'Repetición actualizada', description: descriptions[mode] || descriptions[0], tone: 'music', footer: 'Prophet Music' })] });
+    },
 };
