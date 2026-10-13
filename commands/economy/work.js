@@ -77,10 +77,15 @@ module.exports = {
         const reward = Math.floor(Math.random() * (config.ECONOMIA.WORK_MAX - config.ECONOMIA.WORK_MIN + 1)) + config.ECONOMIA.WORK_MIN;
         const trabajo = TRABAJOS[Math.floor(Math.random() * TRABAJOS.length)];
 
-        stmts.addMoney(userId, reward, 'balance');
-        stmts.setEconomy(userId, 'last_work', ahora);
-
-        const nuevoSaldo = stmts.getEconomy(userId);
+        // Claim atómico: dos interacciones simultáneas no deben dar dos premios.
+        const claim = stmts.claimTimedReward(userId, 'work', reward, ahora, cooldown);
+        if (!claim.success) {
+            return interaction.reply({
+                content: '⏳ Esta recompensa ya fue reclamada recientemente o tu saldo llegó al máximo.',
+                flags: 64
+            });
+        }
+        const nuevoSaldo = { balance: claim.balance };
 
         // ── Overtime chance (25%) ──
         const hasOvertime = Math.random() < 0.25;
