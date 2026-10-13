@@ -19,8 +19,10 @@ function getClientInfo(req) {
     // El reverse proxy de ProphetBot debe escuchar en loopback local.
     const trustedPeer = ['127.0.0.1', '::1'].includes(peer);
     const trustProxy = process.env.TRUST_PROXY === 'true' && trustedPeer;
+    // Usar el último salto que llega al proxy local: el primer valor puede
+    // ser inyectado por el cliente si Nginx añade al header entrante.
     const reported = trustProxy && typeof forwarded === 'string'
-        ? forwarded.split(',')[0].trim() : '';
+        ? forwarded.split(',').at(-1).trim() : '';
     const validForwardedIp = require('node:net').isIP(reported) !== 0;
     const ipAddress = validForwardedIp ? reported : peer;
     
