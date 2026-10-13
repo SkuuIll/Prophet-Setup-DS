@@ -1,5 +1,6 @@
 // ═══ COMANDO: /snipe — Ver últimos mensajes borrados/editados ═══
-const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits } = require('discord.js');
+const { notice } = require('../../utils/discordUI');
 const config = require('../../config');
 
 module.exports = {
@@ -21,9 +22,17 @@ module.exports = {
                     o.setName('numero')
                         .setDescription('Cuántas ediciones atrás (1-5)')
                         .setMinValue(1)
-                        .setMaxValue(5))),
+                        .setMaxValue(5)))
+        .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
 
     async execute(interaction) {
+        if (!interaction.inGuild?.() || !interaction.memberPermissions?.has(PermissionFlagsBits.ManageMessages)) {
+            return interaction.reply(notice({
+                title: 'Acceso restringido',
+                description: 'Solo los moderadores pueden consultar mensajes borrados o editados.',
+                tone: 'error',
+            }));
+        }
         const sub = interaction.options.getSubcommand();
         const index = (interaction.options.getInteger('numero') || 1) - 1;
 
@@ -59,7 +68,7 @@ module.exports = {
 
             if (snipe.image) embed.setImage(snipe.image);
 
-            return interaction.reply({ embeds: [embed] });
+            return interaction.reply({ embeds: [embed], flags: 64, allowedMentions: { parse: [] } });
 
         } else if (sub === 'editado') {
             const editList = interaction.client.editSnipes?.get(interaction.channel.id);
@@ -89,7 +98,7 @@ module.exports = {
                 .setFooter({ text: `${editList.length} ediciones en caché  ·  Prophet Snipe` })
                 .setTimestamp(edit.timestamp);
 
-            return interaction.reply({ embeds: [embed] });
+            return interaction.reply({ embeds: [embed], flags: 64, allowedMentions: { parse: [] } });
         }
     }
 };
