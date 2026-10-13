@@ -22,8 +22,9 @@ const UnoEngine = require('./games/cards/unoEngine');
 const SurvivorEngine = require('./games/survivor/survivorEngine');
 
 const PORT = parseInt(process.env.GAMES_PORT || '3850', 10);
-// Se conserva el bind anterior; para usar un reverse proxy configurá GAMES_BIND_HOST=127.0.0.1.
-const BIND_HOST = process.env.GAMES_BIND_HOST || '0.0.0.0';
+// Publicar Games únicamente detrás de Nginx por defecto. Si existe un
+// GAMES_BIND_HOST explícito en el .env de producción, prevalece ese valor.
+const BIND_HOST = process.env.GAMES_BIND_HOST || '127.0.0.1';
 const GAMES_DIR = path.join(__dirname, 'web', 'public', 'games');
 const ASSETS_DIR = path.join(__dirname, 'assets');
 
