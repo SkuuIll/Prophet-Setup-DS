@@ -1,4 +1,4 @@
-const { EmbedBuilder, PermissionFlagsBits, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { EmbedBuilder, PermissionFlagsBits, ActionRowBuilder, ButtonBuilder, ButtonStyle, AttachmentBuilder } = require('discord.js');
 const config = require('../config');
 const { getSelfAssignableRoleError } = require('../utils/selfAssignableRoles');
 const { canExecuteRegisteredCommand } = require('../utils/commandPermissions');
@@ -149,6 +149,47 @@ module.exports = {
 
             if (interaction.isButton()) {
                 const id = interaction.customId;
+
+                if (id.startsWith('notes_export_')) {
+                    if (!interaction.inGuild?.() ||
+                        !interaction.memberPermissions?.has(PermissionFlagsBits.ModerateMembers)) {
+                        return interaction.reply(notice({
+                            title: 'Acceso restringido',
+                            description: 'Solo los moderadores pueden exportar notas privadas.',
+                            tone: 'error',
+                        }));
+                    }
+                    const match = /^notes_export_(\\d{17,20})$/.exec(id);
+                    if (!match) return interaction.reply(notice({
+                        title: 'Solicitud inválida',
+                        description: 'No se pudo identificar al usuario.',
+                        tone: 'error',
+                    }));
+                    const { getUserModNotes } = require('../modules/advancedMod');
+                    const notes = getUserModNotes(match[1], interaction.guildId).slice(0, 300);
+                    if (!notes.length) {
+                        return interaction.reply(notice({
+                            title: 'Sin notas',
+                            description: 'Ese miembro no tiene notas en este servidor.',
+                        }));
+                    }
+                    const lines = notes.map(note => {
+                        const date = new Date(note.created_at).toISOString().slice(0, 10);
+                        return '[' + date + '] #' + note.id + ' (' + note.note_type + ') Moderador '
+                            + note.created_by + '\\n' + String(note.note || '').slice(0, 1200);
+                    });
+                    const report = 'Prophet Gaming · Notas de moderación\\n'
+                        + 'Servidor: ' + interaction.guildId + '\\nUsuario: ' + match[1] + '\\n'
+                        + 'Entradas: ' + notes.length + '\\n\\n' + lines.join('\\n\\n');
+                    return interaction.reply({
+                        content: 'Exportación privada de notas de moderación.',
+                        files: [new AttachmentBuilder(Buffer.from(report, 'utf8'), {
+                            name: 'notas-' + match[1] + '.txt',
+                        })],
+                        flags: 64,
+                        allowedMentions: { parse: [] },
+                    });
+                }
 
                 if (id.startsWith('onboarding_')) {
                     const { handleOnboardingInteraction } = require('../modules/onboarding');
