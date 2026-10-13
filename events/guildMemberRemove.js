@@ -3,36 +3,23 @@
 const { EmbedBuilder, AttachmentBuilder, AuditLogEvent } = require('discord.js');
 const config = require('../config');
 const { stmts } = require('../database');
-const { getChannel } = require('../utils/runtimeConfig');
+const { resolveMemberChannel, missingSendPermissions, sendWithImageFallback } = require('../utils/memberNotifications');
+const { getPersistedValue } = require('../utils/memberNotificationDiagnostics');
 
 async function resolveWelcomeChannel(guild) {
-    let ch = null;
-    const targetId = config.CHANNELS.BIENVENIDOS || '1536559906990071828';
-    if (targetId && /^\d+$/.test(targetId)) {
-        ch = guild.channels.cache.get(targetId);
-        if (!ch) {
-            ch = await guild.channels.fetch(targetId).catch(() => null);
-        }
-    }
-    if (!ch) {
-        ch = getChannel(guild, 'BIENVENIDOS') || guild.channels.cache.find(c => c.name.includes('bienvenid'));
-    }
-    return ch;
+    return resolveMemberChannel(guild, {
+        configValue: config.CHANNELS.BIENVENIDOS,
+        persistedValue: getPersistedValue('BIENVENIDOS'),
+        kind: 'welcome',
+    });
 }
 
 async function resolveLogChannel(guild) {
-    let ch = null;
-    const targetId = config.CHANNELS.LOGS || '1536543207402508318';
-    if (targetId && /^\d+$/.test(targetId)) {
-        ch = guild.channels.cache.get(targetId);
-        if (!ch) {
-            ch = await guild.channels.fetch(targetId).catch(() => null);
-        }
-    }
-    if (!ch) {
-        ch = getChannel(guild, 'LOGS') || guild.channels.cache.find(c => c.name.includes('log'));
-    }
-    return ch;
+    return resolveMemberChannel(guild, {
+        configValue: config.CHANNELS.LOGS,
+        persistedValue: getPersistedValue('LOGS'),
+        kind: 'logs',
+    });
 }
 
 module.exports = {
@@ -43,7 +30,8 @@ module.exports = {
             if (member.user?.bot) return;
 
             // Métrica de retención
-            stmts.incrementAnalyticsMetric('member_leaves', 'global', 1);
+            try { stmts.incrementAnalyticsMetric('member_leaves', 'global', 1); }
+            catch (error) { console.warn('[Despedida] No se pudo registrar métrica:', error.message); }
 
             const username = member.user?.username || member.displayName || 'Un miembro';
             const avatarUrl = member.user?.displayAvatarURL ? member.user.displayAvatarURL() : null;
@@ -58,8 +46,13 @@ module.exports = {
             const welcomeChannel = await resolveWelcomeChannel(member.guild);
             if (welcomeChannel) {
                 try {
+                    const missing = missingSendPermissions(welcomeChannel, member.guild);
+                    if (missing.includes('ViewChannel') || missing.includes('SendMessages')) {
+                        throw new Error(`Sin permisos en #${welcomeChannel.name}: ${missing.join(', ')}`);
+                    }
                     const files = [];
-                    try {
+                    const allowImage = !missing.includes('AttachFiles') && !missing.includes('EmbedLinks');
+                    if (allowImage) try {
                         const { generarDespedida } = require('../utils/canvas');
                         const farewellBuffer = await generarDespedida(member);
                         if (farewellBuffer) {
@@ -87,11 +80,19 @@ module.exports = {
                         farewellEmbed.setImage('attachment://despedida.png');
                     }
 
-                    await welcomeChannel.send({ embeds: [farewellEmbed], files });
+                    if (missing.includes('EmbedLinks')) {
+                        await welcomeChannel.send({ content: `Hasta pronto, ${username}. Gracias por formar parte de Prophet Gaming.`, allowedMentions: { parse: [] } });
+                    } else {
+                        await sendWithImageFallback(welcomeChannel, {
+                            embeds: [farewellEmbed], files, allowedMentions: { parse: [] },
+                        });
+                    }
                     console.log(`📤 Despedida enviada para ${username} en #${welcomeChannel.name}`);
                 } catch (err) {
-                    console.error('[Despedida] Error enviando tarjeta de despedida:', err.message);
+                    console.error('[Despedida] Error enviando tarjeta de despedida:', err);
                 }
+            } else {
+                console.error('[Despedida] No se encontró el canal de bienvenidas. Revisá los IDs y permisos.');
             }
 
             // 2. Registro detallado de auditoría en el canal de Logs
@@ -140,10 +141,13 @@ module.exports = {
                     logEmbed.setThumbnail(avatarUrl);
                 }
 
-                logChannel.send({ embeds: [logEmbed] }).catch(() => {});
+                await logChannel.send({ embeds: [logEmbed], allowedMentions: { parse: [] } })
+                    .catch(error => console.error('[Despedida] Error escribiendo log:', error.message));
+            } else {
+                console.warn('[Despedida] No se encontró el canal de logs.');
             }
         } catch (globalErr) {
-            console.error('[guildMemberRemove] Error no capturado:', globalErr.message);
+            console.error('[guildMemberRemove] Error no capturado:', globalErr);
         }
     }
 };

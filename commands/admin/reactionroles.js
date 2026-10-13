@@ -1,6 +1,7 @@
 // ═══ COMANDO: /reactionroles ═══
 const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits } = require('discord.js');
 const config = require('../../config');
+const { getSelfAssignableRoleError } = require('../../utils/selfAssignableRoles');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -22,6 +23,9 @@ module.exports = {
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
 
     async execute(interaction) {
+        if (!interaction.inGuild?.() || !interaction.memberPermissions?.has(PermissionFlagsBits.Administrator)) {
+            return interaction.reply({ content: 'Necesitás permisos de administrador para crear paneles de roles.', flags: 64 });
+        }
         const titulo = interaction.options.getString('titulo');
         const descripcion = interaction.options.getString('descripcion') || 'Hacé click en un botón para obtener o quitar el rol.';
 
@@ -40,7 +44,7 @@ module.exports = {
             
             if (contribution && emoji) {
                 // Verificar si el rol es restringido
-                if (rolesProtegidos.includes(contribution.id) || rolesProtegidos.includes(contribution.name)) {
+                if (getSelfAssignableRoleError(contribution, interaction.guild, rolesProtegidos)) {
                     console.log(`⚠️ Intento de crear reaction role restringido: ${contribution.name}`);
                     continue; // Saltar roles protegidos
                 }

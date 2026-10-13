@@ -6,6 +6,26 @@
 const { stmts } = require('../../database');
 const cfg = require('../common/gamesConfig').tycoon;
 
+const clickUsage = new Map();
+const CLICK_WINDOW_MS = 1000;
+const MAX_CLICKS_PER_SECOND = 30;
+
+function allowServerClicks(userId, requested, now = Date.now()) {
+    const previous = clickUsage.get(userId);
+    const entry = !previous || now - previous.startedAt >= CLICK_WINDOW_MS
+        ? { startedAt: now, used: 0 } : previous;
+    const accepted = Math.max(0, Math.min(requested, MAX_CLICKS_PER_SECOND - entry.used));
+    entry.used += accepted;
+    clickUsage.set(userId, entry);
+    // Mantener el limiter acotado aun con muchos usuarios intermitentes.
+    if (clickUsage.size > 2000) {
+        for (const [id, state] of clickUsage) {
+            if (now - state.startedAt > CLICK_WINDOW_MS * 2) clickUsage.delete(id);
+        }
+    }
+    return accepted;
+}
+
 // ─── SERVIDORES (generadores) ───
 const SERVERS_CONFIG = {
     vps_entry: {
@@ -506,7 +526,14 @@ class TycoonEngine {
     }
 
     static processClick(userId, clientClickCount = 1) {
-        const count = Math.min(Math.max(1, Math.floor(clientClickCount)), 15);
+        const rawCount = Number(clientClickCount);
+        if (!Number.isFinite(rawCount) || rawCount < 1) {
+            return { success: false, error: 'Cantidad de clics inválida' };
+        }
+        const count = allowServerClicks(userId, Math.min(15, Math.floor(rawCount)));
+        if (count === 0) {
+            return { success: false, error: 'Demasiados clics por segundo. Esperá un momento.' };
+        }
         const save = this._getSave(userId);
         const rates = this.calculateProduction(save.servers, save.admins, save.prestige, save.meta);
 
@@ -711,27 +738,42 @@ class TycoonEngine {
         };
     }
 
-    static syncPassiveGains(userId, addedCoins) {
+    static syncPassiveGains(userId, _clientClaimedCoins) {
+        // Nunca acreditar saldo a partir de una cifra enviada por el navegador:
+        // la producción y el tiempo transcurrido son propiedad del servidor.
         const save = this._getSave(userId);
-        const amt = Math.max(0, Math.floor(Number(addedCoins) || 0));
-        if (amt <= 0) return { success: true, coins: Math.floor(save.local_coins) };
-
         const now = Date.now();
-        const elapsedSec = Math.max(1, Math.floor((now - (save.last_active || now)) / 1000));
-        const rates = this.calculateProduction(save.servers, save.admins, save.prestige, save.meta);
-        const clickValue = Math.max(1, Math.floor(1 * rates.multiplier * rates.clickMult));
-        const maxReasonable = Math.ceil(
-            (rates.productionPerSec + rates.autoClicksPerSec * clickValue) * elapsedSec * 2.5 + 150
-        );
-        const capped = Math.min(amt, maxReasonable, cfg.maxSyncCoinsPerTick);
+        const elapsed = Math.max(0, now - (save.last_active || now));
+        const elapsedSec = Math.floor(elapsed / 1000);
 
-        save.local_coins += capped;
-        save.meta.stats.totalEarned += capped;
-        save.meta.stats.lifetimeEarned += capped;
-        this._bumpMissions(save.meta, 'earned', capped);
+        // Evita que repetir sync miles de veces por segundo genere saldo gratis.
+        if (elapsedSec < 1) {
+            return { success: true, coins: Math.floor(save.local_coins), applied: 0 };
+        }
+
+        const rates = this.calculateProduction(save.servers, save.admins, save.prestige, save.meta);
+        const clickValue = Math.max(1, Math.floor(rates.multiplier * rates.clickMult));
+        const productionPerSec = Math.max(0,
+            rates.productionPerSec + rates.autoClicksPerSec * clickValue);
+        if (!Number.isFinite(productionPerSec) || productionPerSec <= 0) {
+            return { success: true, coins: Math.floor(save.local_coins), applied: 0 };
+        }
+
+        const cappedSeconds = Math.min(elapsedSec, cfg.offlineMaxHours * 3600);
+        const earned = Math.floor(cappedSeconds * productionPerSec);
+        const cap = Math.max(0, Number(cfg.maxSyncCoinsPerTick) || 0);
+        const applied = Math.max(0, Math.min(earned, cap));
+        if (!Number.isSafeInteger(applied) || applied === 0) {
+            return { success: true, coins: Math.floor(save.local_coins), applied: 0 };
+        }
+
+        save.local_coins += applied;
+        save.meta.stats.totalEarned += applied;
+        save.meta.stats.lifetimeEarned += applied;
+        this._bumpMissions(save.meta, 'earned', applied);
         save.last_active = now;
         this._persist(userId, save);
-        return { success: true, coins: Math.floor(save.local_coins), applied: capped };
+        return { success: true, coins: Math.floor(save.local_coins), applied };
     }
 
     static doPrestige(userId) {

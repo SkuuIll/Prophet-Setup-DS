@@ -11,6 +11,14 @@ module.exports = {
         .setDefaultMemberPermissions(PermissionFlagsBits.ManageChannels),
 
     async execute(interaction) {
+        // Defender también en runtime: no confiar únicamente en el permiso del slash registrado.
+        if (!interaction.inGuild?.() || !interaction.memberPermissions?.has(PermissionFlagsBits.ManageChannels)) {
+            return interaction.reply({
+                content: 'No tenés permisos para ejecutar esta acción de moderación.',
+                flags: 64,
+            });
+        }
+
         const segundos = interaction.options.getInteger('segundos');
 
         try {

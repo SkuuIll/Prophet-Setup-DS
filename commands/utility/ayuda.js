@@ -109,7 +109,7 @@ function buildHomeEmbed(interaction) {
             `> 🔧 Utilidades  ·  🛡️ Moderación  ·  ⚙️ Admin\n\n` +
 
             `\`\`\`\n` +
-            `📋 ${totalCmds} Comandos  ·  ${pingEmoji} ${ping}ms  ·  ⏱️ ${uptimeStr}  ·  👥 ${interaction.guild.memberCount}\n` +
+            `📋 ${totalCmds} Comandos  ·  ${pingEmoji} ${ping}ms  ·  ⏱️ ${uptimeStr}  ·  👥 ${interaction.guild?.memberCount ?? '—'}\n` +
             `\`\`\``
         )
         .setThumbnail(interaction.client.user.displayAvatarURL({ size: 256 }))
@@ -132,7 +132,7 @@ function buildQuickstartEmbed() {
             '**2️⃣ Subí de nivel hablando**\n' +
             '> Cada mensaje que enviás te da XP automáticamente.\n' +
             '> Al subir de nivel, desbloqueás roles nuevos (hay 9 niveles de rol).\n' +
-            '> Mirá tu progreso con `/nivel` y el ranking con `/top`.\n\n' +
+            '> Mirá tu progreso con `/nivel` y el ranking con `/ranking tipo:xp`.\n\n' +
 
             '**3️⃣ Escuchá música en voz**\n' +
             '> Entrá a un canal de voz y usá `/play <canción>`.\n' +
@@ -149,7 +149,7 @@ function buildQuickstartEmbed() {
             '**6️⃣ Funciones útiles del día a día**\n' +
             '> `/recordatorio 2h Hacer algo` — Te avisa por DM\n' +
             '> `/afk Comiendo` — Le avisa a los que te mencionen\n' +
-            '> `@ProphetBot <pregunta>` — Preguntale lo que sea a la IA del bot'
+            '> Mencioná a Prophet Bot para ayuda; si la IA está habilitada también podés hacer preguntas.'
         )
         .setFooter({ text: 'Tip: Elegí otra categoría del menú para ver todos los comandos' })
         .setTimestamp();
@@ -185,7 +185,7 @@ function buildEconomyEmbed() {
                 value:
                     '`/shop` — Comprar roles exclusivos con monedas\n' +
                     '`/inventory` — Ver tus items comprados\n' +
-                    '`/ecotop` — Ranking de los más ricos del server',
+                    '`/ranking tipo:eco` — Ranking de economía del servidor',
                 inline: false
             },
             {
@@ -281,7 +281,7 @@ function buildFunEmbed() {
                     '`/confesion` — Enviar confesión anónima al server\n' +
                     '`/meme` — Meme random de Reddit\n' +
                     '`/cartel <texto>` — Generar cartel customizado\n' +
-                    '`/buscar-grupo` — Buscar gente para jugar (LFG)',
+                    '`/evento` — Organizar encuentros y partidas con la comunidad',
                 inline: false
             },
             {
@@ -347,7 +347,7 @@ function buildLevelsEmbed() {
                 name: '📊 Comandos',
                 value:
                     '`/nivel [usuario]` — Ver nivel, XP y progreso\n' +
-                    '`/top` — Ranking de usuarios más activos',
+                    '`/ranking tipo:xp` — Ranking de usuarios más activos',
                 inline: false
             },
             {
@@ -408,7 +408,7 @@ function buildProfileEmbed() {
             {
                 name: '⚙️ Personalización',
                 value:
-                    '`/preferencias` — Cambiar tema, idioma, zona horaria, notificaciones\n' +
+                    '`/notificaciones` — Gestionar alertas personalizadas y palabras clave\n' +
                     '`/cumple <DD/MM>` — Agendar tu cumpleaños (rol + saludo automático)',
                 inline: false
             }
@@ -458,7 +458,7 @@ function buildUtilityEmbed() {
                     '`/calculadora <expresión>` — Calculadora científica\n' +
                     '`/traductor <texto> <idioma>` — 10 idiomas con auto-detect\n' +
                     '`/definir <palabra>` — Diccionario ES/EN\n' +
-                    '`/contraseña [largo]` — Generar password seguro\n' +
+                    '`/enlaces` — Consultar enlaces útiles del servidor\n' +
                     '`/clima <ciudad>` — Clima actual y pronóstico',
                 inline: false
             },
@@ -468,7 +468,7 @@ function buildUtilityEmbed() {
                     '`/encuesta <pregunta>` — Encuesta rápida con reacciones\n' +
                     '`/sorteo <premio> <duración>` — Giveaway automático\n' +
                     '`/embed` — Crear mensajes embed customizados\n' +
-                    '`/reporte <usuario>` — Reportar anónimamente al Staff',
+                    'Menú contextual **Reportar Usuario** — Reportar al Staff desde un perfil',
                 inline: false
             },
             {
@@ -511,7 +511,7 @@ function buildModerationEmbed() {
             {
                 name: '🧹 Limpieza',
                 value:
-                    '`/clear <cantidad> [usuario]` — Borrar mensajes\n' +
+                    '`/purge <cantidad>` — Borrar mensajes\n' +
                     '`/purge <cantidad> [filtro]` — Borrar con filtros (bots, links, etc.)\n' +
                     '`/slowmode <segundos>` — Modo lento (0 = desactivar)',
                 inline: false
@@ -542,7 +542,7 @@ function buildAdminEmbed() {
                     '`/setup-tickets` — Panel de tickets con transcript HTML\n' +
                     '`/setup-counting` — Canal para el juego de contar\n' +
                     '`/setup-confesiones` — Canal de confesiones anónimas\n' +
-                    '`/onboarding` — Flujo de bienvenida interactivo',
+                    '`/fuente` — Configurar la fuente de apodos del clan',
                 inline: false
             },
             {
@@ -566,12 +566,13 @@ function buildAdminEmbed() {
                 value:
                     '`/botstats` — Dashboard técnico del bot\n' +
                     '`/memoria` — Logs internos del sistema\n' +
+                    '`/probar-notificaciones` — Probar banners y permisos de bienvenidas/despedidas\n' +
                     '> 📊 Resumen técnico diario automático a las 09:00 ARG\n' +
                     '> 💾 Backup SQLite automático a las 01:00 ARG',
                 inline: false
             }
         )
-        .setFooter({ text: '12 comandos + 6 sistemas automáticos  ·  Admin' })
+        .setFooter({ text: 'Comandos y herramientas de administración  ·  Prophet Gaming' })
         .setTimestamp();
 }
 
@@ -629,11 +630,14 @@ module.exports = {
 
         const collector = response.createMessageComponentCollector({
             componentType: ComponentType.StringSelect,
-            filter: i => i.user.id === interaction.user.id,
             time: 300000 // 5 minutos
         });
 
         collector.on('collect', async i => {
+            if (i.user.id !== interaction.user.id) {
+                await i.reply({ content: 'Este menú pertenece a otra persona. Usá /ayuda para abrir el tuyo.', flags: 64 }).catch(() => {});
+                return;
+            }
             const value = i.values[0];
             const embed = getEmbedForCategory(value, interaction);
 
@@ -650,7 +654,7 @@ module.exports = {
             );
 
             const updatedRow = new ActionRowBuilder().addComponents(updatedMenu);
-            await i.update({ embeds: [embed], components: [updatedRow] });
+            await i.update({ embeds: [embed], components: [updatedRow] }).catch(error => console.error('[Ayuda] No se pudo actualizar el menú:', error.message));
         });
 
         collector.on('end', () => {

@@ -160,6 +160,8 @@ module.exports = {
             .setFooter({ text: 'Prophet  ·  Log de Usuario' })
             .setTimestamp();
 
-        await logChannel.send({ embeds: [embed] }).catch(() => { });
+        if (logChannel) {
+            await logChannel.send({ embeds: [embed] }).catch(error => console.error('[guildMemberUpdate] Error log roles:', error.message));
+        }
     },
 };

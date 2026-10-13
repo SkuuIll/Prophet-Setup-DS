@@ -535,11 +535,12 @@ function cleanupRateLimits() {
     }
 }
 
-// Limpiar cada 5 minutos
-setInterval(() => {
+// Limpiar cada 5 minutos sin impedir que el proceso termine correctamente.
+const securityCleanupTimer = setInterval(() => {
     cleanupRateLimits();
     cleanupCSRFTokens();
 }, 5 * 60 * 1000);
+securityCleanupTimer.unref();
 
 // ═══════════════════════════════════════════════════
 //  VALIDACIÓN DE INPUT
@@ -1060,13 +1061,21 @@ async function recordLoginAttempt(ipAddress, username, success, failureReason, u
 /**
  * Verifica sesión activa
  */
-function verifySession(sessionId, userId) {
+function verifySession(sessionId, userId, claimedRole = null) {
     const session = _db.prepare(`
-        SELECT * FROM dashboard_sessions 
-        WHERE id = ? AND user_id = ?
+        SELECT ds.*, du.role AS current_role
+        FROM dashboard_sessions ds
+        JOIN dashboard_users du ON du.id = ds.user_id
+        WHERE ds.id = ? AND ds.user_id = ?
     `).get(sessionId, userId);
 
     if (!session) return false;
+
+    // No utilizar privilegios antiguos tras degradación/actualización de un rol.
+    if (claimedRole !== null && session.current_role !== claimedRole) {
+        revokeSession(sessionId, userId);
+        return false;
+    }
 
     const now = Date.now();
     const inactive = session.last_activity_at <= (now - SECURITY_CONFIG.SESSION_TIMEOUT_MS);
@@ -1277,6 +1286,7 @@ function unblockIp(ipAddress, unblockedBy = null) {
 // ═══════════════════════════════════════════════════
 
 module.exports = {
+    initSecurityTables,
     // Configuración
     SECURITY_CONFIG,
     ROLES,

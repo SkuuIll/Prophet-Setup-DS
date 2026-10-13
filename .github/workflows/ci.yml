@@ -18,6 +18,11 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      # Evita rate-limit de GitHub API al descargar yt-dlp en runners compartidos.
+      # Las pruebas no requieren el ejecutable; el despliegue del VPS sí lo instala.
       - run: npm ci
+        env:
+          YOUTUBE_DL_SKIP_DOWNLOAD: 'true'
+      - run: bash -n scripts/deploy.sh scripts/auto_update.sh
       - run: npm run verify
       - run: npm run audit:prod

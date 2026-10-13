@@ -2,8 +2,9 @@
 
 ## Estado y salud
 
-- `pm2 list` muestra `ProphetBot` y `ProphetLavalink`.
+- `pm2 list` muestra `ProphetBot`, `ProphetLavalink`, `ProphetMusic` y `ProphetGames`.
 - `curl --fail http://127.0.0.1:3789/api/health` debe devolver `ok: true` y `ready: true`.
+- `curl --fail http://127.0.0.1:3850/api/games/health` debe devolver `ok: true`.
 - Lavalink solo debe escuchar en `127.0.0.1:2333`.
 - El dashboard solo debe escuchar en `127.0.0.1:3789`; Nginx puede publicarlo con TLS si se necesita acceso externo.
 
@@ -16,9 +17,9 @@
 3. descarga `origin/main` únicamente con fast-forward;
 4. instala exactamente `package-lock.json`;
 5. valida sintaxis, pruebas y vulnerabilidades críticas;
-6. recarga `ProphetBot` con PM2;
-7. exige un health check correcto;
-8. restaura la revisión anterior si falla una etapa posterior a la actualización.
+6. recarga los cuatro procesos PM2 en orden;
+7. exige health checks correctos del bot y del servidor de juegos;
+8. restaura la revisión anterior y evita reintentos repetidos de ese commit si falla.
 
 `scripts/auto_update.sh` solo llama al despliegue cuando el remoto está por delante y es descendiente directo. Los repositorios sucios, adelantados localmente o con ramas divergentes no se modifican.
 
@@ -44,3 +45,9 @@ npm run verify
 npm run audit:prod
 npm run db:backup
 ```
+
+## Autoactualización del VPS
+
+Tras fusionar los cambios a `main`, consultar [VPS_AUTO_DEPLOY.md](VPS_AUTO_DEPLOY.md).
+El administrador debe ejecutar una sola vez `npm run auto-update:install` en el VPS.
+El cron posterior revisa `origin/main` cada dos minutos. Las ramas de PR no se despliegan.

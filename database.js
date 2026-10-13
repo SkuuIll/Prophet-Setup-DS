@@ -11,6 +11,8 @@ const OLD_DB_PATH = path.join(DB_DIR, 'prophet.json');
 const DB_PATH = path.join(DB_DIR, 'prophet.sqlite');
 
 const db = new Database(DB_PATH);
+// Esperar brevemente al escritor en lugar de fallar durante migraciones concurrentes.
+db.pragma('busy_timeout = 10000');
 db.pragma('journal_mode = WAL');
 
 // ─── INITIALIZATION ───

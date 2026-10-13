@@ -1,5 +1,6 @@
 const { EmbedBuilder, PermissionFlagsBits, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const config = require('../config');
+const { getSelfAssignableRoleError } = require('../utils/selfAssignableRoles');
 const { stmts } = require('../database');
 const { abrirTicket, cerrarTicket } = require('../modules/tickets');
 const { participarSorteo } = require('../modules/giveaways');
@@ -118,7 +119,7 @@ module.exports = {
                     const errorEmbed = new EmbedBuilder()
                         .setColor(config.COLORES.ERROR || 0xEF5350)
                         .setAuthor({ name: '⚠️  Error del sistema' })
-                        .setDescription(`> Ocurrió un error al ejecutar \`/${interaction.commandName}\`.\n\`\`\`\n${error.message}\n\`\`\``);
+                        .setDescription(`> No se pudo completar \`/${interaction.commandName}\`. Intentá nuevamente y, si continúa, avisá al Staff.`);
                     if (interaction.replied || interaction.deferred) await interaction.followUp({ embeds: [errorEmbed], flags: 64 });
                     else await interaction.reply({ embeds: [errorEmbed], flags: 64 });
                 }
@@ -194,29 +195,11 @@ module.exports = {
 
                     const role = guild.roles.cache.get(roleId);
                     if (!role) return interaction.reply({ content: '> ❌ Rol no encontrado.', flags: 64 });
-                    const rolesProtegidos = [config.ROLES.PROPHET, config.ROLES.STAFF, config.ROLES.MODERADOR, config.ROLES.VIP, config.ROLES.BOTS].filter(Boolean);
-                    const roleNameLower = role.name.toLowerCase();
-                    const isProtected = rolesProtegidos.includes(role.id) || 
-                                        rolesProtegidos.includes(role.name) ||
-                                        roleNameLower.includes('vip') ||
-                                        roleNameLower.includes('staff') ||
-                                        roleNameLower.includes('moderador') ||
-                                        roleNameLower.includes('admin');
-                    if (isProtected) {
-                        return interaction.reply({ content: `> 🚫 **Acceso restringido** — El rol **${role.name}** no es auto-asignable.`, flags: 64 });
-                    }
-                    
-                    // Capa de Seguridad Extra: Bloquear automáticamente roles con permisos altos, sin importar su nombre
-                    const permisosPeligrosos = [
-                        PermissionFlagsBits.Administrator,
-                        PermissionFlagsBits.ManageGuild,
-                        PermissionFlagsBits.ManageRoles,
-                        PermissionFlagsBits.ManageChannels,
-                        PermissionFlagsBits.BanMembers
-                    ];
-                    
-                    if (permisosPeligrosos.some(p => role.permissions.has(p))) {
-                        return interaction.reply({ content: `> 🛡️ **Seguridad del Sistema** — El rol **${role.name}** tiene permisos avanzados y el bot no permite repartirlo mediante auto-roles automáticos por protección.`, flags: 64 });
+                    const rolesProtegidos = [config.ROLES.PROPHET, config.ROLES.STAFF,
+                        config.ROLES.MODERADOR, config.ROLES.VIP, config.ROLES.BOTS];
+                    const roleError = getSelfAssignableRoleError(role, guild, rolesProtegidos);
+                    if (roleError) {
+                        return interaction.reply({ content: `> 🚫 ${roleError}`, flags: 64 });
                     }
 
                     if (member.roles.cache.has(roleId)) {
@@ -345,25 +328,24 @@ module.exports = {
                         if (!rid) continue;
                         if (values.includes(key)) {
                             if (!member.roles.cache.has(rid)) {
-                                const rolesProtegidos = [config.ROLES.PROPHET, config.ROLES.STAFF, config.ROLES.MODERADOR, config.ROLES.VIP, config.ROLES.BOTS].filter(Boolean);
                                 const roleObj = guild.roles.cache.get(rid);
-                                const roleNameLower = roleObj ? roleObj.name.toLowerCase() : '';
-                                const isProtected = rolesProtegidos.includes(rid) || 
-                                                    (roleObj && rolesProtegidos.includes(roleObj.name)) ||
-                                                    roleNameLower.includes('vip') ||
-                                                    roleNameLower.includes('staff') ||
-                                                    roleNameLower.includes('moderador') ||
-                                                    roleNameLower.includes('admin');
-                                if (isProtected) {
-                                    console.error(`⚠️ ALERTA: Intento de auto-asignación bloqueado para rol protegido: ${rid}`);
+                                const protectedRoles = [config.ROLES.PROPHET, config.ROLES.STAFF,
+                                    config.ROLES.MODERADOR, config.ROLES.VIP, config.ROLES.BOTS];
+                                const roleError = getSelfAssignableRoleError(roleObj, guild, protectedRoles);
+                                if (roleError) {
+                                    console.warn(`[AutoRoles] Rol no autoasignable ${rid}: ${roleError}`);
                                     continue;
                                 }
                                 await member.roles.add(rid);
                                 assigned.push(guild.roles.cache.get(rid).name);
                             }
                         } else if (member.roles.cache.has(rid)) {
+                            const roleObj = guild.roles.cache.get(rid);
+                            const protectedRoles = [config.ROLES.PROPHET, config.ROLES.STAFF,
+                                config.ROLES.MODERADOR, config.ROLES.VIP, config.ROLES.BOTS];
+                            if (getSelfAssignableRoleError(roleObj, guild, protectedRoles)) continue;
                             await member.roles.remove(rid);
-                            removed.push(guild.roles.cache.get(rid).name);
+                            removed.push(roleObj.name);
                         }
                     }
                     return interaction.reply({ content: `✅ Roles actualizados. +${assigned.length} -${removed.length}`, flags: 64 });
@@ -375,7 +357,7 @@ module.exports = {
             const errorEmbed = new EmbedBuilder()
                 .setColor(config.COLORES.ERROR || 0xEF5350)
                 .setAuthor({ name: '⚠️  Error del sistema' })
-                .setDescription(`> Se produjo un error inesperado al procesar esta acción.\n\`\`\`\n${error.message.substring(0, 500)}\n\`\`\``)
+                .setDescription('> No pudimos procesar esta acción. Intentá de nuevo o contactá al Staff si sigue ocurriendo.')
                 .setFooter({ text: 'Prophet Bot  ·  Global Handler' });
             try {
                 if (interaction.replied || interaction.deferred) await interaction.followUp({ embeds: [errorEmbed], flags: 64 });

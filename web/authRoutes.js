@@ -391,7 +391,11 @@ async function handleUpdateUser(req, res) {
         params.push(userId);
         
         _db.prepare(`UPDATE dashboard_users SET ${setClause.join(', ')} WHERE id = ?`).run(...params);
-        
+        // Los JWT previos conservan el rol anterior. Invalidarlos en cuanto cambian los permisos.
+        if (updates.role !== undefined && updates.role !== targetUser.role) {
+            security.revokeUserSessions(userId);
+        }
+
         security.auditLog('user_updated', {
             userId: req.user.id,
             ipAddress,
@@ -439,8 +443,10 @@ async function handleDeleteUser(req, res) {
             return;
         }
         
+        // Revocar explícitamente sesiones y refresh tokens antes de borrar el usuario.
+        security.revokeUserSessions(userId);
         _db.prepare('DELETE FROM dashboard_users WHERE id = ?').run(userId);
-        
+
         security.auditLog('user_deleted', {
             userId: req.user.id,
             ipAddress,

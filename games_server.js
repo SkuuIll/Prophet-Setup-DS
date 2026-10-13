@@ -8,6 +8,9 @@ require('dotenv').config();
 const AuthManager = require('./games/common/authManager');
 const EconomyBridge = require('./games/common/economyBridge');
 const DiscordActivityAuth = require('./games/common/discordActivityAuth');
+const { isLocalDemoAllowed } = require('./games/common/websocketSecurity');
+const { resolvePublicFile } = require('./games/common/publicFilePath');
+const { internalSecretReady, verifyInternalSecret, validDiscordUserId } = require('./games/common/internalTokenAuth');
 const TycoonEngine = require('./games/tycoon/tycoonEngine');
 const CrashEngine = require('./games/casino/crashEngine');
 const RouletteEngine = require('./games/casino/rouletteEngine');
@@ -19,6 +22,8 @@ const UnoEngine = require('./games/cards/unoEngine');
 const SurvivorEngine = require('./games/survivor/survivorEngine');
 
 const PORT = parseInt(process.env.GAMES_PORT || '3850', 10);
+// Se conserva el bind anterior; para usar un reverse proxy configurá GAMES_BIND_HOST=127.0.0.1.
+const BIND_HOST = process.env.GAMES_BIND_HOST || '0.0.0.0';
 const GAMES_DIR = path.join(__dirname, 'web', 'public', 'games');
 const ASSETS_DIR = path.join(__dirname, 'assets');
 
@@ -41,22 +46,41 @@ const MIME_TYPES = {
 
 function readJsonBody(req) {
     return new Promise((resolve, reject) => {
-        let body = '';
+        const chunks = [];
+        let size = 0;
+        let rejected = false;
+        const rejectOnce = error => {
+            if (rejected) return;
+            rejected = true;
+            reject(error);
+        };
         req.on('data', chunk => {
-            body += chunk;
-            if (body.length > 1e6) {
-                reject(new Error('Body demasiado grande'));
-                req.destroy();
+            if (rejected) return;
+            size += chunk.length;
+            if (size > 64 * 1024) {
+                rejectOnce(new Error('Body demasiado grande (máx. 64 KiB)'));
+                // Dejar terminar la lectura; la respuesta de error debe llegar al cliente.
+                req.resume();
+                return;
             }
+            chunks.push(chunk);
         });
         req.on('end', () => {
+            if (rejected) return;
             try {
-                resolve(body ? JSON.parse(body) : {});
-            } catch (e) {
-                reject(new Error('JSON inválido'));
+                const body = Buffer.concat(chunks).toString('utf8');
+                const parsed = body ? JSON.parse(body) : {};
+                if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+                    rejectOnce(new Error('Se esperaba un objeto JSON'));
+                    return;
+                }
+                resolve(parsed);
+            } catch {
+                rejectOnce(new Error('JSON inválido'));
             }
         });
-        req.on('error', reject);
+        req.on('error', rejectOnce);
+        req.on('aborted', () => rejectOnce(new Error('Solicitud interrumpida')));
     });
 }
 
@@ -72,6 +96,9 @@ const server = http.createServer(async (req, res) => {
         res.setHeader('Access-Control-Allow-Origin', '*');
         res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
         res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+        res.setHeader('X-Content-Type-Options', 'nosniff');
+        res.setHeader('Referrer-Policy', 'no-referrer');
+        if (req.url?.includes('/api/')) res.setHeader('Cache-Control', 'no-store');
         // Permitir embebido en Discord
         res.setHeader('Content-Security-Policy',
             "frame-ancestors https://discord.com https://*.discord.com https://discordapp.com https://*.discordapp.com https://*.discordsays.com;"
@@ -109,6 +136,11 @@ const server = http.createServer(async (req, res) => {
         // Log útil para depurar launches de Activity (sin body/secretos)
         if (!pathname.match(/\.(css|js|mjs|png|jpg|svg|ico|woff2?)$/i)) {
             console.log(`[HTTP] ${req.method} ${pathname} host=${req.headers.host || '-'} ua=${(req.headers['user-agent'] || '').slice(0, 60)}`);
+        }
+
+        // Endpoint de salud local para despliegues y supervisión.
+        if (pathname === '/api/games/health' && req.method === 'GET') {
+            return sendJson(res, 200, { ok: true, service: 'ProphetGames' });
         }
 
         // ─── API: config pública Activity ───
@@ -213,14 +245,17 @@ const server = http.createServer(async (req, res) => {
         if ((pathname === '/api/games/create-token' || pathname === '/.proxy/api/games/create-token')
             && req.method === 'POST') {
             try {
-                const data = await readJsonBody(req);
-                // Solo permitir create-token desde bots internos con secret
+                // La ausencia del secreto JAMÁS debe habilitar la creación anónima de sesiones.
                 const internalSecret = process.env.GAMES_INTERNAL_SECRET || '';
-                if (internalSecret && data.secret !== internalSecret) {
+                if (!internalSecretReady(internalSecret)) {
+                    return sendJson(res, 503, { error: 'Servicio interno no configurado' });
+                }
+                const data = await readJsonBody(req);
+                if (!verifyInternalSecret(internalSecret, data.secret)) {
                     return sendJson(res, 403, { error: 'No autorizado' });
                 }
-                if (!data.userId) {
-                    return sendJson(res, 400, { error: 'Falta userId' });
+                if (!validDiscordUserId(data.userId)) {
+                    return sendJson(res, 400, { error: 'userId de Discord inválido' });
                 }
                 const token = AuthManager.createSession(data.userId, data.ttlMinutes || 120);
                 return sendJson(res, 200, { token });
@@ -231,9 +266,9 @@ const server = http.createServer(async (req, res) => {
 
         // ─── STATIC: /assets/* (logo, banners del bot) ───
         if (pathname.startsWith('/assets/')) {
-            const assetRel = path.normalize(pathname.replace(/^\/assets\//, '')).replace(/^(\.\.[\/\\])+/, '');
-            const assetPath = path.resolve(ASSETS_DIR, assetRel);
-            if (assetPath.startsWith(ASSETS_DIR) && fs.existsSync(assetPath) && fs.statSync(assetPath).isFile()) {
+            const assetRel = pathname.slice('/assets/'.length);
+            const assetPath = resolvePublicFile(ASSETS_DIR, assetRel);
+            if (assetPath) {
                 const ext = path.extname(assetPath).toLowerCase();
                 res.writeHead(200, {
                     'Content-Type': MIME_TYPES[ext] || 'application/octet-stream',
@@ -285,21 +320,8 @@ const server = http.createServer(async (req, res) => {
         if (pathname.startsWith('/vendor/')) {
             relativePath = pathname.replace(/^\//, '');
         }
-        let safePath = path.normalize(relativePath).replace(/^(\.\.[\/\\])+/, '').replace(/^[/\\]+/, '');
-        let filePath = path.resolve(GAMES_DIR, safePath);
-
-        // Validar que no se salga de GAMES_DIR
-        if (!filePath.startsWith(GAMES_DIR)) {
-            res.writeHead(403, { 'Content-Type': 'text/plain; charset=utf-8' });
-            return res.end('403 - Forbidden');
-        }
-
-        // Si es directorio, buscar index.html
-        if (fs.existsSync(filePath) && fs.statSync(filePath).isDirectory()) {
-            filePath = path.join(filePath, 'index.html');
-        }
-
-        if (!fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) {
+        const filePath = resolvePublicFile(GAMES_DIR, relativePath);
+        if (!filePath) {
             res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
             return res.end('404 - Prophet Games: Archivo no encontrado');
         }
@@ -324,7 +346,8 @@ const server = http.createServer(async (req, res) => {
 
 // ═══ SERVIDOR WEBSOCKET PARA JUEGOS EN TIEMPO REAL ═══
 // Acepta /ws y /.proxy/ws (proxy de Discord Activities)
-const wss = new WebSocket.Server({ noServer: true });
+// Limitar consumo de memoria ante clientes maliciosos o errores del frontend.
+const wss = new WebSocket.Server({ noServer: true, maxPayload: 64 * 1024, perMessageDeflate: false });
 
 server.on('upgrade', (request, socket, head) => {
     try {
@@ -397,8 +420,15 @@ UnoEngine.setPersonalBroadcast((tableId, buildForUser) => {
     });
 });
 
-wss.on('connection', (ws) => {
+wss.on('connection', (ws, request) => {
     let sessionUser = null;
+    // Demos solo para desarrollo local, nunca en producción ni expuestas a Internet.
+    const address = request?.socket?.remoteAddress || '';
+    const allowDemo = isLocalDemoAllowed({
+        enabled: process.env.GAMES_DEMO_ENABLED,
+        nodeEnv: process.env.NODE_ENV,
+        address,
+    });
     ws.isAlive = true;
 
     ws.on('pong', () => {
@@ -411,6 +441,12 @@ wss.on('connection', (ws) => {
 
             // 1. Autenticación Inicial
             if (data.type === 'auth') {
+                // Al cambiar de cuenta, nunca conservar salas o partidas anteriores.
+                sessionUser = null;
+                ws.userId = null;
+                ws.currentRoomId = null;
+                ws.currentTableId = null;
+                ws.currentUnoTableId = null;
                 const rawToken = data.token;
                 const session = AuthManager.validateToken(rawToken);
 
@@ -427,7 +463,7 @@ wss.on('connection', (ws) => {
 
                 if (!session) {
                     // Demo solo si el cliente lo pide explícitamente (browser local)
-                    if (rawToken === 'demo_token' || !rawToken) {
+                    if (allowDemo && (rawToken === 'demo_token' || !rawToken)) {
                         const demoName = clientHintName && clientHintName !== 'Demo'
                             ? clientHintName
                             : 'Demo';
@@ -497,7 +533,17 @@ wss.on('connection', (ws) => {
 
             // Exigir autenticación para el resto de acciones
             if (!sessionUser) {
-                ws.send(JSON.stringify({ type: 'error', message: 'No autenticado. Envía { type: "auth", token: "..." } primero' }));
+                ws.send(JSON.stringify({ type: 'error', message: 'No autenticado. Enviá primero tu token de sesión.' }));
+                return;
+            }
+
+            if (sessionUser.token && !AuthManager.validateToken(sessionUser.token)) {
+                sessionUser = null;
+                ws.userId = null;
+                ws.currentRoomId = null;
+                ws.currentTableId = null;
+                ws.currentUnoTableId = null;
+                ws.send(JSON.stringify({ type: 'auth_error', message: 'Tu sesión expiró. Volvé a abrir la Activity.' }));
                 return;
             }
 
@@ -776,9 +822,12 @@ wss.on('close', () => {
     clearInterval(interval);
 });
 
-server.listen(PORT, () => {
+server.listen(PORT, BIND_HOST, () => {
     const cfg = DiscordActivityAuth.getPublicConfig();
-    console.log(`🎮 Prophet Games Hub & WebSocket server corriendo en el puerto ${PORT}`);
+    console.log(`🎮 Prophet Games Hub & WebSocket server corriendo en ${BIND_HOST}:${PORT}`);
+    if (BIND_HOST === '0.0.0.0' || BIND_HOST === '::') {
+        console.warn('⚠️ Games escucha en interfaces públicas. Usá HTTPS y un proxy/firewall; considerá GAMES_BIND_HOST=127.0.0.1.');
+    }
     console.log(`🌐 Acceso local: http://127.0.0.1:${PORT}/games/`);
     console.log(`🎯 Discord Activity entry: http://127.0.0.1:${PORT}/`);
     if (cfg.oauthReady) {

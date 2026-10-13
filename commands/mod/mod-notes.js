@@ -3,7 +3,7 @@
 // Prophet Bot v2.9
 // ═══════════════════════════════════════════════════════════════
 
-const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits } = require('discord.js');
 const { addModNote, getUserModNotes, deleteModNote, logSecurityEvent } = require('../../modules/advancedMod');
 
 module.exports = {
@@ -45,11 +45,12 @@ module.exports = {
                 .addIntegerOption(opt =>
                     opt.setName('id')
                         .setDescription('ID de la nota a eliminar')
-                        .setRequired(true))),
+                        .setRequired(true)))
+        .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers),
 
     async execute(interaction) {
         // Verificar permisos
-        if (!interaction.member.permissions.has('ModerateMembers')) {
+        if (!interaction.inGuild?.() || !interaction.memberPermissions?.has(PermissionFlagsBits.ModerateMembers)) {
             return interaction.reply({
                 content: '❌ No tenés permisos para usar este comando.',
                 ephemeral: true

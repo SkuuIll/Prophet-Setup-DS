@@ -11,6 +11,7 @@ const schedule = require('node-schedule');
 const config = require('./config');
 const { startDashboardServer } = require('./web/secureServer');
 const { captureChannelBaseValues, applyChannelOverridesToConfig } = require('./utils/runtimeConfig');
+const { inspectMemberNotifications } = require('./utils/memberNotificationDiagnostics');
 
 // ═══ CREAR CLIENTE ═══
 const client = new Client({
@@ -68,9 +69,9 @@ function cargarEventos() {
     for (const archivo of archivos) {
         const evento = require(path.join(__dirname, 'events', archivo));
         if (evento.once) {
-            client.once(evento.name, (...args) => evento.execute(...args, client));
+            client.once(evento.name, (...args) => Promise.resolve().then(() => evento.execute(...args, client)).catch(err => console.error(`[Evento ${evento.name}]`, err)));
         } else {
-            client.on(evento.name, (...args) => evento.execute(...args, client));
+            client.on(evento.name, (...args) => Promise.resolve().then(() => evento.execute(...args, client)).catch(err => console.error(`[Evento ${evento.name}]`, err)));
         }
         total++;
     }
@@ -205,6 +206,7 @@ client.once('clientReady', async () => {
     await resolverIDs(guild);
     captureChannelBaseValues();
     applyChannelOverridesToConfig();
+    await inspectMemberNotifications(guild);
     await registrarComandos();
 
     // Inicializar sistema de perfiles avanzados

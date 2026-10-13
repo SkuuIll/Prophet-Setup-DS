@@ -21,6 +21,23 @@ Música · Moderación · Economía · Niveles · Mini-juegos · Utilidades — 
 
 ---
 
+## Despliegue automático y reparación (2026)
+
+**Plan general de trabajo:** [Plan maestro de Prophet Bot](docs/MASTER_PLAN.md).
+El [informe inicial de seguridad](docs/SECURITY_AUDIT.md) explica las\nrutas, problemas encontrados y riesgos pendientes.\nEl [inventario de revisión](docs/FILE_REVIEW_INVENTORY.csv) permite seguir
+archivo por archivo qué falta examinar. Las correcciones de la primera etapa
+están registradas en [REFACTOR_PLAN.md](docs/REFACTOR_PLAN.md).
+
+El despliegue en el VPS se hará **una sola vez al final, cuando la versión esté
+aceptada**. La guía de despliegue y autoactualización está en
+[docs/VPS_AUTO_DEPLOY.md](docs/VPS_AUTO_DEPLOY.md). El auto-update no se
+activa hasta instalar su cron una vez en el VPS.
+
+Para comprobar los banners de entrada y salida, un administrador puede usar
+`/probar-notificaciones`. No registra ingresos ni bajas ficticias.
+
+---
+
 ## 📋 Tabla de contenidos
 
 - [Descripción](#-descripción)
