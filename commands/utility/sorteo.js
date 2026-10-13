@@ -1,6 +1,7 @@
 // ═══ COMANDO: /sorteo ═══
 const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
 const { crearSorteo } = require('../../modules/giveaways');
+const { makeEmbed, notice } = require('../../utils/discordUI');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -15,6 +16,13 @@ module.exports = {
         .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
 
     async execute(interaction) {
+        if (!interaction.inGuild?.() || !interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
+            return interaction.reply(notice({
+                title: 'Sin permisos',
+                description: 'Necesitás administrar el servidor para crear sorteos.',
+                tone: 'error',
+            }));
+        }
         const premio = interaction.options.getString('premio');
         const duracionStr = interaction.options.getString('duracion');
         const winners = interaction.options.getInteger('ganadores') || 1;
@@ -25,7 +33,7 @@ module.exports = {
         // Parsear duración
         const match = duracionStr.match(/^(\d+)(m|h|d)$/i);
         if (!match) {
-            return interaction.reply({ content: '❌ Formato inválido. Usá: `1h`, `30m`, `1d`', ephemeral: true });
+            return interaction.reply(notice({ title: 'Duración inválida', description: 'Usá 1h, 30m o 1d (entre 1 minuto y 7 días).', tone: 'error' }));
         }
 
         const valor = parseInt(match[1]);
@@ -33,8 +41,8 @@ module.exports = {
         const multiplicadores = { m: 60000, h: 3600000, d: 86400000 };
         const duracionMs = valor * multiplicadores[unidad];
 
-        if (duracionMs > 604800000) {
-            return interaction.reply({ content: '❌ Máximo 7 días.', ephemeral: true });
+        if (!Number.isSafeInteger(duracionMs) || duracionMs < 60000 || duracionMs > 604800000) {
+            return interaction.reply(notice({ title: 'Duración inválida', description: 'Elegí entre 1 minuto y 7 días.', tone: 'error' }));
         }
 
         // Construir requisitos
@@ -55,13 +63,29 @@ module.exports = {
             reqTexts.push(`📅 **${antiguedadDias}** días en el server`);
         }
 
-        await interaction.deferReply({ ephemeral: true });
-        await crearSorteo(interaction.channel, premio, duracionMs, interaction.user.id, winners, requirements);
-
-        let reply = `✅ Sorteo creado!`;
-        if (winners > 1) reply += ` (${winners} ganadores)`;
-        if (reqTexts.length > 0) reply += `\n> 📋 Requisitos: ${reqTexts.join(' · ')}`;
-
-        await interaction.editReply({ content: reply });
+        await interaction.deferReply({ flags: 64 });
+        try {
+            await crearSorteo(interaction.channel, premio, duracionMs, interaction.user.id, winners, requirements);
+        } catch (error) {
+            console.error('[Sorteo] Error al crearlo:', error);
+            return interaction.editReply({
+                embeds: [makeEmbed({
+                    title: 'No se pudo crear el sorteo',
+                    description: 'Comprobá los permisos del bot en este canal e intentá nuevamente.',
+                    tone: 'error',
+                })],
+            });
+        }
+        return interaction.editReply({
+            embeds: [makeEmbed({
+                title: 'Sorteo creado',
+                description: '**Premio:** ' + premio.slice(0, 200)
+                    + '\\n**Ganadores:** ' + winners
+                    + '\\n**Requisitos:** ' + (reqTexts.length ? reqTexts.join(' · ') : 'Sin requisitos adicionales'),
+                tone: 'success',
+                footer: 'Sorteos · Publicado en este canal',
+            })],
+            allowedMentions: { parse: [] },
+        });
     }
 };
