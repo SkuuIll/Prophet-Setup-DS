@@ -63,10 +63,15 @@ module.exports = {
         const reward = Math.floor(Math.random() * (config.ECONOMIA.DAILY_MAX - config.ECONOMIA.DAILY_MIN + 1)) + config.ECONOMIA.DAILY_MIN;
         const frase = DAILY_FRASES[Math.floor(Math.random() * DAILY_FRASES.length)];
 
-        stmts.addMoney(userId, reward, 'balance');
-        stmts.setEconomy(userId, 'last_daily', ahora);
-
-        const nuevoSaldo = stmts.getEconomy(userId);
+        // Claim atómico: dos interacciones simultáneas no deben dar dos premios.
+        const claim = stmts.claimTimedReward(userId, 'daily', reward, ahora, cooldown);
+        if (!claim.success) {
+            return interaction.reply({
+                content: '⏳ Esta recompensa ya fue reclamada recientemente o tu saldo llegó al máximo.',
+                flags: 64
+            });
+        }
+        const nuevoSaldo = { balance: claim.balance };
 
         // Racha de días consecutivos
         const user = stmts.getUser(userId);
