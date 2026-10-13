@@ -1,7 +1,8 @@
 // ═══ COMANDO: /daily ═══
-const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder } = require('discord.js');
 const { stmts } = require('../../database');
 const config = require('../../config');
+const { makeEmbed, notice } = require('../../utils/discordUI');
 
 const DAILY_FRASES = [
     '☀️ ¡Nuevo día, nuevas oportunidades!',
@@ -29,73 +30,45 @@ const DAILY_FRASES = [
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('daily')
-        .setDescription('📅 Reclamar tu recompensa diaria'),
-
+        .setDescription('Reclamar tu recompensa diaria'),
     async execute(interaction) {
         const userId = interaction.user.id;
-        const eco = stmts.getEconomy(userId);
-        const ahora = Date.now();
+        const now = Date.now();
         const cooldown = config.ECONOMIA.DAILY_COOLDOWN;
-
-        if (ahora - eco.last_daily < cooldown) {
-            const restante = cooldown - (ahora - eco.last_daily);
-            const horas = Math.floor(restante / 3600000);
-            const minutos = Math.floor((restante % 3600000) / 60000);
-
-            // Barra de progreso del cooldown
-            const totalMs = cooldown;
-            const pasado = totalMs - restante;
-            const pct = Math.round((pasado / totalMs) * 10);
-            const barraCD = '🟩'.repeat(pct) + '⬛'.repeat(10 - pct);
-
-            const embed = new EmbedBuilder()
-                .setColor(config.COLORES.WARN || 0xFFB74D)
-                .setAuthor({ name: '📅  Daily · Todavía no es la hora', iconURL: interaction.user.displayAvatarURL() })
-                .setDescription(
-                    `> ⏳ **Volvé en ${horas > 0 ? `${horas}h ` : ''}${minutos}m** para reclamar tu próxima recompensa.\n\n` +
-                    `> Progreso del cooldown:\n` +
-                    `> ${barraCD} \`${Math.round((pasado / totalMs) * 100)}%\``
-                )
-                .setFooter({ text: 'Prophet Economy  ·  Una recompensa por día' });
-            return interaction.reply({ embeds: [embed], ephemeral: true });
+        const wallet = stmts.getEconomy(userId);
+        const until = (wallet.last_daily || 0) + cooldown;
+        if (now < until) {
+            return interaction.reply(notice({
+                title: 'Recompensa diaria en espera',
+                description: 'Ya reclamaste tu recompensa. Volvé <t:' + Math.floor(until / 1000) + ':R>.',
+                tone: 'warning',
+            }));
         }
 
-        const reward = Math.floor(Math.random() * (config.ECONOMIA.DAILY_MAX - config.ECONOMIA.DAILY_MIN + 1)) + config.ECONOMIA.DAILY_MIN;
-        const frase = DAILY_FRASES[Math.floor(Math.random() * DAILY_FRASES.length)];
-
-        // Claim atómico: dos interacciones simultáneas no deben dar dos premios.
-        const claim = stmts.claimTimedReward(userId, 'daily', reward, ahora, cooldown);
+        const coins = Math.floor(Math.random() *
+            (config.ECONOMIA.DAILY_MAX - config.ECONOMIA.DAILY_MIN + 1)) + config.ECONOMIA.DAILY_MIN;
+        const claim = stmts.claimTimedReward(userId, 'daily', coins, now, cooldown);
         if (!claim.success) {
-            return interaction.reply({
-                content: '⏳ Esta recompensa ya fue reclamada recientemente o tu saldo llegó al máximo.',
-                flags: 64
-            });
+            return interaction.reply(notice({
+                title: 'No se pudo reclamar',
+                description: 'Es posible que ya hayas cobrado tu recompensa o que tu saldo haya alcanzado el límite.',
+                tone: 'warning',
+            }));
         }
-        const nuevoSaldo = { balance: claim.balance };
-
-        // Racha de días consecutivos
-        const user = stmts.getUser(userId);
-        const streak = user?.message_streak || 0;
-        const streakText = streak >= 7
-            ? `\n> 🔥🔥 **Racha ÉPICA:** ${streak} días seguidos — ¡imparable!`
-            : streak >= 3
-            ? `\n> 🔥 **Racha activa:** ${streak} días seguidos — ¡así se hace!`
-            : streak >= 1
-            ? `\n> ✅ Llevas **${streak} día${streak > 1 ? 's' : ''}** seguido${streak > 1 ? 's' : ''}.`
-            : '';
-
-        const embed = new EmbedBuilder()
-            .setColor(config.COLORES.SUCCESS || 0x69F0AE)
-            .setAuthor({ name: '📅  Recompensa Diaria · ¡Reclamada!', iconURL: interaction.user.displayAvatarURL() })
-            .setDescription(
-                `> ${frase}\n\n` +
-                `> 🎁 **+${config.ECONOMIA.CURRENCY} ${reward.toLocaleString()}** recibidos\n` +
-                `> 💵 Saldo actual: **${config.ECONOMIA.CURRENCY} ${nuevoSaldo.balance.toLocaleString()}**` +
-                streakText
-            )
-            .setFooter({ text: 'Prophet Economy  ·  Volvé mañana por más' })
-            .setTimestamp();
-
-        await interaction.reply({ embeds: [embed] });
-    }
+        const phrase = DAILY_FRASES[Math.floor(Math.random() * DAILY_FRASES.length)];
+        return interaction.reply({
+            embeds: [makeEmbed({
+                title: 'Recompensa diaria recibida',
+                tone: 'success',
+                description: phrase + '\\nEl premio ya fue acreditado en tu cartera.',
+                fields: [
+                    { name: 'Recompensa', value: '**+' + config.ECONOMIA.CURRENCY + ' ' + coins.toLocaleString('es-AR') + '**', inline: true },
+                    { name: 'Saldo disponible', value: '**' + config.ECONOMIA.CURRENCY + ' ' + claim.balance.toLocaleString('es-AR') + '**', inline: true },
+                    { name: 'Próxima recompensa', value: '<t:' + Math.floor((now + cooldown) / 1000) + ':R>' },
+                ],
+                footer: 'Economía · /work · /balance',
+                iconURL: interaction.user.displayAvatarURL?.(),
+            })],
+        });
+    },
 };
