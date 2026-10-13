@@ -196,14 +196,24 @@ async function cerrarTicket(interaction) {
             await logChannel.send({ embeds: [logEmbed], files: [attachment] });
         }
     } catch (e) {
-        console.error('Error generando transcript:', e);
+        console.error('Error generando transcript HTML:', e.message);
         const logChannel = interaction.guild.channels.cache.get(config.CHANNELS.LOGS);
         if (logChannel) {
+            let fallback;
+            try {
+                const { createPlainTicketTranscript } = require('../utils/ticketTranscript');
+                fallback = await createPlainTicketTranscript(channel, ticket.user_id);
+            } catch (fallbackError) {
+                console.error('Error generando transcript de respaldo:', fallbackError.message);
+            }
             const logEmbed = new EmbedBuilder()
                 .setColor(config.COLORES.ERROR)
-                .setDescription(`🎫 **Ticket cerrado** por ${interaction.user.tag} (usuario: <@${ticket.user_id}>)\n*Hubo un error al generar el transcript.*`)
+                .setDescription(`🎫 **Ticket cerrado** por ${interaction.user.tag} (usuario: <@${ticket.user_id}>)\n${fallback ? '*Historial de respaldo adjunto en texto.*' : '*No fue posible exportar el historial.*'}`)
                 .setTimestamp();
-            logChannel.send({ embeds: [logEmbed] });
+            await logChannel.send({
+                embeds: [logEmbed],
+                ...(fallback ? { files: [fallback] } : {}),
+            }).catch(error => console.error('Error enviando log de ticket:', error.message));
         }
     }
 
