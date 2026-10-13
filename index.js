@@ -53,6 +53,7 @@ function cargarComandos() {
         for (const archivo of archivos) {
             const comando = require(path.join(rutaCarpeta, archivo));
             if (comando.data && comando.execute) {
+                comando.category = carpeta; // Para /ayuda: catálogo real, no listas manuales.
                 client.commands.set(comando.data.name, comando);
                 total++;
             }
