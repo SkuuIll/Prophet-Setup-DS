@@ -50,7 +50,7 @@ test('El menú principal no anuncia comandos administrativos que no puedo usar',
     const view = help._test.viewFor(client, { username: 'Jugador' }, normal, 'home');
     assert.ok(!view.options.some(x => x.id === 'moderation'));
     assert.ok(!view.options.some(x => x.id === 'admin'));
-    assert.match(view.embed.data.description, /Prophet/);
+    assert.match(view.embed.data.title, /Prophet/);
     const music = help._test.getCategoryCommands(client, 'music', normal);
     assert.ok(music.some(x => x.name === 'play'));
 });
