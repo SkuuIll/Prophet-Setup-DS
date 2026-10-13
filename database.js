@@ -707,6 +707,35 @@ const stmts = {
         db.prepare(`UPDATE users SET ${targetType} = ${targetType} - ? WHERE id = ?`).run(amount, userId);
         return true;
     },
+    transferMoney(senderId, recipientId, amount) {
+        if (!Number.isSafeInteger(amount) || amount <= 0 || senderId === recipientId) {
+            return { success: false, error: 'Transferencia inválida' };
+        }
+        return db.transaction(() => {
+            db.prepare('INSERT OR IGNORE INTO users (id, balance) VALUES (?, 0)').run(recipientId);
+            const recipient = db.prepare('SELECT balance FROM users WHERE id = ?').get(recipientId);
+            if (!recipient || recipient.balance > Number.MAX_SAFE_INTEGER - amount) {
+                return { success: false, error: 'El receptor no puede recibir esa cantidad' };
+            }
+
+            // El débito es una sola operación SQL condicionada: evita gastar
+            // el mismo dinero mediante dos confirmaciones simultáneas.
+            const debited = db.prepare(
+                'UPDATE users SET balance = balance - ? WHERE id = ? AND balance >= ?'
+            ).run(amount, senderId, amount);
+            if (debited.changes !== 1) {
+                return { success: false, error: 'Fondos insuficientes' };
+            }
+            const credited = db.prepare(
+                'UPDATE users SET balance = balance + ? WHERE id = ? AND balance + ? <= ?'
+            ).run(amount, recipientId, amount, Number.MAX_SAFE_INTEGER);
+            if (credited.changes !== 1) {
+                throw new Error('No se pudo acreditar la transferencia');
+            }
+            const balance = db.prepare('SELECT balance FROM users WHERE id = ?').get(senderId).balance;
+            return { success: true, balance, recipientBalance: recipient.balance + amount };
+        })();
+    },
     setEconomy(userId, key, value) {
         const allowedKeys = ['last_daily', 'last_work'];
         if (allowedKeys.includes(key)) {
