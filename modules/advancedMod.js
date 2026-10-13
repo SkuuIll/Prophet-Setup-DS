@@ -11,24 +11,37 @@ const FAQ_DATA = [
     { question: '¿Cómo subo de nivel?', answer: 'Subís de nivel enviando mensajes y participando en el servidor. Cada mensaje te da XP, y también hay bonus por estar en canales de voz.', keywords: 'nivel,level,subir,xp,experiencia', category: 'sistema' },
     { question: '¿Cómo consigo coins?', answer: 'Podés conseguir coins con `/daily` (diario), `/work` (trabajar), ganando en `/gamble`, o siendo boosteado del servidor.', keywords: 'coins,dinero,plata,balance', category: 'economia' },
     { question: '¿Cómo uso el bot de música?', answer: 'Usá `/play` seguido del nombre de la canción o link de YouTube/Spotify. El bot se unirá a tu canal de voz y reproducirá la música.', keywords: 'musica,music,cancion,song,play', category: 'musica' },
-    { question: '¿Cómo reporto a alguien?', answer: 'Usá `/reporte @usuario razón` para reportar anónimamente al staff. También podés usar `/ticket` para soporte directo.', keywords: 'reporte,reportar,denunciar', category: 'moderacion' },
-    { question: '¿Qué comandos tiene el bot?', answer: 'Usá `/ayuda` para ver todos los comandos organizados por categoría. También podés usar `/ayuda [categoría]` para ver más detalles.', keywords: 'comandos,help,ayuda,help', category: 'general' },
-    { question: '¿Cómo cambio mi perfil?', answer: 'Usá `/perfil` para ver tu perfil y `/editar-perfil` para personalizar tu color y badge.', keywords: 'perfil,profile,color,badge', category: 'perfil' },
-    { question: '¿Cómo funcionan los recordatorios?', answer: 'Usá `/recordatorio [tiempo] [mensaje]` para que el bot te recuerde por DM. Tiempos: 10m, 1h, 2d, etc. Máximo 10 activos.', keywords: 'recordatorio,reminder,alarma', category: 'utilidades' },
+    { question: '¿Cómo reporto a alguien?', answer: 'Hacé clic derecho sobre un usuario y elegí Aplicaciones → Reportar Usuario. Para soporte privado, utilizá el panel de tickets del servidor.', keywords: 'reporte,reportar,denunciar', category: 'moderacion' },
+    { question: '¿Qué comandos tiene el bot?', answer: 'Usá `/ayuda` para abrir el catálogo interactivo. Podés elegir una sección en el menú o usar la opción `categoria`.', keywords: 'comandos,help,ayuda,help', category: 'general' },
+    { question: '¿Cómo cambio mi perfil?', answer: 'Usá `/perfil` para consultar tu perfil, `/nivel` para ver tu XP y `/misiones` para tus objetivos.', keywords: 'perfil,profile,color,badge', category: 'perfil' },
+    { question: '¿Cómo funcionan los recordatorios?', answer: 'Usá `/recordatorio` y completá sus opciones de tiempo y mensaje; el bot intentará enviarte el aviso cuando corresponda.', keywords: 'recordatorio,reminder,alarma', category: 'utilidades' },
     { question: '¿Cómo participo en sorteos?', answer: 'Los sorteos se anuncian en el servidor. Reaccioná con el emoji indicado para participar. El ganador se elige automáticamente.', keywords: 'sorteo,giveaway,regalo', category: 'eventos' },
-    { question: '¿Cómo me gano badges?', answer: 'Los badges se desbloquean con logros especiales: ser fundador, booster, veterano, ganar eventos, etc. Usá `/badges` para ver los disponibles.', keywords: 'badge,insignia,logro', category: 'perfil' },
+    { question: '¿Cómo me gano badges?', answer: 'Las insignias se consiguen mediante logros y participación. Consultá `/perfil` para ver las que ya tenés.', keywords: 'badge,insignia,logro', category: 'perfil' },
     { question: '¿Puedo cambiar el idioma del bot?', answer: 'El bot está configurado en español argentino por defecto. Algunos comandos como `/traductor` soportan múltiples idiomas.', keywords: 'idioma,language,español', category: 'general' }
 ];
 
 function initializeFAQ() {
-    const insert = db.prepare(`
-        INSERT OR IGNORE INTO faq_entries (question, answer, keywords, category, created_at)
-        VALUES (?, ?, ?, ?, ?)
-    `);
-
-    for (const faq of FAQ_DATA) {
-        insert.run(faq.question, faq.answer, faq.keywords, faq.category, Date.now());
-    }
+    // faq_entries no tiene UNIQUE(question). INSERT OR IGNORE generaba
+    // 10 copias adicionales en cada reinicio del bot.
+    const find = db.prepare(
+        'SELECT id FROM faq_entries WHERE question = ? AND category = ? ORDER BY id LIMIT 1'
+    );
+    const insert = db.prepare(
+        'INSERT INTO faq_entries (question, answer, keywords, category, created_at) VALUES (?, ?, ?, ?, ?)'
+    );
+    const update = db.prepare(
+        'UPDATE faq_entries SET answer = ?, keywords = ? WHERE question = ? AND category = ?'
+    );
+    db.transaction(() => {
+        for (const faq of FAQ_DATA) {
+            if (find.get(faq.question, faq.category)) {
+                // Corrige textos viejos sin borrar su historial de uso ni FAQs del Staff.
+                update.run(faq.answer, faq.keywords, faq.question, faq.category);
+            } else {
+                insert.run(faq.question, faq.answer, faq.keywords, faq.category, Date.now());
+            }
+        }
+    })();
 }
 
 function findFAQAnswer(query) {
