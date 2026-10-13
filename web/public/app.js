@@ -188,7 +188,19 @@ function isMutatingMethod(method = 'GET') {
     return ['POST', 'PUT', 'PATCH', 'DELETE'].includes(String(method).toUpperCase());
 }
 
+let refreshInFlight = null;
+
 async function refreshSession() {
+    // Dos peticiones simultáneas con JWT vencido comparten una sola rotación.
+    if (!refreshInFlight) {
+        refreshInFlight = refreshSessionOnce().finally(() => {
+            refreshInFlight = null;
+        });
+    }
+    return refreshInFlight;
+}
+
+async function refreshSessionOnce() {
     if (!state.refreshToken) {
         throw new Error('No hay sesión disponible para renovar.');
     }
