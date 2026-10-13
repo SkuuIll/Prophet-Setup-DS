@@ -7,6 +7,7 @@ const { stmts } = require('../database');
 const config = require('../config');
 const { notice, makeEmbed } = require('../utils/discordUI');
 const openingTickets = new Set();
+const closingTickets = new Set();
 
 /**
  * Crear el embed + botón para abrir tickets
@@ -189,6 +190,23 @@ async function abrirTicketSinDuplicados(interaction) {
  * Cerrar un ticket
  */
 async function cerrarTicket(interaction) {
+    const key = interaction.channel?.id || interaction.channelId;
+    if (closingTickets.has(key)) {
+        return interaction.reply(notice({
+            title: 'Cierre en curso',
+            description: 'El historial se está archivando. Esperá a que termine el cierre anterior.',
+            tone: 'warning',
+        }));
+    }
+    closingTickets.add(key);
+    try {
+        return await cerrarTicketSinDuplicados(interaction);
+    } finally {
+        closingTickets.delete(key);
+    }
+}
+
+async function cerrarTicketSinDuplicados(interaction) {
     const channel = interaction.channel;
     const ticket = stmts.getTicket(channel.id);
 
@@ -203,16 +221,6 @@ async function cerrarTicket(interaction) {
     }));
     let archived = false;
 
-    try {
-        const user = await interaction.client.users.fetch(ticket.user_id);
-        const embed = new EmbedBuilder()
-            .setColor(config.COLORES.INFO)
-            .setTitle('🎫 Tu ticket fue cerrado')
-            .setDescription(`Cerrado por ${interaction.user.tag}`)
-            .setFooter({ text: 'Prophet Gaming | Soporte' })
-            .setTimestamp();
-        await user.send({ embeds: [embed] });
-    } catch (e) { }
 
     try {
         const discordTranscripts = require('discord-html-transcripts');
@@ -271,6 +279,18 @@ async function cerrarTicket(interaction) {
             })],
         }).catch(() => {});
     }
+
+    try {
+        const user = await interaction.client.users.fetch(ticket.user_id);
+        const embed = new EmbedBuilder()
+            .setColor(config.COLORES.INFO)
+            .setTitle('🎫 Tu ticket fue cerrado')
+            .setDescription(`Cerrado por ${interaction.user.tag}`)
+            .setFooter({ text: 'Prophet Gaming | Soporte' })
+            .setTimestamp();
+        await user.send({ embeds: [embed] });
+    } catch (e) { }
+
 
     await interaction.editReply({
         embeds: [makeEmbed({
