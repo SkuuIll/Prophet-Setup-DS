@@ -81,7 +81,9 @@ async function healthProbe(url) {
 }
 
 async function main() {
-    const root = path.resolve(__dirname, '..');
+    const root = process.env.PROPHET_DIAGNOSTIC_ROOT
+        ? path.resolve(process.env.PROPHET_DIAGNOSTIC_ROOT)
+        : path.resolve(__dirname, '..');
     let apps = [], pm2Error = null;
     try {
         apps = JSON.parse(execFileSync('pm2', ['jlist'], {
