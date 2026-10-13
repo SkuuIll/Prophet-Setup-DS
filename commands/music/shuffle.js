@@ -1,53 +1,21 @@
-// ═══ COMANDO: /shuffle ═══
-const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder } = require('discord.js');
 const { useQueue } = require('discord-player');
-const config = require('../../config');
+const { makeEmbed } = require('../../utils/discordUI');
+const { ensureMusicController, musicNotice } = require('../../utils/musicAccess');
 
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('shuffle')
-        .setDescription('🔀 Mezclar la cola de reproducción'),
-
-    async execute(interaction, client) {
+        .setDescription('Mezclar las canciones de la cola'),
+    async execute(interaction) {
+        const denied = ensureMusicController(interaction);
+        if (denied) return interaction.reply(denied);
         const queue = useQueue(interaction.guild.id);
-
         if (!queue || !queue.isPlaying()) {
-            return interaction.reply({
-                content: '> ❌ **Sin reproducción** — No hay nada sonando en este momento.',
-                flags: 64
-            });
+            return interaction.reply(musicNotice('Sin reproducción', 'No hay una sesión de música activa. Empezá usando /play.'));
         }
-
-        const voiceChannel = interaction.member.voice.channel;
-        if (!voiceChannel || voiceChannel.id !== interaction.guild.members.me.voice.channelId) {
-            return interaction.reply({
-                content: '> ❌ **Canal incorrecto** — Tenés que estar en el mismo canal de voz que el bot para hacer esto.',
-                flags: 64
-            });
-        }
-
-        if (queue.tracks.toArray().length < 2) {
-            return interaction.reply({
-                content: '> ❌ **Pocas canciones** — Necesitás al menos 2 canciones en la cola para mezclarla.',
-                flags: 64
-            });
-        }
-
+        if (queue.tracks.toArray().length < 2) return interaction.reply(musicNotice('Cola demasiado corta', 'Agregá al menos dos canciones con /play para mezclarlas.'));
         queue.tracks.shuffle();
-
-        const embed = new EmbedBuilder()
-            .setColor(config.COLORES.SUCCESS || 0x69F0AE)
-            .setDescription('> 🔀 **Cola mezclada** — El orden de las canciones ha sido aleatorizado.')
-            .setFooter({ text: 'Prophet Music' });
-
-        await interaction.reply({ embeds: [embed] });
-
-        // Actualizar el player message
-        try {
-            const musicEngine = require('../../modules/musicEngine');
-            if (typeof musicEngine.actualizarNowPlaying === 'function') {
-                await musicEngine.actualizarNowPlaying(queue);
-            }
-        } catch (e) { }
-    }
+        return interaction.reply({ embeds: [makeEmbed({ title: 'Cola mezclada', description: 'Cambié el orden de los temas pendientes.', tone: 'music', footer: 'Prophet Music · /queue para ver el nuevo orden' })] });
+    },
 };
