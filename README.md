@@ -23,6 +23,10 @@ Música · Moderación · Economía · Niveles · Mini-juegos · Utilidades — 
 
 ## Despliegue automático y reparación (2026)
 
+**El desarrollo ahora se realiza directamente en `main`**, a pedido del propietario.
+El [PR #4](https://github.com/SkuuIll/Prophet-Setup-DS/pull/4) ya se integró.
+La VPS activa no se actualiza sin un despliegue explícito y sus backups.
+
 **Plan general de trabajo:** [Plan maestro de Prophet Bot](docs/MASTER_PLAN.md).
 El [informe inicial de seguridad](docs/SECURITY_AUDIT.md) explica las\nrutas, problemas encontrados y riesgos pendientes.\nEl [inventario de revisión](docs/FILE_REVIEW_INVENTORY.csv) permite seguir
 archivo por archivo qué falta examinar. Las correcciones de la primera etapa
