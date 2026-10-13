@@ -200,7 +200,7 @@ module.exports = {
         } catch (err) {
             console.error('[Bardeo] Error ejecutando comando de voz:', err);
             return interaction.editReply({
-                content: `❌ Ocurrió un error al intentar conectarse a la sala de voz: ${err.message}`
+                content: `❌ Ocurrió un error al intentar conectarse a la sala de voz: Los detalles se registraron para el Staff.`
             });
         }
     }

@@ -88,7 +88,7 @@ module.exports = {
                 embeds: [new EmbedBuilder()
                     .setColor(config.COLORES.ERROR)
                     .setAuthor({ name: 'CS2 Stats  ·  Error', iconURL: CS2_LOGO })
-                    .setDescription(msgs[error.message] ?? `> ❌ Error inesperado: \`${error.message}\``)
+                    .setDescription(msgs[error.message] ?? `> ❌ Error inesperado: \`Los detalles se registraron para el Staff.\``)
                     .setFooter({ text: 'Prophet Bot  ·  CS2 Stats' })
                     .setTimestamp()
                 ],

@@ -86,7 +86,7 @@ module.exports = {
         } catch (error) {
             console.error('Error generando cartel:', error);
             return interaction.editReply({ 
-                content: `❌ Error al generar el cartel: ${error.message}`, 
+                content: `❌ Error al generar el cartel: Los detalles se registraron para el Staff.`, 
                 ephemeral: true 
             });
         }

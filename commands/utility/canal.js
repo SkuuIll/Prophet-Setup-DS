@@ -193,7 +193,7 @@ async function handleCreate(interaction) {
     } catch (error) {
         console.error('Error creando canal:', error);
         await interaction.reply({
-            content: `❌ No se pudo crear el canal: ${error.message}`,
+            content: `❌ No se pudo crear el canal: Los detalles se registraron para el Staff.`,
             ephemeral: true
         });
     }
@@ -276,7 +276,7 @@ async function handleConfigure(interaction) {
     } catch (error) {
         console.error('Error configurando canal:', error);
         await interaction.reply({
-            content: `❌ Error: ${error.message}`,
+            content: `❌ Error: Los detalles se registraron para el Staff.`,
             ephemeral: true
         });
     }
@@ -324,7 +324,7 @@ async function handleInvite(interaction) {
         await interaction.reply({ embeds: [embed] });
     } catch (error) {
         await interaction.reply({
-            content: `❌ Error invitando usuario: ${error.message}`,
+            content: `❌ Error invitando usuario: Los detalles se registraron para el Staff.`,
             ephemeral: true
         });
     }
@@ -376,7 +376,7 @@ async function handleKick(interaction) {
         await interaction.reply({ embeds: [embed] });
     } catch (error) {
         await interaction.reply({
-            content: `❌ Error expulsando usuario: ${error.message}`,
+            content: `❌ Error expulsando usuario: Los detalles se registraron para el Staff.`,
             ephemeral: true
         });
     }
@@ -435,7 +435,7 @@ async function handleTransfer(interaction) {
         await interaction.reply({ embeds: [embed] });
     } catch (error) {
         await interaction.reply({
-            content: `❌ Error transfiriendo canal: ${error.message}`,
+            content: `❌ Error transfiriendo canal: Los detalles se registraron para el Staff.`,
             ephemeral: true
         });
     }

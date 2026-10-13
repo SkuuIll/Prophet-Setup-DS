@@ -138,7 +138,7 @@ module.exports = {
         } catch (error) {
             console.error('Error creando sticker:', error);
             return interaction.editReply({ 
-                content: `❌ Error al crear el sticker: ${error.message}`, 
+                content: `❌ Error al crear el sticker: Los detalles se registraron para el Staff.`, 
                 ephemeral: true 
             });
         }

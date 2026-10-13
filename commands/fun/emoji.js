@@ -141,7 +141,7 @@ module.exports = {
         } catch (error) {
             console.error('Error creando emoji:', error);
             return interaction.editReply({ 
-                content: `❌ Error al crear el emoji: ${error.message}`, 
+                content: `❌ Error al crear el emoji: Los detalles se registraron para el Staff.`, 
                 ephemeral: true 
             });
         }

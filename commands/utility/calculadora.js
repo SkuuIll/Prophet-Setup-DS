@@ -126,7 +126,7 @@ module.exports = {
             return interaction.reply({ embeds: [embed] });
         } catch (error) {
             return interaction.reply({
-                content: `❌ Error en la expresión: \`${expr}\`\n\`${error.message}\`\n\n**Ejemplos válidos:**\n\`2+2\`, \`sqrt(16)\`, \`15%200\`, \`sin(pi/2)\`, \`10km->mi\``,
+                content: `❌ Error en la expresión: \`${expr}\`\n\`Los detalles se registraron para el Staff.\`\n\n**Ejemplos válidos:**\n\`2+2\`, \`sqrt(16)\`, \`15%200\`, \`sin(pi/2)\`, \`10km->mi\``,
                 ephemeral: true
             });
         }

@@ -108,7 +108,7 @@ module.exports = {
         } catch (err) {
             console.error('[Confesión] Error ejecutando comando:', err);
             return interaction.editReply({
-                content: `❌ Ocurrió un error al intentar conectarse a la sala de voz: ${err.message}`
+                content: `❌ Ocurrió un error al intentar conectarse a la sala de voz: Los detalles se registraron para el Staff.`
             });
         }
     }

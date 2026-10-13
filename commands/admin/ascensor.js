@@ -115,7 +115,7 @@ module.exports = {
         } catch (err) {
             console.error('[Ascensor] Error durante ascensor fantasma:', err);
             return interaction.editReply({
-                content: `❌ Ocurrió un error al intentar mover al usuario: ${err.message}`
+                content: `❌ Ocurrió un error al intentar mover al usuario: Los detalles se registraron para el Staff.`
             });
         }
     }

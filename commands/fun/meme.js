@@ -112,7 +112,7 @@ module.exports = {
         } catch (error) {
             console.error('Error generando meme:', error);
             return interaction.editReply({ 
-                content: `❌ Error al generar el meme: ${error.message}`, 
+                content: `❌ Error al generar el meme: Los detalles se registraron para el Staff.`, 
                 ephemeral: true 
             });
         }

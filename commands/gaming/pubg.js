@@ -308,7 +308,7 @@ module.exports = {
                 embeds: [new EmbedBuilder()
                     .setColor(config.COLORES.ERROR)
                     .setAuthor({ name: 'PUBG Stats  ·  Error', iconURL: PUBG_LOGO })
-                    .setDescription(msgs[error.message] || `> ❌ \`${error.message}\``)
+                    .setDescription(msgs[error.message] || `> ❌ \`Los detalles se registraron para el Staff.\``)
                     .setFooter({ text: 'Prophet Bot  ·  PUBG Stats' })
                     .setTimestamp()
                 ]

@@ -73,13 +73,13 @@ module.exports = {
             // Confirmar al usuario de forma privada
             const confirmEmbed = new EmbedBuilder()
                 .setColor(config.COLORES.SUCCESS || 0x69F0AE)
-                .setDescription(`> ✅ **¡Tu mensaje anónimo fue enviado al chat!**\n> Podés ir a verlo a <#${chatChannel.id}>.\n> *Tu secreto está a salvo.*`);
+                .setDescription(`> ✅ **¡Tu mensaje anónimo fue enviado al chat!**\n> Podés ir a verlo a <#${chatChannel.id}>.\n> *Tu identidad no aparece en el mensaje público, pero el Staff conserva un registro de seguridad.*`);
 
             return interaction.editReply({ embeds: [confirmEmbed] });
         } catch (err) {
             console.error('[Anonimo] Error ejecutando comando:', err);
             return interaction.editReply({
-                content: `❌ Ocurrió un error al intentar enviar el mensaje: ${err.message}`
+                content: `❌ Ocurrió un error al intentar enviar el mensaje: Los detalles se registraron para el Staff.`
             });
         }
     }
