@@ -19,6 +19,8 @@ test('Bloqueo de roles elevados incluso si se llaman como juegos', () => {
         PermissionFlagsBits.Administrator, PermissionFlagsBits.ManageRoles,
         PermissionFlagsBits.ManageWebhooks, PermissionFlagsBits.ManageGuild,
         PermissionFlagsBits.BanMembers, PermissionFlagsBits.ModerateMembers,
+        PermissionFlagsBits.ManageMessages, PermissionFlagsBits.ManageNicknames,
+        PermissionFlagsBits.MoveMembers,
     ]) {
         assert.ok(getSelfAssignableRoleError(role('234567890123456789',
             'VALORANT', [flag]), guild, []));
