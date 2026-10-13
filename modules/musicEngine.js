@@ -661,10 +661,12 @@ module.exports = async function inicializarMusica(client) {
                 const embed = new EmbedBuilder()
                     .setColor(MUSIC_COLORS.ERROR)
                     .setAuthor({ name: '⚠️  Error de reproducción' })
-                    .setDescription(`> \`${error.message}\`\n\nEl reproductor intentará continuar con el siguiente tema.`)
+                    .setDescription('Hubo un problema con la reproducción. El bot intentará continuar con el siguiente tema. Si vuelve a pasar, avisale al Staff.')
                     .setFooter({ text: 'Prophet Music  ·  Error handler' })
                     .setTimestamp();
-                queue.metadata.channel.send({ embeds: [embed] }).then(m => setTimeout(() => m.delete().catch(() => { }), 10000));
+                queue.metadata.channel.send({ embeds: [embed], allowedMentions: { parse: [] } })
+                    .then(message => setTimeout(() => message.delete().catch(() => {}), 10000).unref?.())
+                    .catch(err => console.warn('[ProphetMusic] No se pudo enviar aviso de reproducción:', err.message));
             }
         });
 
@@ -678,12 +680,14 @@ module.exports = async function inicializarMusica(client) {
                     .setAuthor({ name: '⚠️  Error de conexión' })
                     .setDescription(
                         `No se pudo conectar al stream de audio.\n` +
-                        `> **Tema:** ${track?.title || 'Desconocido'}\n` +
-                        `> **Error:** \`${error.message}\``
+                        `> **Tema:** ${String(track?.title || 'Desconocido').slice(0, 120)}\n` +
+                        'No se pudo iniciar el audio. Probá con otro tema o intentá nuevamente.'
                     )
                     .setFooter({ text: 'Prophet Music  ·  Error handler' })
                     .setTimestamp();
-                queue.metadata.channel.send({ embeds: [embed] }).then(m => setTimeout(() => m.delete().catch(() => { }), 10000));
+                queue.metadata.channel.send({ embeds: [embed], allowedMentions: { parse: [] } })
+                    .then(message => setTimeout(() => message.delete().catch(() => {}), 10000).unref?.())
+                    .catch(err => console.warn('[ProphetMusic] No se pudo enviar aviso de reproducción:', err.message));
             }
         });
 
