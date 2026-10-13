@@ -1,77 +1,87 @@
-// ═══ COMANDO: /kick ═══
-const { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits } = require('discord.js');
+const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
+const { makeEmbed, notice } = require('../../utils/discordUI');
 const { stmts } = require('../../database');
 const config = require('../../config');
 
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('kick')
-        .setDescription('👢 Expulsar a un usuario del servidor')
-        .addUserOption(o => o.setName('usuario').setDescription('Usuario a expulsar').setRequired(true))
-        .addStringOption(o => o.setName('razon').setDescription('Razón de la expulsión'))
+        .setDescription('Expulsar a un miembro del servidor')
+        .addUserOption(option => option.setName('usuario').setDescription('Miembro sobre el que actuar').setRequired(true))
+        .addStringOption(option => option.setName('razon').setDescription('Motivo de la medida').setMaxLength(450))
         .setDefaultMemberPermissions(PermissionFlagsBits.KickMembers),
-
     async execute(interaction) {
-        // Defender también en runtime: no confiar únicamente en el permiso del slash registrado.
         if (!interaction.inGuild?.() || !interaction.memberPermissions?.has(PermissionFlagsBits.KickMembers)) {
-            return interaction.reply({
-                content: 'No tenés permisos para ejecutar esta acción de moderación.',
-                flags: 64,
-            });
+            return interaction.reply(notice({
+                title: 'No tenés permisos',
+                description: 'Necesitás permisos de moderación para utilizar /kick.',
+                tone: 'error',
+            }));
         }
-
         const target = interaction.options.getMember('usuario');
-        const razon = interaction.options.getString('razon') || 'Sin razón especificada';
+        const reason = interaction.options.getString('razon')?.trim() || 'No se indicó un motivo';
 
-        if (!target) return interaction.reply({ content: '> ❌ **Error** — Usuario no encontrado en el servidor.', ephemeral: true });
-        if (!target.kickable) return interaction.reply({ content: '> ❌ **Error** — No tengo permisos para expulsar a este usuario.', ephemeral: true });
-
-        // DM antes del kick
-        try {
-            const dmEmbed = new EmbedBuilder()
-                .setColor(config.COLORES.ERROR || 0xEF5350)
-                .setAuthor({ name: '👢  Has sido expulsado' })
-                .setDescription(
-                    `Has sido expulsado de **${interaction.guild.name}**.\n\n` +
-                    `> **Motivo:** ${razon}\n` +
-                    `> **Moderador:** ${interaction.user.tag}`
-                )
-                .setFooter({ text: 'Prophet  ·  Moderación' })
-                .setTimestamp();
-            await target.user.send({ embeds: [dmEmbed] });
-        } catch { /* DMs desactivados */ }
-
-        try {
-            await target.kick(razon);
-        } catch (e) {
-            return interaction.reply({ content: `> ❌ **Error** — No pude expulsar: \`${e.message}\``, ephemeral: true });
+        if (!target) {
+            return interaction.reply(notice({ title: 'Miembro no encontrado', description: 'La persona debe pertenecer al servidor.', tone: 'warning' }));
+        }
+        if (target.id === interaction.user.id) {
+            return interaction.reply(notice({ title: 'Acción no permitida', description: 'No podés aplicar esta medida sobre vos mismo.', tone: 'error' }));
+        }
+        if (!target.kickable) {
+            return interaction.reply(notice({
+                title: 'Jerarquía o permisos insuficientes',
+                description: 'No puedo aplicar esta medida a ese miembro. Revisá los permisos y la posición de los roles del bot.',
+                tone: 'error',
+            }));
         }
 
-        stmts.addLog('KICK', {
-            userId: target.id,
-            userTag: target.user.tag,
-            mod: interaction.user.tag,
-            reason: razon
+        try {
+            await target.kick(reason);
+        } catch (error) {
+            console.error('[Moderación /kick]', error);
+            return interaction.reply(notice({
+                title: 'No se pudo completar la medida',
+                description: 'Discord rechazó la operación. Comprobá roles y permisos e intentá nuevamente.',
+                tone: 'error',
+            }));
+        }
+
+        // Notificar solo después de completar la operación real.
+        const resultEmbed = makeEmbed({
+            title: 'Usuario expulsado',
+            tone: 'error',
+            description: '**Miembro:** ' + target.user.tag + '\n**Motivo:** ' + reason
+                + '\n**Moderador:** ' + interaction.user.tag,
+            footer: 'Moderación · Operación completada',
+            iconURL: target.user.displayAvatarURL?.(),
         });
-
-        const embed = new EmbedBuilder()
-            .setColor(config.COLORES.ERROR || 0xEF5350)
-            .setAuthor({ name: '👢  USUARIO EXPULSADO' })
-            .setDescription(
-                `> **Usuario:** \`${target.user.tag}\` (\`${target.id}\`)\n` +
-                `> **Moderador:** ${interaction.user}\n` +
-                `> **Motivo:** *${razon}*`
-            )
-            .setThumbnail(target.user.displayAvatarURL({ size: 64 }))
-            .setFooter({ text: 'Prophet  ·  Moderación' })
-            .setTimestamp();
-
-        await interaction.reply({ embeds: [embed] });
-
-        // Log dual: canal general + canal de reportes/mod
-        const logChannel = interaction.guild.channels.cache.get(config.CHANNELS.LOGS);
-        const modChannel = interaction.guild.channels.cache.get(config.CHANNELS.LOGS);
-        if (logChannel) logChannel.send({ embeds: [embed] }).catch(() => {});
-        if (modChannel && modChannel.id !== logChannel?.id) modChannel.send({ embeds: [embed] }).catch(() => {});
-    }
+        const response = { embeds: [resultEmbed], allowedMentions: { parse: [] } };
+        await interaction.reply(response);
+        try {
+            await target.user.send({
+                embeds: [makeEmbed({
+                    title: 'Medida de moderación en ' + interaction.guild.name,
+                    tone: 'warning',
+                    description: 'Fuiste expulsado del servidor.\n**Motivo:** ' + reason
+                        + '\n**Moderador:** ' + interaction.user.tag,
+                    footer: 'Prophet Gaming · Moderación',
+                })],
+                allowedMentions: { parse: [] },
+            });
+        } catch {
+            // La privacidad del usuario puede bloquear los mensajes directos.
+        }
+        try {
+            stmts.addLog('KICK', {
+                userId: target.id, userTag: target.user.tag,
+                mod: interaction.user.tag, reason,
+            });
+        } catch (error) {
+            console.error('[Moderación /kick] No se pudo guardar el log:', error);
+        }
+        const logs = interaction.guild.channels.cache.get(config.CHANNELS.LOGS);
+        if (logs && logs.id !== interaction.channelId) {
+            logs.send(response).catch(err => console.warn('[Moderación /kick] No se pudo publicar log:', err.message));
+        }
+    },
 };
