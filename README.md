@@ -28,6 +28,7 @@ El [PR #4](https://github.com/SkuuIll/Prophet-Setup-DS/pull/4) ya se integró.
 La VPS activa no se actualiza sin un despliegue explícito y sus backups.
 
 **Plan general de trabajo:** [Plan maestro de Prophet Bot](docs/MASTER_PLAN.md).
+Para mantener la copia de ensayo y, cuando corresponda, desplegar desde `main`, consultar [MAIN_DEPLOY_CHECKLIST.md](docs/MAIN_DEPLOY_CHECKLIST.md).
 El [informe inicial de seguridad](docs/SECURITY_AUDIT.md) explica las\nrutas, problemas encontrados y riesgos pendientes.\nEl [inventario de revisión](docs/FILE_REVIEW_INVENTORY.csv) permite seguir
 archivo por archivo qué falta examinar. Las correcciones de la primera etapa
 están registradas en [REFACTOR_PLAN.md](docs/REFACTOR_PLAN.md).
