@@ -2,6 +2,7 @@ const { EmbedBuilder, PermissionFlagsBits, ActionRowBuilder, ButtonBuilder, Butt
 const config = require('../config');
 const { getSelfAssignableRoleError } = require('../utils/selfAssignableRoles');
 const { canExecuteRegisteredCommand } = require('../utils/commandPermissions');
+const { notice } = require('../utils/discordUI');
 const { stmts } = require('../database');
 const { abrirTicket, cerrarTicket } = require('../modules/tickets');
 const { participarSorteo } = require('../modules/giveaways');
@@ -10,10 +11,12 @@ const { updateLastCommand } = require('../modules/uxEnhancements');
 const { checkKeywordMentions, processNotificationQueue } = require('../modules/smartNotifications');
 const { analyzeMessagePattern, logSecurityEvent } = require('../modules/advancedMod');
 
-function esStaff(member) {
-    if (!member) return false;
-    return member.permissions.has(PermissionFlagsBits.Administrator)
-        || config.STAFF_ROLES.some(rol => member.roles.cache.some(r => r.id === rol || r.name === rol));
+function esStaff(member, permissions = null) {
+    if (permissions?.has?.(PermissionFlagsBits.Administrator)) return true;
+    // GuildMember y APIInteractionGuildMember tienen estructuras diferentes.
+    if (!member?.roles?.cache) return false;
+    return (config.STAFF_ROLES || []).some(role =>
+        member.roles.cache.some(r => r.id === role || r.name === role));
 }
 
 function actualizarEstadoReporte(embedData, estado) {
@@ -68,20 +71,22 @@ module.exports = {
                 if (!comando) return;
 
                 if (!canExecuteRegisteredCommand(comando.data, interaction.memberPermissions)) {
-                    return interaction.reply({
-                        content: 'No tenés los permisos necesarios para ejecutar este comando.',
-                        flags: 64,
-                    });
+                    return interaction.reply(notice({
+                        title: 'Sin permisos',
+                        description: 'No tenés permisos para usar este comando. Consultá con el equipo de moderación si necesitás acceso.',
+                        tone: 'error',
+                    }));
                 }
 
                 const canalesPermitidos = [config.CHANNELS.COMANDOS_BOT, config.CHANNELS.STAFF].filter(Boolean);
-                const miembroStaff = esStaff(interaction.member);
+                const miembroStaff = esStaff(interaction.member, interaction.memberPermissions);
 
                 if (canalesPermitidos.length > 0 && !canalesPermitidos.includes(interaction.channelId) && !miembroStaff) {
-                    return interaction.reply({
-                        content: `> 🚫 **Canal incorrecto** — Los comandos deben usarse en <#${config.CHANNELS.COMANDOS_BOT}>.`,
-                        flags: 64,
-                    });
+                    return interaction.reply(notice({
+                        title: 'Canal incorrecto',
+                        description: 'Para mantener el servidor ordenado, utilizá <#' + config.CHANNELS.COMANDOS_BOT + '> para ejecutar comandos.',
+                        tone: 'warning',
+                    }));
                 }
 
                 if (comando.cooldown) {
@@ -95,14 +100,15 @@ module.exports = {
                     if (client.cooldowns.has(cdKey)) {
                         const expiresAt = client.cooldowns.get(cdKey) + cdMs;
                         if (now < expiresAt) {
-                            return interaction.reply({
-                                content: `> ⏳ **Cooldown activo** — Podés volver a usar \`/${interaction.commandName}\` <t:${Math.floor(expiresAt / 1000)}:R>.`,
-                                flags: 64,
-                            });
+                            return interaction.reply(notice({
+                                title: 'Un momento',
+                                description: 'Podés volver a usar /' + interaction.commandName + ' <t:' + Math.floor(expiresAt / 1000) + ':R>.',
+                                tone: 'warning',
+                            }));
                         }
                     }
                     client.cooldowns.set(cdKey, now);
-                    setTimeout(() => client.cooldowns.delete(cdKey), cdMs);
+                    setTimeout(() => client.cooldowns.delete(cdKey), cdMs).unref?.();
                 }
 
                 const startedAt = Date.now();
@@ -123,7 +129,7 @@ module.exports = {
                 } catch (error) {
                     const durationMs = Date.now() - startedAt;
                     stmts.recordCommandExecution(interaction.commandName, false, durationMs);
-                    console.error(`Error en /${interaction.commandName}:`, error.message);
+                    console.error(`[Comando /${interaction.commandName}]`, error);
                     const errorEmbed = new EmbedBuilder()
                         .setColor(config.COLORES.ERROR || 0xEF5350)
                         .setAuthor({ name: '⚠️  Error del sistema' })
