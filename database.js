@@ -693,19 +693,28 @@ const stmts = {
         return user || { balance: 0, bank: 0, last_daily: 0, last_work: 0 };
     },
     addMoney(userId, amount, type = 'balance') {
-        const allowedTypes = ['balance', 'bank'];
-        const targetType = allowedTypes.includes(type) ? type : 'balance';
-        getOrCreateUser(userId);
-        db.prepare(`UPDATE users SET ${targetType} = ${targetType} + ? WHERE id = ?`).run(amount, userId);
-        return db.prepare(`SELECT ${targetType} FROM users WHERE id = ?`).get(userId)[targetType];
+        if (!Number.isSafeInteger(amount) || amount < 0) {
+            throw new RangeError('La cantidad de monedas debe ser un entero positivo o cero');
+        }
+        const targetType = type === 'bank' ? 'bank' : 'balance';
+        return db.transaction(() => {
+            getOrCreateUser(userId);
+            const result = db.prepare(`
+                UPDATE users SET ${targetType} = ${targetType} + ?
+                WHERE id = ? AND ${targetType} + ? <= ?
+            `).run(amount, userId, amount, Number.MAX_SAFE_INTEGER);
+            if (result.changes !== 1) throw new RangeError('Saldo máximo alcanzado');
+            return db.prepare(`SELECT ${targetType} FROM users WHERE id = ?`).get(userId)[targetType];
+        })();
     },
     removeMoney(userId, amount, type = 'balance') {
-        const allowedTypes = ['balance', 'bank'];
-        const targetType = allowedTypes.includes(type) ? type : 'balance';
-        const user = stmts.getEconomy(userId);
-        if (user[targetType] < amount) return false;
-        db.prepare(`UPDATE users SET ${targetType} = ${targetType} - ? WHERE id = ?`).run(amount, userId);
-        return true;
+        if (!Number.isSafeInteger(amount) || amount <= 0) return false;
+        const targetType = type === 'bank' ? 'bank' : 'balance';
+        const result = db.prepare(`
+            UPDATE users SET ${targetType} = ${targetType} - ?
+            WHERE id = ? AND ${targetType} >= ?
+        `).run(amount, userId, amount);
+        return result.changes === 1;
     },
     transferMoney(senderId, recipientId, amount) {
         if (!Number.isSafeInteger(amount) || amount <= 0 || senderId === recipientId) {
@@ -744,16 +753,20 @@ const stmts = {
         }
     },
     transferBank(userId, amount, direction) {
-        let user = stmts.getEconomy(userId);
-        if (direction === 'dep') {
-            if (user.balance < amount) return false;
-            db.prepare('UPDATE users SET balance = balance - ?, bank = bank + ? WHERE id = ?').run(amount, amount, userId);
-        } else if (direction === 'with') {
-            if (user.bank < amount) return false;
-            db.prepare('UPDATE users SET bank = bank - ?, balance = balance + ? WHERE id = ?').run(amount, amount, userId);
-        }
-        user = stmts.getEconomy(userId);
-        return { success: true, balance: user.balance, bank: user.bank };
+        if (!Number.isSafeInteger(amount) || amount <= 0
+            || !['dep', 'with'].includes(direction)) return false;
+        const source = direction === 'dep' ? 'balance' : 'bank';
+        const destination = direction === 'dep' ? 'bank' : 'balance';
+        return db.transaction(() => {
+            const result = db.prepare(`
+                UPDATE users
+                SET ${source} = ${source} - ?, ${destination} = ${destination} + ?
+                WHERE id = ? AND ${source} >= ? AND ${destination} + ? <= ?
+            `).run(amount, amount, userId, amount, amount, Number.MAX_SAFE_INTEGER);
+            if (result.changes !== 1) return false;
+            const user = stmts.getEconomy(userId);
+            return { success: true, balance: user.balance, bank: user.bank };
+        })();
     },
 
     // ── Inventario ──
