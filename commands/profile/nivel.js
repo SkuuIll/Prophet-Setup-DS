@@ -2,6 +2,7 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const { obtenerNivel, barraProgreso } = require('../../modules/leveling');
 const config = require('../../config');
+const { makeEmbed, notice } = require('../../utils/discordUI');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -14,7 +15,11 @@ module.exports = {
         const data = obtenerNivel(target.id);
 
         if (!data) {
-            return interaction.reply({ content: `❌ ${target.tag} no tiene datos todavía.`, ephemeral: true });
+            return interaction.reply(notice({
+                title: 'Todavía sin estadísticas',
+                description: 'Esta cuenta todavía no tiene actividad registrada. Participá en el servidor para ganar XP.',
+                tone: 'warning',
+            }));
         }
 
         await interaction.deferReply();
@@ -33,17 +38,20 @@ module.exports = {
             const progreso = data.xp / data.xpSiguiente;
             const barra = barraProgreso(progreso);
 
-            const embed = new EmbedBuilder()
-                .setColor(config.COLORES.NIVEL)
-                .setTitle(`📊 Nivel de ${target.displayName}`)
-                .setThumbnail(target.displayAvatarURL({ size: 128 }))
-                .addFields(
-                    { name: '🏆 Nivel', value: `**${data.level}**`, inline: true },
-                    { name: '⭐ XP', value: `**${data.xp}** / ${data.xpSiguiente}`, inline: true },
-                    { name: '🏅 Ranking', value: `#${data.rank}`, inline: true },
-                    { name: 'Progreso', value: `${barra} ${Math.round(progreso * 100)}%` }
-                )
-                .setFooter({ text: 'Prophet Gaming | Niveles (Modo simple)' });
+            const embed = makeEmbed({
+                title: 'Nivel de ' + (target.globalName || target.username),
+                description: 'Tu progreso también está disponible en /perfil.',
+                tone: 'primary',
+                fields: [
+                    { name: 'Nivel', value: String(data.level), inline: true },
+                    { name: 'XP', value: data.xp + '/' + data.xpSiguiente, inline: true },
+                    { name: 'Posición', value: '#' + data.rank, inline: true },
+                    { name: 'Progreso', value: barra + ' ' + Math.round(progreso * 100) + '%' },
+                ],
+                footer: 'Niveles · Vista alternativa sin imagen',
+                iconURL: target.displayAvatarURL({ size: 128 }),
+            });
+
 
             await interaction.editReply({ embeds: [embed] });
         }
