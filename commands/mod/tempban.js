@@ -104,9 +104,9 @@ module.exports = {
         const confirmation = makeEmbed({
             title: 'Ban temporal aplicado',
             tone: 'warning',
-            description: '**Usuario:** ' + target.tag + '\\n**Motivo:** ' + reason
-                + '\\n**Duración:** ' + formatted
-                + '\\n**Desbaneo previsto:** <t:' + Math.floor(expiresAt / 1000) + ':R>',
+            description: '**Usuario:** ' + target.tag + '\n**Motivo:** ' + reason
+                + '\n**Duración:** ' + formatted
+                + '\n**Desbaneo previsto:** <t:' + Math.floor(expiresAt / 1000) + ':R>',
             footer: 'Moderación · Seguimiento automático',
         });
         // El ban y la programación deben completarse ANTES del DM de aviso.
@@ -116,8 +116,8 @@ module.exports = {
                 embeds: [makeEmbed({
                     title: 'Ban temporal en ' + interaction.guild.name,
                     tone: 'warning',
-                    description: '**Motivo:** ' + reason + '\\n**Duración:** ' + formatted
-                        + '\\n**Desbaneo previsto:** <t:' + Math.floor(expiresAt / 1000) + ':R>',
+                    description: '**Motivo:** ' + reason + '\n**Duración:** ' + formatted
+                        + '\n**Desbaneo previsto:** <t:' + Math.floor(expiresAt / 1000) + ':R>',
                     footer: 'Moderación',
                 })],
                 allowedMentions: { parse: [] },

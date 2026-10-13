@@ -33,8 +33,8 @@ module.exports = {
         const current = queue.currentTrack;
         const volume = queue.node?.volume ?? 10;
         const now = '**Ahora suena:** ' + safeText(current.title, 130)
-            + '\\n**Duración:** ' + safeText(current.duration || 'No disponible', 20)
-            + '\\n**Solicitada por:** ' + (current.requestedBy?.username || 'Un miembro');
+            + '\n**Duración:** ' + safeText(current.duration || 'No disponible', 20)
+            + '\n**Solicitada por:** ' + (current.requestedBy?.username || 'Un miembro');
         const pages = Math.max(1, Math.ceil(tracks.length / 8));
         const all = [];
         for (let page = 0; page < pages; page++) {
@@ -45,8 +45,8 @@ module.exports = {
             all.push(makeEmbed({
                 title: 'Prophet Music · Cola de reproducción',
                 tone: 'music',
-                description: now + '\\n\\n' + (descriptions.length
-                    ? '**Próximas canciones**\\n' + descriptions.join('\\n')
+                description: now + '\n\n' + (descriptions.length
+                    ? '**Próximas canciones**\n' + descriptions.join('\n')
                     : 'No quedan temas en espera.'),
                 footer: 'Página ' + (page + 1) + '/' + pages
                     + ' · ' + tracks.length + ' temas · '

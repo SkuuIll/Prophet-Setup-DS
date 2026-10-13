@@ -78,10 +78,10 @@ module.exports = {
             title: status === 'claimed' ? 'Trabajo completado'
                 : status === 'bonus' ? 'Hora extra completada' : 'Trabajo completado',
             tone: status === 'bonus' ? 'success' : 'primary',
-            description: job.text + '\\n**Concepto:** ' + job.salario
+            description: job.text + '\n**Concepto:** ' + job.salario
                 + (status === 'claimed' && hasOvertime
-                    ? '\\n\\n**Hora extra disponible:** tenés 5 segundos para reclamarla.'
-                    : status === 'expired' ? '\\n\\nLa oferta de hora extra venció.' : ''),
+                    ? '\n\n**Hora extra disponible:** tenés 5 segundos para reclamarla.'
+                    : status === 'expired' ? '\n\nLa oferta de hora extra venció.' : ''),
             fields: [
                 { name: 'Sueldo', value: '+' + config.ECONOMIA.CURRENCY + ' ' + coins.toLocaleString('es-AR'), inline: true },
                 ...(status === 'bonus' ? [{ name: 'Hora extra', value: '+' + config.ECONOMIA.CURRENCY + ' ' + bonus.toLocaleString('es-AR'), inline: true }] : []),

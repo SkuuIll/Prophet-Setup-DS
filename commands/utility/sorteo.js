@@ -80,8 +80,8 @@ module.exports = {
             embeds: [makeEmbed({
                 title: 'Sorteo creado',
                 description: '**Premio:** ' + premio.slice(0, 200)
-                    + '\\n**Ganadores:** ' + winners
-                    + '\\n**Requisitos:** ' + (reqTexts.length ? reqTexts.join(' · ') : 'Sin requisitos adicionales'),
+                    + '\n**Ganadores:** ' + winners
+                    + '\n**Requisitos:** ' + (reqTexts.length ? reqTexts.join(' · ') : 'Sin requisitos adicionales'),
                 tone: 'success',
                 footer: 'Sorteos · Publicado en este canal',
             })],

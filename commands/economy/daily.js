@@ -60,7 +60,7 @@ module.exports = {
             embeds: [makeEmbed({
                 title: 'Recompensa diaria recibida',
                 tone: 'success',
-                description: phrase + '\\nEl premio ya fue acreditado en tu cartera.',
+                description: phrase + '\nEl premio ya fue acreditado en tu cartera.',
                 fields: [
                     { name: 'Recompensa', value: '**+' + config.ECONOMIA.CURRENCY + ' ' + coins.toLocaleString('es-AR') + '**', inline: true },
                     { name: 'Saldo disponible', value: '**' + config.ECONOMIA.CURRENCY + ' ' + claim.balance.toLocaleString('es-AR') + '**', inline: true },
