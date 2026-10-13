@@ -51,12 +51,12 @@ del dashboard, rutas estáticas de Games y límites de OAuth/JSON; la fase P0
 | Fase | Prioridad | Qué se hará | Evidencia exigida | GitHub |
 | --- | --- | --- | --- | --- |
 | 0. Estabilización inicial | Parcial | Bienvenidas/despedidas, sesiones de Games, economía, deploy PM2, primeros tests y ayuda | PR revisado y CI + prueba funcional de aceptación | [PR #4](https://github.com/SkuuIll/Prophet-Setup-DS/pull/4) |
-| 1. Seguridad integral | P0 | Permisos, OAuth, HTTP, WebSockets, amenazas comunes, secretos, npm, firewall/proxy | Hallazgos clasificados por severidad + pruebas de regresión | [#7](../issues/7) |
-| 2. Discord end-to-end | P1 | 18 eventos, 103 archivos de comandos, botones, permisos, roles y errores | Matriz por evento/comando + ingreso/salida reales de prueba | [#8](../issues/8) |
-| 3. Datos, economía y juegos | P1 | SQLite, migraciones, saldo atómico, cada motor y frontend de juego | Restore en ensayo + integridad monetaria, tests multijugador | [#9](../issues/9), [#5](https://github.com/SkuuIll/Prophet-Setup-DS/issues/5) |
-| 4. UX y redacción | P2 | Embeds, menús, botones, modales, dashboard, mobile, textos, accesibilidad | Catálogo y pruebas de flujos principales con UI consistente | [#10](../issues/10) |
-| 5. Arquitectura, música y rendimiento | P2 | Modularizar archivos grandes; Lavalink, métricas, errores, logs, memoria | Imports estables y ensayos completos de música y reinicio | [#11](../issues/11) |
-| 6. Aceptación y único despliegue final | Bloqueante | Checklist VPS y Discord, backups/restores, revisión de variables y servicios, política de auto-update | Prueba final aprobada por propietario | [#6](../issues/6) |
+| 1. Seguridad integral | P0 | Permisos, OAuth, HTTP, WebSockets, amenazas comunes, secretos, npm, firewall/proxy | Hallazgos clasificados por severidad + pruebas de regresión | [#7](https://github.com/SkuuIll/Prophet-Setup-DS/issues/7) |
+| 2. Discord end-to-end | P1 | 18 eventos, 103 archivos de comandos, botones, permisos, roles y errores | Matriz por evento/comando + ingreso/salida reales de prueba | [#8](https://github.com/SkuuIll/Prophet-Setup-DS/issues/8) |
+| 3. Datos, economía y juegos | P1 | SQLite, migraciones, saldo atómico, cada motor y frontend de juego | Restore en ensayo + integridad monetaria, tests multijugador | [#9](https://github.com/SkuuIll/Prophet-Setup-DS/issues/9), [#5](https://github.com/SkuuIll/Prophet-Setup-DS/issues/5) |
+| 4. UX y redacción | P2 | Embeds, menús, botones, modales, dashboard, mobile, textos, accesibilidad | Catálogo y pruebas de flujos principales con UI consistente | [#10](https://github.com/SkuuIll/Prophet-Setup-DS/issues/10) |
+| 5. Arquitectura, música y rendimiento | P2 | Modularizar archivos grandes; Lavalink, métricas, errores, logs, memoria | Imports estables y ensayos completos de música y reinicio | [#11](https://github.com/SkuuIll/Prophet-Setup-DS/issues/11) |
+| 6. Aceptación y único despliegue final | Bloqueante | Checklist VPS y Discord, backups/restores, revisión de variables y servicios, política de auto-update | Prueba final aprobada por propietario | [#6](https://github.com/SkuuIll/Prophet-Setup-DS/issues/6) |
 
 **Política del propietario:** todos los cambios nuevos van directamente a `main`. No crear ramas secundarias; la instalación actual en `/root/ProphetBot` solo cambia cuando el propietario realice el despliegue. El repositorio de ensayo en `/root/ProphetBot-Revision` se clonó desde la antigua rama y debe cambiarse a `main` antes de sincronizarse.
 
@@ -111,6 +111,10 @@ licencia, tamaños y rutas, no auditar como JavaScript.
 
 Si se trabaja en muchos chats, las incidencias y este archivo preservan el estado;
 no son garantía de que tareas pendientes se ejecuten automáticamente.
+
+## Actualización de main y copia en la VPS
+
+La copia de ensayo `/root/ProphetBot-Revision` se descargó desde una rama anterior al merge. La guía [MAIN_DEPLOY_CHECKLIST.md](MAIN_DEPLOY_CHECKLIST.md) explica cómo repuntarla a `origin/main` y cómo realizar el despliegue controlado cuando esté autorizado, sin perder la instalación original.
 
 ## Despliegue final y autoactualización del VPS
 
