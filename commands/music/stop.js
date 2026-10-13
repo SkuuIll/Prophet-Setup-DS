@@ -1,39 +1,20 @@
-// ═══ COMANDO: /stop ═══
-const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder } = require('discord.js');
 const { useQueue } = require('discord-player');
+const { makeEmbed } = require('../../utils/discordUI');
+const { ensureMusicController, musicNotice } = require('../../utils/musicAccess');
 
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('stop')
-        .setDescription('⏹️ Detener la música y vaciar la cola'),
-
-    async execute(interaction, client) {
-        const voiceChannel = interaction.member.voice.channel;
-        const botChannelId = interaction.guild.members.me.voice.channelId;
-
-        if (voiceChannel && botChannelId && voiceChannel.id !== botChannelId) {
-            return interaction.reply({
-                content: '> ❌ **Canal incorrecto** — Tenés que estar en el mismo canal de voz.',
-                flags: 64
-            });
-        }
-
+        .setDescription('Detener el audio y borrar la cola'),
+    async execute(interaction) {
+        const denied = ensureMusicController(interaction);
+        if (denied) return interaction.reply(denied);
         const queue = useQueue(interaction.guild.id);
-
         if (!queue) {
-            return interaction.reply({
-                content: '> ❌ **Sin reproducción** — No hay nada sonando en este momento.',
-                flags: 64
-            });
+            return interaction.reply(musicNotice('Sin reproducción', 'No hay una sesión de música activa. Empezá usando /play.'));
         }
-
         queue.delete();
-
-        const embed = new EmbedBuilder()
-            .setColor(0x37474F)
-            .setDescription('> ⏹️ **Reproducción detenida** — La cola fue vaciada y me desconecté del canal. ¡Nos vemos! 👋')
-            .setFooter({ text: 'Prophet Music' });
-
-        return interaction.reply({ embeds: [embed] });
-    }
+        return interaction.reply({ embeds: [makeEmbed({ title: 'Reproducción detenida', description: 'Se vació la cola de reproducción.', tone: 'music', footer: 'Prophet Music · /play para escuchar otra canción' })] });
+    },
 };
