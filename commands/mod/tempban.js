@@ -2,17 +2,17 @@
 const { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits } = require('discord.js');
 const { stmts } = require('../../database');
 const config = require('../../config');
+const { makeEmbed, notice } = require('../../utils/discordUI');
 
 function parseDuration(str) {
-    const regex = /(\d+)\s*(m|h|d)/gi;
+    if (typeof str !== 'string' || !/^(?:\d+[mhd]){1,4}$/i.test(str)) return 0;
     let total = 0;
-    let match;
-    while ((match = regex.exec(str)) !== null) {
-        const val = parseInt(match[1]);
-        const unit = match[2].toLowerCase();
-        if (unit === 'm') total += val * 60 * 1000;
-        else if (unit === 'h') total += val * 60 * 60 * 1000;
-        else if (unit === 'd') total += val * 24 * 60 * 60 * 1000;
+    for (const match of str.matchAll(/(\d+)(m|h|d)/gi)) {
+        const value = Number(match[1]);
+        const factor = { m: 60000, h: 3600000, d: 86400000 }[match[2].toLowerCase()];
+        if (!Number.isSafeInteger(value)) return 0;
+        total += value * factor;
+        if (!Number.isSafeInteger(total) || total > 30 * 86400000) return 0;
     }
     return total;
 }
@@ -39,78 +39,95 @@ module.exports = {
         .setDefaultMemberPermissions(PermissionFlagsBits.BanMembers),
 
     async execute(interaction) {
-        // Defender también en runtime: no confiar únicamente en el permiso del slash registrado.
         if (!interaction.inGuild?.() || !interaction.memberPermissions?.has(PermissionFlagsBits.BanMembers)) {
-            return interaction.reply({
-                content: 'No tenés permisos para ejecutar esta acción de moderación.',
-                flags: 64,
-            });
+            return interaction.reply(notice({
+                title: 'No tenés permisos',
+                description: 'Necesitás permisos de baneo para ejecutar esta acción.',
+                tone: 'error',
+            }));
         }
-
         const target = interaction.options.getUser('usuario');
-        const duracionStr = interaction.options.getString('duracion');
-        const razon = interaction.options.getString('razon') || 'Sin razón especificada';
-        const dias = interaction.options.getInteger('dias') || 0;
-
-        if (!target) return interaction.reply({ content: '> ❌ **Error** — Usuario no encontrado.', ephemeral: true });
-
-        const duracion = parseDuration(duracionStr);
-        if (duracion <= 0) {
-            return interaction.reply({ content: '> ❌ **Formato inválido** — Usá: `30m`, `2h`, `1d`, `1d12h`', ephemeral: true });
+        const duration = parseDuration(interaction.options.getString('duracion'));
+        const reason = interaction.options.getString('razon')?.trim() || 'No se indicó un motivo';
+        const days = interaction.options.getInteger('dias') ?? 0;
+        if (!target || target.id === interaction.user.id || target.id === interaction.client.user.id) {
+            return interaction.reply(notice({ title: 'Usuario inválido', description: 'No podés aplicar esta acción a ese usuario.', tone: 'error' }));
         }
-        if (duracion > 30 * 24 * 60 * 60 * 1000) {
-            return interaction.reply({ content: '> ❌ **Límite excedido** — La duración máxima es 30 días.', ephemeral: true });
+        if (!duration) {
+            return interaction.reply(notice({
+                title: 'Duración incorrecta',
+                description: 'Usá una combinación de minutos, horas o días, por ejemplo 30m, 2h o 1d12h (máximo 30 días).',
+                tone: 'error',
+            }));
+        }
+        const member = interaction.options.getMember('usuario');
+        if (member && !member.bannable) {
+            return interaction.reply(notice({
+                title: 'No se puede banear',
+                description: 'Revisá la jerarquía de roles y los permisos del bot.',
+                tone: 'error',
+            }));
         }
 
-        const unbanAt = Date.now() + duracion;
-        const duracionTexto = formatDuration(duracion);
-
-        // DM al usuario
+        const expiresAt = Date.now() + duration;
+        const formatted = formatDuration(duration);
         try {
-            const dmEmbed = new EmbedBuilder()
-                .setColor(config.COLORES.ERROR || 0xEF5350)
-                .setAuthor({ name: '🔨  Ban temporal' })
-                .setDescription(
-                    `Has sido baneado temporalmente de **${interaction.guild.name}**.\n\n` +
-                    `> **Duración:** \`${duracionTexto}\`\n` +
-                    `> **Motivo:** ${razon}\n` +
-                    `> **Desbaneo:** <t:${Math.floor(unbanAt / 1000)}:R>\n\n` +
-                    `*Serás desbaneado automáticamente cuando se cumpla el tiempo.*`
-                )
-                .setFooter({ text: 'Prophet  ·  Moderación' })
-                .setTimestamp();
-            await target.send({ embeds: [dmEmbed] });
-        } catch { /* DMs desactivados */ }
-
-        try {
-            await interaction.guild.members.ban(target, {
-                reason: `[TEMPBAN ${duracionTexto}] ${razon}`,
-                deleteMessageSeconds: dias * 86400
+            await interaction.guild.members.ban(target.id, {
+                reason: '[TEMPBAN ' + formatted + '] ' + reason,
+                deleteMessageSeconds: days * 86400,
             });
-        } catch (e) {
-            return interaction.reply({ content: `> ❌ **Error** — No pude banear: \`${e.message}\``, ephemeral: true });
+        } catch (error) {
+            console.error('[Tempban] Error al banear:', error);
+            return interaction.reply(notice({
+                title: 'No se pudo aplicar el ban',
+                description: 'Discord rechazó la operación. Revisá los permisos del bot.',
+                tone: 'error',
+            }));
         }
 
-        stmts.addTempban(interaction.guild.id, target.id, interaction.user.id, razon, unbanAt);
+        try {
+            stmts.addTempban(interaction.guild.id, target.id, interaction.user.id, reason, expiresAt);
+        } catch (error) {
+            console.error('[Tempban] No se pudo guardar el desbaneo automático:', error);
+            try {
+                await interaction.guild.members.unban(target.id, 'Revirtiendo ban sin programación de desbaneo');
+            } catch (rollbackError) {
+                console.error('[Tempban] IMPORTANTE: falló la reversión del ban:', rollbackError);
+            }
+            return interaction.reply(notice({
+                title: 'No se pudo programar el desbaneo',
+                description: 'Falló el registro de la fecha de desbaneo. Avisá al Staff para que revise el estado del usuario.',
+                tone: 'error',
+            }));
+        }
 
-        const embed = new EmbedBuilder()
-            .setColor(config.COLORES.ERROR || 0xEF5350)
-            .setAuthor({ name: '🔨⏳  BAN TEMPORAL' })
-            .setDescription(
-                `> **Usuario:** \`${target.tag}\` (\`${target.id}\`)\n` +
-                `> **Moderador:** ${interaction.user}\n` +
-                `> **Duración:** \`${duracionTexto}\`\n` +
-                `> **Motivo:** *${razon}*\n` +
-                `> **Mensajes borrados:** \`${dias}\` día(s)\n\n` +
-                `> 🔓 **Desbaneo automático:** <t:${Math.floor(unbanAt / 1000)}:R>`
-            )
-            .setThumbnail(target.displayAvatarURL({ size: 64 }))
-            .setFooter({ text: 'Prophet  ·  Moderación' })
-            .setTimestamp();
-
-        await interaction.reply({ embeds: [embed] });
-
+        const confirmation = makeEmbed({
+            title: 'Ban temporal aplicado',
+            tone: 'warning',
+            description: '**Usuario:** ' + target.tag + '\\n**Motivo:** ' + reason
+                + '\\n**Duración:** ' + formatted
+                + '\\n**Desbaneo previsto:** <t:' + Math.floor(expiresAt / 1000) + ':R>',
+            footer: 'Moderación · Seguimiento automático',
+        });
+        // El ban y la programación deben completarse ANTES del DM de aviso.
+        await interaction.reply({ embeds: [confirmation], allowedMentions: { parse: [] } });
+        try {
+            await target.send({
+                embeds: [makeEmbed({
+                    title: 'Ban temporal en ' + interaction.guild.name,
+                    tone: 'warning',
+                    description: '**Motivo:** ' + reason + '\\n**Duración:** ' + formatted
+                        + '\\n**Desbaneo previsto:** <t:' + Math.floor(expiresAt / 1000) + ':R>',
+                    footer: 'Moderación',
+                })],
+                allowedMentions: { parse: [] },
+            });
+        } catch { /* Mensajes privados bloqueados o usuario inaccesible. */ }
         const logChannel = interaction.guild.channels.cache.get(config.CHANNELS.LOGS);
-        if (logChannel) logChannel.send({ embeds: [embed] });
-    }
+        if (logChannel && logChannel.id !== interaction.channelId) {
+            logChannel.send({ embeds: [confirmation], allowedMentions: { parse: [] } })
+                .catch(error => console.warn('[Tempban] No se pudo publicar log:', error.message));
+        }
+    },
+    _test: { parseDuration, formatDuration },
 };
