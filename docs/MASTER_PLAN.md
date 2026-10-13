@@ -38,6 +38,13 @@ del dashboard, rutas estáticas de Games y límites de OAuth/JSON; la fase P0
 - Issue #5: tres orígenes de gitlinks identificados por SHA y Pacman aún sin origen confirmado; no se ha restaurado este contenido.
 - **Sin evidencia de pruebas E2E reales en la VPS o servidor de Discord.** La versión no debe declararse finalizada por solo pasar CI.
 
+## Revisión de errores y diseño — 13 de octubre de 2026
+
+- Tres fallos entre las últimas 100 ejecuciones revisadas al iniciar esta ronda: dos de Dependabot (`esbuild`, `file-type`) por conflictos de versión de Discord Player, y uno antiguo de CI debido al rate limit de GitHub al instalar youtube-dl-exec. El CI reciente ya había aprobado; no son prueba de una caída de Discord.
+- Bloqueo de Dependabot documentado en [issue #12](https://github.com/SkuuIll/Prophet-Setup-DS/issues/12). Mantener alertas de seguridad activas hasta solucionar compatibilidad.
+- En [DISCORD_UX_AUDIT.md](DISCORD_UX_AUDIT.md) se detallan los cambios reales de `/ayuda`, cartera, banco, ping, serverinfo, feedback general, FAQ y todos los pendientes de rediseño.
+- Diagnóstico PM2 sin secretos disponible en `scripts/diagnose_runtime.js` para que la IA de la VPS informe fallos reales sin alterar procesos.
+
 ## Estado comprobado
 
 - Inventario Git en esta rama antes de crear este plan: **496 archivos rastreados**
