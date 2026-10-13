@@ -2,6 +2,7 @@
 const { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits } = require('discord.js');
 const { stmts } = require('../../database');
 const config = require('../../config');
+const { makeEmbed, notice } = require('../../utils/discordUI');
 
 const FILTROS_NOMBRES = {
     'bots': '🤖 Solo bots',
@@ -40,7 +41,7 @@ module.exports = {
         const usuario = interaction.options.getUser('usuario');
         const filtro = interaction.options.getString('filtro');
 
-        await interaction.deferReply({ ephemeral: true });
+        await interaction.deferReply({ flags: 64 });
 
         let mensajes = await interaction.channel.messages.fetch({ limit: cantidad });
 
@@ -57,14 +58,23 @@ module.exports = {
         else if (filtro === 'no_pinned') mensajes = mensajes.filter(m => !m.pinned);
 
         if (mensajes.size === 0) {
-            return interaction.editReply({ content: '> ⚠️ **Sin resultados** — No se encontraron mensajes que coincidan con los filtros.' });
+            return interaction.editReply({ embeds: [makeEmbed({
+                title: 'No se encontraron mensajes',
+                description: 'No hay mensajes recientes que coincidan con esos filtros.',
+                tone: 'warning',
+            })] });
         }
 
         let borrados;
         try {
             borrados = await interaction.channel.bulkDelete(mensajes, true);
         } catch (error) {
-            return interaction.editReply({ content: '> ❌ **Error** — No se pudieron borrar los mensajes. Revisa mis permisos o asegúrate de que no tengan más de 14 días.' });
+            console.error('[Purge] No se pudieron borrar mensajes:', error);
+            return interaction.editReply({ embeds: [makeEmbed({
+                title: 'No se pudieron eliminar los mensajes',
+                description: 'Revisá los permisos del bot y recordá que Discord no permite borrar en bloque mensajes de más de 14 días.',
+                tone: 'error',
+            })] });
         }
 
         const filtrosAplicados = [];
@@ -104,7 +114,7 @@ module.exports = {
                 )
                 .setFooter({ text: 'Prophet  ·  Log de moderación' })
                 .setTimestamp();
-            logChannel.send({ embeds: [logEmbed] });
+            logChannel.send({ embeds: [logEmbed], allowedMentions: { parse: [] } }).catch(error => console.warn('[Purge] Log no publicado:', error.message));
         }
     }
 };
