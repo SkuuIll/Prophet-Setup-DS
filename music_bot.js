@@ -8,6 +8,7 @@ const fs = require('fs');
 const path = require('path');
 const config = require('./config');
 const { stmts } = require('./database'); // Comparte la misma DB
+const { notice } = require('./utils/discordUI');
 
 const client = new Client({
     intents: [
@@ -80,13 +81,20 @@ client.on('interactionCreate', async (interaction) => {
                     durationMs,
                 });
             } catch (error) {
-                console.error(`Error en /${interaction.commandName}:`, error.message);
-                const errorEmbed = new EmbedBuilder()
-                    .setColor(config.COLORES.ERROR || 0xEF5350)
-                    .setAuthor({ name: '⚠️  Error del sistema' })
-                    .setDescription(`> Ocurrió un error al ejecutar \`/${interaction.commandName}\`.\n\`\`\`\n${error.message}\n\`\`\``);
-                if (interaction.replied || interaction.deferred) await interaction.followUp({ embeds: [errorEmbed], flags: 64 });
-                else await interaction.reply({ embeds: [errorEmbed], flags: 64 });
+                // Errores técnicos solo en logs privados, jamás en embeds públicos:
+                // pueden contener endpoints, rutas o detalles de autenticación.
+                console.error(`[ProphetMusic /\${interaction.commandName}]`, error);
+                const reply = notice({
+                    title: 'No pudimos reproducir la música',
+                    description: 'Ocurrió un inconveniente al ejecutar /' + interaction.commandName
+                        + '. Intentá nuevamente o avisale al Staff si persiste.',
+                    tone: 'error',
+                });
+                if (interaction.replied || interaction.deferred) {
+                    await interaction.followUp(reply).catch(() => {});
+                } else {
+                    await interaction.reply(reply).catch(() => {});
+                }
             }
         }
     } catch (e) {
