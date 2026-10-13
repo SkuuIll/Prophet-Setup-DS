@@ -1,7 +1,8 @@
 // ═══ COMANDO: /work ═══
-const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType } = require('discord.js');
 const { stmts } = require('../../database');
 const config = require('../../config');
+const { makeEmbed, notice } = require('../../utils/discordUI');
 
 const TRABAJOS = [
     { text: '👵 Ayudaste a cruzar la calle a una anciana agradecida', salario: 'Propina generosa' },
@@ -44,112 +45,81 @@ const TRABAJOS = [
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('work')
-        .setDescription('👷 Trabajar para ganar monedas'),
-
+        .setDescription('Trabajar para ganar monedas'),
     async execute(interaction) {
         const userId = interaction.user.id;
-        const eco = stmts.getEconomy(userId);
-        const ahora = Date.now();
+        const now = Date.now();
         const cooldown = config.ECONOMIA.WORK_COOLDOWN;
-
-        if (ahora - eco.last_work < cooldown) {
-            const restante = cooldown - (ahora - eco.last_work);
-            const minutos = Math.floor(restante / 60000);
-            const segundos = Math.floor((restante % 60000) / 1000);
-
-            // Barra de progreso del cooldown
-            const pasado = cooldown - restante;
-            const pct = Math.round((pasado / cooldown) * 10);
-            const barraCD = '🟩'.repeat(pct) + '⬛'.repeat(10 - pct);
-
-            const embed = new EmbedBuilder()
-                .setColor(config.COLORES.WARN || 0xFFB74D)
-                .setAuthor({ name: '👷  Work · Necesitás descansar', iconURL: interaction.user.displayAvatarURL() })
-                .setDescription(
-                    `> ⏳ **Cansancio activo** — Descansá **${minutos}m ${segundos}s** más.\n\n` +
-                    `> Recuperación:\n` +
-                    `> ${barraCD} \`${Math.round((pasado / cooldown) * 100)}%\``
-                )
-                .setFooter({ text: 'Prophet Economy  ·  Podés trabajar cada 30 minutos' });
-            return interaction.reply({ embeds: [embed], ephemeral: true });
+        const wallet = stmts.getEconomy(userId);
+        const until = (wallet.last_work || 0) + cooldown;
+        if (now < until) {
+            return interaction.reply(notice({
+                title: 'Todavía estás descansando',
+                description: 'Podés volver a trabajar <t:' + Math.floor(until / 1000) + ':R>.',
+                tone: 'warning',
+            }));
         }
 
-        const reward = Math.floor(Math.random() * (config.ECONOMIA.WORK_MAX - config.ECONOMIA.WORK_MIN + 1)) + config.ECONOMIA.WORK_MIN;
-        const trabajo = TRABAJOS[Math.floor(Math.random() * TRABAJOS.length)];
-
-        // Claim atómico: dos interacciones simultáneas no deben dar dos premios.
-        const claim = stmts.claimTimedReward(userId, 'work', reward, ahora, cooldown);
+        const coins = Math.floor(Math.random() *
+            (config.ECONOMIA.WORK_MAX - config.ECONOMIA.WORK_MIN + 1)) + config.ECONOMIA.WORK_MIN;
+        const job = TRABAJOS[Math.floor(Math.random() * TRABAJOS.length)];
+        const claim = stmts.claimTimedReward(userId, 'work', coins, now, cooldown);
         if (!claim.success) {
-            return interaction.reply({
-                content: '⏳ Esta recompensa ya fue reclamada recientemente o tu saldo llegó al máximo.',
-                flags: 64
-            });
-        }
-        const nuevoSaldo = { balance: claim.balance };
-
-        // ── Overtime chance (25%) ──
-        const hasOvertime = Math.random() < 0.25;
-
-        const embed = new EmbedBuilder()
-            .setColor(config.COLORES.SUCCESS || 0x69F0AE)
-            .setAuthor({ name: '👷  Trabajo Completado', iconURL: interaction.user.displayAvatarURL() })
-            .setDescription(
-                `> 📋 ${trabajo.text}\n\n` +
-                `> 💼 Concepto: **${trabajo.salario}**\n` +
-                `> 💰 **+${config.ECONOMIA.CURRENCY} ${reward.toLocaleString()}** ganados\n` +
-                `> 💵 Saldo actual: **${config.ECONOMIA.CURRENCY} ${nuevoSaldo.balance.toLocaleString()}**` +
-                (hasOvertime ? '\n\n> ⚡ **¡HORA EXTRA DISPONIBLE!** Presioná el botón en 5s para ganar bonus.' : '')
-            )
-            .setFooter({ text: 'Prophet Economy  ·  Trabajá cada 30 minutos' })
-            .setTimestamp();
-
-        if (!hasOvertime) {
-            return interaction.reply({ embeds: [embed] });
+            return interaction.reply(notice({
+                title: 'Recompensa no disponible',
+                description: 'Es posible que ya la hayas cobrado o que hayas alcanzado el saldo máximo.',
+                tone: 'warning',
+            }));
         }
 
-        // Overtime mini-game
-        const { ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType } = require('discord.js');
-        const overtimeBonus = Math.floor(reward * 0.5); // 50% extra
+        const bonus = Math.floor(coins / 2);
+        const hasOvertime = bonus > 0 && Math.random() < 0.25;
+        const build = (status, balance) => makeEmbed({
+            title: status === 'claimed' ? 'Trabajo completado'
+                : status === 'bonus' ? 'Hora extra completada' : 'Trabajo completado',
+            tone: status === 'bonus' ? 'success' : 'primary',
+            description: job.text + '\\n**Concepto:** ' + job.salario
+                + (status === 'claimed' && hasOvertime
+                    ? '\\n\\n**Hora extra disponible:** tenés 5 segundos para reclamarla.'
+                    : status === 'expired' ? '\\n\\nLa oferta de hora extra venció.' : ''),
+            fields: [
+                { name: 'Sueldo', value: '+' + config.ECONOMIA.CURRENCY + ' ' + coins.toLocaleString('es-AR'), inline: true },
+                ...(status === 'bonus' ? [{ name: 'Hora extra', value: '+' + config.ECONOMIA.CURRENCY + ' ' + bonus.toLocaleString('es-AR'), inline: true }] : []),
+                { name: 'Saldo actual', value: config.ECONOMIA.CURRENCY + ' ' + balance.toLocaleString('es-AR'), inline: true },
+            ],
+            footer: 'Economía · /work · /balance',
+            iconURL: interaction.user.displayAvatarURL?.(),
+        });
 
+        if (!hasOvertime) return interaction.reply({ embeds: [build('claimed', claim.balance)] });
         const row = new ActionRowBuilder().addComponents(
-            new ButtonBuilder()
-                .setCustomId('work_overtime')
-                .setLabel(`⚡ Hora Extra (+${config.ECONOMIA.CURRENCY} ${overtimeBonus})`)
-                .setStyle(ButtonStyle.Success)
+            new ButtonBuilder().setCustomId('work_overtime')
+                .setLabel('Reclamar hora extra (+' + bonus + ')')
+                .setStyle(ButtonStyle.Success),
         );
-
-        const msg = await interaction.reply({ embeds: [embed], components: [row], fetchReply: true });
-
-        const collector = msg.createMessageComponentCollector({
+        const response = await interaction.reply({
+            embeds: [build('claimed', claim.balance)], components: [row], fetchReply: true,
+        });
+        const collector = response.createMessageComponentCollector({
             componentType: ComponentType.Button,
-            time: 5000,
-            filter: i => i.user.id === userId,
-            max: 1
+            time: 5000, max: 1,
+            filter: button => button.user.id === userId && button.customId === 'work_overtime',
         });
-
-        collector.on('collect', async i => {
-            stmts.addMoney(userId, overtimeBonus, 'balance');
-            const finalBal = stmts.getEconomy(userId);
-
-            embed.setDescription(
-                `> 📋 ${trabajo.text}\n\n` +
-                `> 💼 Concepto: **${trabajo.salario}**\n` +
-                `> 💰 **+${config.ECONOMIA.CURRENCY} ${reward.toLocaleString()}** ganados\n` +
-                `> ⚡ **+${config.ECONOMIA.CURRENCY} ${overtimeBonus.toLocaleString()}** bonus hora extra!\n` +
-                `> 💵 Saldo final: **${config.ECONOMIA.CURRENCY} ${finalBal.balance.toLocaleString()}**`
-            );
-            embed.setColor(0xFFD700);
-
-            await i.update({ embeds: [embed], components: [] });
+        collector.on('collect', async button => {
+            // El bonus no sobrepasa el límite de enteros y queda registrado en game_logs.
+            const settled = stmts.atomicModifyBalance(userId, bonus, 'work', 'overtime');
+            if (!settled.success) {
+                return button.update({ embeds: [build('expired', claim.balance)], components: [] })
+                    .catch(error => console.warn('[Work] No se pudo actualizar aviso:', error.message));
+            }
+            await button.update({ embeds: [build('bonus', settled.balance)], components: [] })
+                .catch(error => console.warn('[Work] No se pudo actualizar hora extra:', error.message));
         });
-
-        collector.on('end', (collected) => {
+        collector.on('end', collected => {
             if (collected.size === 0) {
-                embed.setDescription(
-                    embed.data.description.replace('⚡ **¡HORA EXTRA DISPONIBLE!** Presioná el botón en 5s para ganar bonus.', '⏰ *Hora extra expirada — fuiste muy lento.*')
-                );
-                interaction.editReply({ embeds: [embed], components: [] }).catch(() => {});
+                interaction.editReply({ embeds: [build('expired', claim.balance)], components: [] })
+                    .catch(() => {});
             }
         });
-    }
+    },
 };
