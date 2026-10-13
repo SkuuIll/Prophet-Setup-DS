@@ -14,8 +14,10 @@ const ShoukakuOptions = {
     resumeTimeout: 30,
     resumeByLibrary: true,
     reconnectTries: 10,
-    reconnectInterval: 5000,
-    restTimeout: 15000,
+    // Shoukaku v4 interpreta ambos valores en SEGUNDOS (no milisegundos).
+    // 5000 producía esperas de ~83 minutos ante un ECONNREFUSED inicial.
+    reconnectInterval: 5,
+    restTimeout: 15,
     moveOnDisconnect: true,
 };
 
@@ -71,4 +73,4 @@ function crearShoukaku(client) {
     }
 }
 
-module.exports = { crearShoukaku };
+module.exports = { crearShoukaku, ShoukakuOptions };
