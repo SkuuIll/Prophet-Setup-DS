@@ -23,7 +23,7 @@ test('Games HTTP: health, assets, sesión inválida y secreto interno ausente', 
         env: {
             ...process.env,
             GAMES_PORT: String(port),
-            GAMES_BIND_HOST: '127.0.0.1',
+            GAMES_BIND_HOST: '', // ejercita el bind seguro por defecto
             GAMES_INTERNAL_SECRET: '',
             GAMES_DEMO_ENABLED: 'false',
             NODE_ENV: 'production',
