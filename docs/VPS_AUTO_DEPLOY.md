@@ -13,9 +13,9 @@ existentes para no romper las importaciones ni comandos de Discord.
 - No usar `git reset --hard` manualmente para "arreglar" un VPS con cambios locales.
 - El rollback automático solo aplica después de un avance del checkout limpio.
 
-## Puesta en marcha UNA SOLA VEZ tras fusionar el PR a main
+## Puesta en marcha UNA SOLA VEZ desde main, tras la aceptación del propietario
 
-Conectate por SSH con la cuenta que administra estos procesos (actualmente root):
+Los cambios ya están en `main`; **GitHub no realiza la instalación en la VPS por sí solo**. Ejecutar este procedimiento únicamente cuando la versión esté validada y el propietario decida actualizar. Conectate por SSH con la cuenta que administra estos procesos (actualmente root):
 
 ```bash
 cd /root/ProphetBot
