@@ -1,7 +1,6 @@
 # Auditoría progresiva de seguridad — fase P0
 
-**Estado:** en curso. Cambios preparados exclusivamente en
-`fix/stabilize-security-deploy-20261012` / PR #4; producción sin cambios.
+**Estado:** en curso. El PR #4 se fusionó a `main` y los arreglos posteriores se realizaron directamente allí. El VPS sigue con su checkout anterior hasta que el propietario decida desplegar.
 No equivale a un pentest completo ni a pruebas del VPS real.
 
 ## Revisión focalizada de este avance
@@ -50,6 +49,13 @@ intercambian códigos OAuth;
 WebSockets `/ws` / `/.proxy/ws`: sesión de juego para operaciones,
 modo demo bloqueado en producción según correcciones anteriores.
 Las variantes `/.proxy/*` son equivalentes para Discord Activities.
+
+## Correcciones adicionales aplicadas a main
+
+- Las renovaciones de token del dashboard ahora son de un solo uso transaccional para evitar carreras; el navegador no hace renovaciones simultáneas.
+- Las operaciones atómicas de saldo, banco y transferencias `/pay` evitan débito separado de crédito y no aceptan importes negativos, fraccionarios o mayores que el entero seguro.
+- El reverse proxy local ya no usa el primer X-Forwarded-For, que podría estar inyectado por un cliente.
+- Nuevos tests de renovación, economía, pagos y cabeceras proxy.
 
 ## Riesgos / preguntas aún abiertos
 
