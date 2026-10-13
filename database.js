@@ -1722,25 +1722,44 @@ const stmts = {
 
     // ─── ECONOMÍA ATÓMICA DE JUEGOS ───
     atomicModifyBalance(userId, deltaAmount, game = 'casino', action = 'bet', details = '') {
-        let user = stmts.getUser(userId);
-        if (!user) {
-            db.prepare('INSERT INTO users (id, balance) VALUES (?, 0)').run(userId);
-            user = { id: userId, balance: 0, bank: 0 };
+        if (!Number.isSafeInteger(deltaAmount)) {
+            return {
+                success: false,
+                error: 'La cantidad de monedas debe ser un número entero seguro',
+                balance: stmts.getUser(userId)?.balance || 0
+            };
         }
 
-        if (deltaAmount < 0 && (user.balance + deltaAmount) < 0) {
-            return { success: false, error: 'Saldo insuficiente', balance: user.balance };
-        }
+        // El UPDATE condicionado y el registro del movimiento comparten una
+        // transacción. Así, dos procesos Games/Discord no pueden gastar
+        // simultáneamente el mismo saldo ni dejar un cobro sin historial.
+        return db.transaction(() => {
+            db.prepare('INSERT OR IGNORE INTO users (id, balance) VALUES (?, 0)').run(userId);
+            const result = db.prepare(`
+                UPDATE users
+                SET balance = balance + ?
+                WHERE id = ?
+                  AND balance + ? >= 0
+                  AND balance + ? <= ?
+            `).run(deltaAmount, userId, deltaAmount, deltaAmount, Number.MAX_SAFE_INTEGER);
+            const balance = db.prepare('SELECT balance FROM users WHERE id = ?').get(userId)?.balance ?? 0;
+            if (result.changes !== 1) {
+                return {
+                    success: false,
+                    error: deltaAmount < 0 ? 'Saldo insuficiente' : 'Límite de saldo alcanzado',
+                    balance
+                };
+            }
 
-        const newBalance = Math.max(0, user.balance + deltaAmount);
-        db.prepare('UPDATE users SET balance = ? WHERE id = ?').run(newBalance, userId);
+            if (deltaAmount !== 0) {
+                db.prepare(`
+                    INSERT INTO game_logs (user_id, game, action, amount, details, timestamp)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                `).run(userId, game, action, deltaAmount, String(details || ''), Date.now());
+            }
 
-        if (deltaAmount !== 0) {
-            db.prepare('INSERT INTO game_logs (user_id, game, action, amount, details, timestamp) VALUES (?, ?, ?, ?, ?, ?)')
-                .run(userId, game, action, deltaAmount, String(details || ''), Date.now());
-        }
-
-        return { success: true, balance: newBalance, previousBalance: user.balance, delta: deltaAmount };
+            return { success: true, balance, previousBalance: balance - deltaAmount, delta: deltaAmount };
+        })();
     },
 
     saveSurvivorScore: (userId, username, score, kills, survivalSeconds, coinsEarned) => {
