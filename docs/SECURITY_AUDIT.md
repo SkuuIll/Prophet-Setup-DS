@@ -57,6 +57,11 @@ Las variantes `/.proxy/*` son equivalentes para Discord Activities.
 - El reverse proxy local ya no usa el primer X-Forwarded-For, que podría estar inyectado por un cliente.
 - Nuevos tests de renovación, economía, pagos y cabeceras proxy.
 
+## Pruebas adicionales en main
+
+- Las operaciones `/daily`, `/work`, `/pay`, banco y `/gamble` ya no permiten duplicar cobros por una lectura y escritura separadas.
+- Prueba HTTP de Games en proceso separado con rutas sensibles y health checks.
+
 ## Riesgos / preguntas aún abiertos
 
 - **P0**: `session-info` recibe el token en query string: analizar llamadas
