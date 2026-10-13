@@ -1,45 +1,21 @@
-// ═══ COMANDO: /skip ═══
-const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder } = require('discord.js');
 const { useQueue } = require('discord-player');
+const { makeEmbed } = require('../../utils/discordUI');
+const { ensureMusicController, musicNotice } = require('../../utils/musicAccess');
 
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('skip')
-        .setDescription('⏭️ Saltar a la siguiente canción de la cola'),
-
-    async execute(interaction, client) {
-        const voiceChannel = interaction.member.voice.channel;
-        if (!voiceChannel) {
-            return interaction.reply({
-                content: '> ❌ **Sin canal** — Tenés que estar en un canal de voz.',
-                flags: 64
-            });
-        }
-
-        if (interaction.guild.members.me.voice.channelId && voiceChannel.id !== interaction.guild.members.me.voice.channelId) {
-            return interaction.reply({
-                content: '> ❌ **Canal incorrecto** — Tenés que estar en el mismo canal de voz.',
-                flags: 64
-            });
-        }
-
+        .setDescription('Saltar al siguiente tema'),
+    async execute(interaction) {
+        const denied = ensureMusicController(interaction);
+        if (denied) return interaction.reply(denied);
         const queue = useQueue(interaction.guild.id);
-
         if (!queue || !queue.isPlaying()) {
-            return interaction.reply({
-                content: '> ❌ **Sin reproducción** — No hay nada sonando en este momento.',
-                flags: 64
-            });
+            return interaction.reply(musicNotice('Sin reproducción', 'No hay una sesión de música activa. Empezá usando /play.'));
         }
-
-        const currentTitle = queue.currentTrack?.title || 'Canción actual';
+        const currentTitle = String(queue.currentTrack?.title || 'Canción actual').slice(0, 120);
         queue.node.skip();
-
-        const embed = new EmbedBuilder()
-            .setColor(0xFFD54F)
-            .setDescription(`> ⏭️ **Saltada:** ${currentTitle}\n> Saltada por ${interaction.user}`)
-            .setFooter({ text: 'Prophet Music' });
-
-        return interaction.reply({ embeds: [embed] });
-    }
+        return interaction.reply({ embeds: [makeEmbed({ title: 'Canción saltada', description: '**Tema:** ' + currentTitle + '\n**Acción:** Siguiente canción de la cola.', tone: 'music', footer: 'Prophet Music · /queue para ver la lista' })], allowedMentions: { parse: [] } });
+    },
 };
