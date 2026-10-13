@@ -9,6 +9,7 @@ const DANGEROUS_ROLE_PERMISSIONS = [
     PermissionFlagsBits.ManageNicknames,
     PermissionFlagsBits.ManageThreads,
     PermissionFlagsBits.ManageGuildExpressions,
+    PermissionFlagsBits.ManageEmojisAndStickers,
     PermissionFlagsBits.MoveMembers,
     PermissionFlagsBits.MuteMembers,
     PermissionFlagsBits.DeafenMembers,
@@ -18,7 +19,7 @@ const DANGEROUS_ROLE_PERMISSIONS = [
     PermissionFlagsBits.KickMembers,
     PermissionFlagsBits.ModerateMembers,
     PermissionFlagsBits.MentionEveryone,
-];
+].filter(flag => flag !== undefined);
 
 function getSelfAssignableRoleError(role, guild, protectedRoles = []) {
     if (!role || !guild) return 'El rol no existe.';
