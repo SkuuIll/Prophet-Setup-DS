@@ -49,6 +49,12 @@ module.exports = {
         const userId = interaction.user.id;
         const eco = stmts.getEconomy(userId);
 
+        // Evitar importes manipulados o premios fuera del rango de enteros seguros.
+        if (!Number.isSafeInteger(amount) || amount < 10
+            || amount > Math.floor(Number.MAX_SAFE_INTEGER / 5)) {
+            return interaction.reply({ content: 'La apuesta debe ser un entero válido dentro del límite permitido.', flags: 64 });
+        }
+
         if (eco.balance < amount) {
             const embed = new EmbedBuilder()
                 .setColor(config.COLORES.ERROR || 0xEF5350)
@@ -81,7 +87,7 @@ module.exports = {
                 `> *Los rodillos están girando...*`
             );
         await interaction.editReply({ embeds: [spinEmbed] });
-        await new Promise(r => setTimeout(r, 1800));
+
 
         // Determinar resultado
         let multiplier = 0;
@@ -107,10 +113,21 @@ module.exports = {
             ? WIN_PHRASES[Math.floor(Math.random() * WIN_PHRASES.length)]
             : LOSE_PHRASES[Math.floor(Math.random() * LOSE_PHRASES.length)];
 
+        // Resolver la apuesta en una sola operación: no se puede apostar,
+        // gastar el dinero durante la animación y escapar del débito si se pierde.
+        const settlement = stmts.atomicModifyBalance(
+            userId, netGain, 'slots', 'spin', `wager=${amount};multiplier=${multiplier}`
+        );
+        if (!settlement.success) {
+            return interaction.editReply({
+                content: 'La apuesta no se procesó: saldo insuficiente o límite alcanzado.',
+                embeds: []
+            });
+        }
+        await new Promise(r => setTimeout(r, 1800));
+
         if (multiplier > 0) {
-            stmts.addMoney(userId, netGain, 'balance');
-            const freshEco = stmts.getEconomy(userId);
-            const newBal = freshEco.balance;
+            const newBal = settlement.balance;
 
             const embed = new EmbedBuilder()
                 .setColor(multiplier >= 3 ? 0xFFD700 : config.COLORES.SUCCESS || 0x69F0AE)
@@ -126,9 +143,7 @@ module.exports = {
                 .setTimestamp();
             await interaction.editReply({ embeds: [embed] });
         } else {
-            stmts.removeMoney(userId, amount, 'balance');
-            const freshEco = stmts.getEconomy(userId);
-            const newBal = Math.max(0, freshEco.balance);
+            const newBal = settlement.balance;
 
             const embed = new EmbedBuilder()
                 .setColor(config.COLORES.ERROR || 0xEF5350)
