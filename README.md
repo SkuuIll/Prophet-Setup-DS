@@ -23,6 +23,8 @@ Música · Moderación · Economía · Niveles · Mini-juegos · Utilidades — 
 
 ## Despliegue automático y reparación (2026)
 
+La [auditoría de interfaz Discord](docs/DISCORD_UX_AUDIT.md) documenta qué mensajes se rediseñaron y cuáles siguen pendientes. Los scripts `node scripts/audit_discord_ui.js` y `node scripts/diagnose_runtime.js` permiten inventariar comandos y errores PM2, respectivamente.
+
 **El desarrollo ahora se realiza directamente en `main`**, a pedido del propietario.
 El [PR #4](https://github.com/SkuuIll/Prophet-Setup-DS/pull/4) ya se integró.
 La VPS activa no se actualiza sin un despliegue explícito y sus backups.
