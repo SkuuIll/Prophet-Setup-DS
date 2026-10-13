@@ -1,82 +1,54 @@
-// ═══ COMANDO: /deposit mejorado ═══
-const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder } = require('discord.js');
 const { stmts } = require('../../database');
 const config = require('../../config');
-
-function balanceBar(balance, bank) {
-    const total = balance + bank;
-    if (total === 0) return '`Sin fondos`';
-    const blocks = 10;
-    const cashBlocks = Math.round((balance / total) * blocks);
-    const bankBlocks = blocks - cashBlocks;
-    return `${'🟢'.repeat(cashBlocks)}${'🔵'.repeat(bankBlocks)}\n` +
-        `> 🟢 Efectivo \`${Math.round((balance / total) * 100)}%\`  ·  🔵 Banco \`${Math.round((bank / total) * 100)}%\``;
-}
+const { makeEmbed, notice, parseCoinAmount, walletFields } = require('../../utils/discordUI');
 
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('deposit')
-        .setDescription('🏦 Depositar dinero en el banco')
-        .addStringOption(o =>
-            o.setName('cantidad')
-                .setDescription('Cantidad a depositar o "todo" para depositar todo')
-                .setRequired(true)),
+        .setDescription('Depositar monedas en el banco')
+        .addStringOption(option => option.setName('cantidad')
+            .setDescription('Cantidad o "todo" para mover todo el saldo')
+            .setRequired(true)),
 
     async execute(interaction) {
-        const input = interaction.options.getString('cantidad').trim().toLowerCase();
-        const userId = interaction.user.id;
-        const eco = stmts.getEconomy(userId);
-        const cur = config.ECONOMIA?.CURRENCY || '💰';
-
-        // Aceptar "todo" o "all"
-        const amount = (input === 'todo' || input === 'all')
-            ? eco.balance
-            : parseInt(input.replace(/[,. ]/g, ''));
-
-        if (isNaN(amount) || amount < 1) {
-            return interaction.reply({
-                embeds: [new EmbedBuilder()
-                    .setColor(config.COLORES.ERROR || 0xEF5350)
-                    .setDescription('> ❌ **Cantidad inválida.** Ingresá un número positivo o `todo`.')
-                ], ephemeral: true
-            });
+        const eco = stmts.getEconomy(interaction.user.id);
+        const currency = config.ECONOMIA?.CURRENCY || '💰';
+        const requested = interaction.options.getString('cantidad');
+        const amount = parseCoinAmount(requested, eco.balance);
+        if (amount === null) {
+            return interaction.reply(notice({
+                title: 'Cantidad inválida',
+                description: 'Ingresá una cantidad positiva de monedas o escribí **todo**. No se aceptan decimales.',
+                tone: 'error',
+            }));
         }
-
-        if (eco.balance === 0) {
-            return interaction.reply({
-                embeds: [new EmbedBuilder()
-                    .setColor(config.COLORES.WARN || 0xFFB74D)
-                    .setDescription('> ⚠️ No tenés efectivo para depositar.')
-                ], ephemeral: true
-            });
+        if (!eco.balance) {
+            return interaction.reply(notice({
+                title: 'Sin fondos',
+                description: 'No tenés efectivo disponible para depositar.',
+                tone: 'warning',
+            }));
         }
-
-        const result = stmts.transferBank(userId, amount, 'dep');
+        const result = stmts.transferBank(interaction.user.id, amount, 'dep');
         if (!result) {
-            return interaction.reply({
-                embeds: [new EmbedBuilder()
-                    .setColor(config.COLORES.ERROR || 0xEF5350)
-                    .setDescription(`> ❌ **Fondos insuficientes.** Tenés ${cur} \`${eco.balance.toLocaleString()}\` en efectivo.`)
-                ], ephemeral: true
-            });
+            return interaction.reply(notice({
+                title: 'Operación rechazada',
+                description: 'No se pudieron mover esas monedas. Es posible que tu saldo haya cambiado; consultá /balance.',
+                tone: 'error',
+            }));
         }
 
-        await interaction.reply({
-            embeds: [new EmbedBuilder()
-                .setColor(config.COLORES.SUCCESS || 0x69F0AE)
-                .setAuthor({ name: '🏦  Depósito bancario', iconURL: interaction.user.displayAvatarURL() })
-                .setDescription(
-                    `> ✅ Depositaste **${cur} ${amount.toLocaleString()}** al banco.\n\n` +
-                    `**Nueva distribución:**\n${balanceBar(result.balance, result.bank)}`
-                )
-                .addFields(
-                    { name: '💵 Efectivo', value: `${cur} \`${result.balance.toLocaleString()}\``, inline: true },
-                    { name: '🏦 Banco', value: `${cur} \`${result.bank.toLocaleString()}\``, inline: true },
-                    { name: '💎 Total', value: `${cur} \`${(result.balance + result.bank).toLocaleString()}\``, inline: true },
-                )
-                .setFooter({ text: 'Prophet Economy  ·  /withdraw para retirar' })
-                .setTimestamp()
-            ]
+        return interaction.reply({
+            embeds: [makeEmbed({
+                title: 'Depósito confirmado',
+                tone: 'success',
+                iconURL: interaction.user.displayAvatarURL?.(),
+                description: '**Depositaste ' + currency + ' ' + amount.toLocaleString('es-AR') + ' en el banco.**'
+                    + '\n\nTu cartera ya está actualizada. Los movimientos entre efectivo y banco no cambian el total.',
+                fields: walletFields(result.balance, result.bank, currency),
+                footer: 'Economía · /withdraw para retirar tus monedas',
+            })],
         });
-    }
+    },
 };
