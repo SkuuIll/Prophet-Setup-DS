@@ -14,9 +14,16 @@ const { analyzeMessagePattern, logSecurityEvent } = require('../modules/advanced
 function esStaff(member, permissions = null) {
     if (permissions?.has?.(PermissionFlagsBits.Administrator)) return true;
     // GuildMember y APIInteractionGuildMember tienen estructuras diferentes.
-    if (!member?.roles?.cache) return false;
-    return (config.STAFF_ROLES || []).some(role =>
-        member.roles.cache.some(r => r.id === role || r.name === role));
+    const protectedRoles = config.STAFF_ROLES || [];
+    if (member?.roles?.cache) {
+        return protectedRoles.some(role =>
+            member.roles.cache.some(r => r.id === role || r.name === role));
+    }
+    // En Guild API Member, roles puede ser un array de IDs.
+    if (Array.isArray(member?.roles)) {
+        return protectedRoles.some(role => member.roles.includes(role));
+    }
+    return false;
 }
 
 function actualizarEstadoReporte(embedData, estado) {
