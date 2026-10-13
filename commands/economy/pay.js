@@ -81,19 +81,31 @@ module.exports = {
                 });
             }
 
-            // Ejecutar la transferencia
-            const success = stmts.removeMoney(userId, amount, 'balance');
-            if (!success) {
-                collector.stop('error');
+            // Evitar dobles confirmaciones mientras se procesa la operación.
+            collector.stop('processing');
+            const transfer = stmts.transferMoney(userId, target.id, amount);
+            if (!transfer.success) {
                 return i.update({
-                    embeds: [new EmbedBuilder().setColor(config.COLORES.ERROR || 0xEF5350).setDescription('> ❌ Error procesando la transferencia. Fondos insuficientes.')],
+                    embeds: [new EmbedBuilder().setColor(config.COLORES.ERROR || 0xEF5350)
+                        .setDescription(`> ❌ No se completó la transferencia: ${transfer.error || 'revisá tu saldo'}.`)],
                     components: []
                 });
             }
+            const miSaldo = { balance: transfer.balance };
 
-            stmts.addMoney(target.id, amount, 'balance');
-            const miSaldo = stmts.getEconomy(userId);
-
+            await i.update({
+                embeds: [new EmbedBuilder()
+                    .setColor(config.COLORES.SUCCESS || 0x69F0AE)
+                    .setAuthor({ name: '💸  Transferencia completada', iconURL: interaction.user.displayAvatarURL() })
+                    .setDescription(
+                        `> ✅ **${cur} ${amount.toLocaleString()}** enviados a ${target}.\n\n` +
+                        `> 💵 Tu efectivo restante: **${cur} ${miSaldo.balance.toLocaleString()}**`
+                    )
+                    .setFooter({ text: 'Prophet Economy  ·  Se intentará notificar al receptor' })
+                    .setTimestamp()
+                ],
+                components: []
+            });
             // DM al receptor
             try {
                 await target.send({
@@ -110,20 +122,7 @@ module.exports = {
                 });
             } catch (_) { /* DMs cerrados */ }
 
-            collector.stop('done');
-            await i.update({
-                embeds: [new EmbedBuilder()
-                    .setColor(config.COLORES.SUCCESS || 0x69F0AE)
-                    .setAuthor({ name: '💸  Transferencia completada', iconURL: interaction.user.displayAvatarURL() })
-                    .setDescription(
-                        `> ✅ **${cur} ${amount.toLocaleString()}** enviados a ${target}.\n\n` +
-                        `> 💵 Tu efectivo restante: **${cur} ${miSaldo.balance.toLocaleString()}**`
-                    )
-                    .setFooter({ text: 'Prophet Economy  ·  El receptor fue notificado por DM' })
-                    .setTimestamp()
-                ],
-                components: []
-            });
+
         });
 
         collector.on('end', (_, reason) => {
