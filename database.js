@@ -745,6 +745,30 @@ const stmts = {
             return { success: true, balance, recipientBalance: recipient.balance + amount };
         })();
     },
+    claimTimedReward(userId, kind, reward, now, cooldownMs) {
+        const column = kind === 'daily' ? 'last_daily'
+            : kind === 'work' ? 'last_work' : null;
+        if (!column || !Number.isSafeInteger(reward) || reward <= 0
+            || !Number.isSafeInteger(now) || !Number.isSafeInteger(cooldownMs)
+            || cooldownMs <= 0) {
+            return { success: false, error: 'Recompensa o cooldown inválidos' };
+        }
+
+        return db.transaction(() => {
+            getOrCreateUser(userId);
+            const update = db.prepare(`
+                UPDATE users
+                SET balance = balance + ?, ${column} = ?
+                WHERE id = ?
+                  AND COALESCE(${column}, 0) <= ?
+                  AND balance + ? <= ?
+            `).run(reward, now, userId, now - cooldownMs, reward, Number.MAX_SAFE_INTEGER);
+            const row = db.prepare(`SELECT balance, ${column} AS lastClaim FROM users WHERE id = ?`).get(userId);
+            return update.changes === 1
+                ? { success: true, balance: row.balance, lastClaim: now }
+                : { success: false, error: 'Recompensa aún no disponible o saldo máximo', balance: row?.balance ?? 0, lastClaim: row?.lastClaim ?? 0 };
+        })();
+    },
     setEconomy(userId, key, value) {
         const allowedKeys = ['last_daily', 'last_work'];
         if (allowedKeys.includes(key)) {
