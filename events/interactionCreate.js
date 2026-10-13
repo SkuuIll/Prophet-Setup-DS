@@ -159,7 +159,7 @@ module.exports = {
                             tone: 'error',
                         }));
                     }
-                    const match = /^notes_export_(\\d{17,20})$/.exec(id);
+                    const match = /^notes_export_(\d{17,20})$/.exec(id);
                     if (!match) return interaction.reply(notice({
                         title: 'Solicitud inválida',
                         description: 'No se pudo identificar al usuario.',
@@ -176,11 +176,11 @@ module.exports = {
                     const lines = notes.map(note => {
                         const date = new Date(note.created_at).toISOString().slice(0, 10);
                         return '[' + date + '] #' + note.id + ' (' + note.note_type + ') Moderador '
-                            + note.created_by + '\\n' + String(note.note || '').slice(0, 1200);
+                            + note.created_by + '\n' + String(note.note || '').slice(0, 1200);
                     });
-                    const report = 'Prophet Gaming · Notas de moderación\\n'
-                        + 'Servidor: ' + interaction.guildId + '\\nUsuario: ' + match[1] + '\\n'
-                        + 'Entradas: ' + notes.length + '\\n\\n' + lines.join('\\n\\n');
+                    const report = 'Prophet Gaming · Notas de moderación\n'
+                        + 'Servidor: ' + interaction.guildId + '\nUsuario: ' + match[1] + '\n'
+                        + 'Entradas: ' + notes.length + '\n\n' + lines.join('\n\n');
                     return interaction.reply({
                         content: 'Exportación privada de notas de moderación.',
                         files: [new AttachmentBuilder(Buffer.from(report, 'utf8'), {
