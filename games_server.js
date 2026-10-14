@@ -170,7 +170,7 @@ const server = http.createServer(async (req, res) => {
                     level: eco.level
                 });
             } catch (e) {
-                console.error('[Games OAuth] Falló el intercambio de sesión', e);
+                console.error('[Games OAuth] Falló el intercambio de sesión:', e?.name || 'Error');
                 return sendJson(res, 400, { error: 'No se pudo completar la autenticación de Discord' });
             }
         }
@@ -194,7 +194,7 @@ const server = http.createServer(async (req, res) => {
                     level: eco.level
                 });
             } catch (e) {
-                console.error('activity-auth error:', e);
+                console.error('[Games OAuth] Falló Activity OAuth:', e?.name || 'Error');
                 return sendJson(res, 500, { error: 'No se pudo completar la autenticación de Discord' });
             }
         }
@@ -221,7 +221,7 @@ const server = http.createServer(async (req, res) => {
                     level: eco.level
                 });
             } catch (e) {
-                console.error('[Games OAuth] Falló la sesión desde access_token', e);
+                console.error('[Games OAuth] Falló la sesión desde access_token:', e?.name || 'Error');
                 return sendJson(res, 500, { error: 'No se pudo completar la autenticación de Discord' });
             }
         }
