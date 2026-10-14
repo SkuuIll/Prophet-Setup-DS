@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { isLocalDemoAllowed } = require('../games/common/websocketSecurity');
+const { isLocalDemoAllowed, consumeMessageBudget, MAX_MESSAGES_PER_WINDOW, MESSAGE_WINDOW_MS } = require('../games/common/websocketSecurity');
 
 test('Un visitante público nunca puede utilizar la sesión demo', () => {
     assert.equal(isLocalDemoAllowed({
@@ -21,4 +21,15 @@ test('Demo local exige habilitación explícita', () => {
     assert.equal(isLocalDemoAllowed({
         enabled: 'true', nodeEnv: 'development', address: '::1',
     }), true);
+});
+
+
+test('El presupuesto de mensajes WS limita spam y se restaura en una ventana nueva', () => {
+    const budget = { startedAt: 1000, count: 0 };
+    for (let i = 0; i < MAX_MESSAGES_PER_WINDOW; i++) {
+        assert.equal(consumeMessageBudget(budget, 1000 + i), true);
+    }
+    assert.equal(consumeMessageBudget(budget, 1500), false);
+    assert.equal(consumeMessageBudget(budget, 1000 + MESSAGE_WINDOW_MS), true);
+    assert.equal(budget.count, 1);
 });
