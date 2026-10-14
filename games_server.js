@@ -460,7 +460,6 @@ wss.on('connection', (ws, request) => {
                     tokenKind: !rawToken ? 'empty'
                         : rawToken === 'demo_token' ? 'demo'
                         : session ? 'valid_session' : 'invalid_session',
-                    hint: clientHintName || null,
                     userId: session?.userId || null
                 });
 
@@ -496,23 +495,16 @@ wss.on('connection', (ws, request) => {
                     return;
                 }
 
-                // Actualizar meta de sesión si el cliente manda nombre real
-                if (clientHintName && clientHintName !== 'Demo' && !/^Jugador_/.test(clientHintName)) {
-                    AuthManager.setSessionMeta(rawToken, {
-                        username: clientHintName,
-                        avatar: data.avatar || null
-                    });
-                }
-
+                // El nombre y avatar del cliente son solo hints para demo local.
+                // En sesiones reales, usar exclusivamente identidad validada del servidor.
                 const refreshed = AuthManager.validateToken(rawToken) || session;
                 const displayName = refreshed.username
                     || refreshed.user?.username
-                    || clientHintName
                     || `Jugador_${String(refreshed.userId).slice(-4)}`;
                 sessionUser = {
                     ...refreshed,
                     username: displayName,
-                    avatar: refreshed.avatar || refreshed.user?.avatar || data.avatar || null
+                    avatar: refreshed.avatar || refreshed.user?.avatar || null
                 };
                 ws.userId = refreshed.userId;
                 const balanceData = EconomyBridge.getUserBalance(refreshed.userId);
