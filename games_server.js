@@ -8,7 +8,7 @@ require('dotenv').config();
 const AuthManager = require('./games/common/authManager');
 const EconomyBridge = require('./games/common/economyBridge');
 const DiscordActivityAuth = require('./games/common/discordActivityAuth');
-const { isLocalDemoAllowed } = require('./games/common/websocketSecurity');
+const { isLocalDemoAllowed, consumeMessageBudget } = require('./games/common/websocketSecurity');
 const { isAllowedGamesOrigin } = require('./games/common/originSecurity');
 const { resolvePublicFile } = require('./games/common/publicFilePath');
 const { internalSecretReady, verifyInternalSecret, validDiscordUserId } = require('./games/common/internalTokenAuth');
@@ -442,6 +442,13 @@ UnoEngine.setPersonalBroadcast((tableId, buildForUser) => {
 
 wss.on('connection', (ws, request) => {
     let sessionUser = null;
+    let authAttempts = 0;
+    const messageBudget = { startedAt: Date.now(), count: 0 };
+    // Desconectar sockets que se abren pero nunca autentican.
+    const authTimeout = setTimeout(() => {
+        if (!sessionUser) ws.close(1008, 'Autenticacion requerida');
+    }, 15000);
+    ws.once('close', () => clearTimeout(authTimeout));
     // Demos solo para desarrollo local, nunca en producción ni expuestas a Internet.
     const address = request?.socket?.remoteAddress || '';
     const allowDemo = isLocalDemoAllowed({
@@ -456,11 +463,19 @@ wss.on('connection', (ws, request) => {
     });
 
     ws.on('message', (messageRaw) => {
+        if (!consumeMessageBudget(messageBudget)) {
+            ws.close(1008, 'Limite de mensajes');
+            return;
+        }
         try {
             const data = JSON.parse(messageRaw);
 
             // 1. Autenticación Inicial
             if (data.type === 'auth') {
+                if (++authAttempts > 10) {
+                    ws.close(1008, 'Limite de autenticacion');
+                    return;
+                }
                 // Al cambiar de cuenta, nunca conservar salas o partidas anteriores.
                 sessionUser = null;
                 ws.userId = null;
@@ -492,6 +507,7 @@ wss.on('connection', (ws, request) => {
                             user: { id: 'demo_user', username: demoName }
                         };
                         ws.userId = 'demo_user';
+                        clearTimeout(authTimeout);
                         ws.send(JSON.stringify({
                             type: 'auth_success',
                             userId: 'demo_user',
@@ -524,6 +540,7 @@ wss.on('connection', (ws, request) => {
                     avatar: refreshed.avatar || refreshed.user?.avatar || null
                 };
                 ws.userId = refreshed.userId;
+                clearTimeout(authTimeout);
                 const balanceData = EconomyBridge.getUserBalance(refreshed.userId);
                 ws.send(JSON.stringify({
                     type: 'auth_success',
