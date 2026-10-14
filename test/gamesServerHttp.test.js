@@ -27,6 +27,12 @@ test('Games HTTP: health, assets, sesión inválida y secreto interno ausente', 
             GAMES_INTERNAL_SECRET: '',
             GAMES_DEMO_ENABLED: 'false',
             NODE_ENV: 'production',
+            DISCORD_CLIENT_ID: '',
+            VITE_DISCORD_CLIENT_ID: '',
+            ACTIVITY_CLIENT_ID: '',
+            DISCORD_CLIENT_SECRET: '',
+            ACTIVITY_CLIENT_SECRET: '',
+            DISCORD_TOKEN: '',
         },
         stdio: ['ignore', 'pipe', 'pipe'],
     });
@@ -65,6 +71,26 @@ test('Games HTTP: health, assets, sesión inválida y secreto interno ausente', 
 
     const invalid = await fetch(base + '/api/games/session-info?token=fake');
     assert.equal(invalid.status, 401);
+
+    const oauthMissingConfig = await fetch(base + '/api/games/activity-auth', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ code: 'example-code' }),
+    });
+    assert.equal(oauthMissingConfig.status, 400);
+    assert.deepEqual(await oauthMissingConfig.json(), {
+        error: 'Autenticación de Discord no disponible',
+    });
+
+    const malformedOAuth = await fetch(base + '/api/games/activity-auth', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: '{"code":',
+    });
+    assert.equal(malformedOAuth.status, 500);
+    assert.deepEqual(await malformedOAuth.json(), {
+        error: 'No se pudo completar la autenticación de Discord',
+    });
 
     const hidden = await fetch(base + '/.env');
     assert.equal(hidden.status, 404);
