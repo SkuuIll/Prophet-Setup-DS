@@ -9,6 +9,7 @@ const AuthManager = require('./games/common/authManager');
 const EconomyBridge = require('./games/common/economyBridge');
 const DiscordActivityAuth = require('./games/common/discordActivityAuth');
 const { isLocalDemoAllowed } = require('./games/common/websocketSecurity');
+const { isAllowedGamesOrigin } = require('./games/common/originSecurity');
 const { resolvePublicFile } = require('./games/common/publicFilePath');
 const { internalSecretReady, verifyInternalSecret, validDiscordUserId } = require('./games/common/internalTokenAuth');
 const TycoonEngine = require('./games/tycoon/tycoonEngine');
@@ -94,7 +95,14 @@ function sendJson(res, status, data) {
 const server = http.createServer(async (req, res) => {
     try {
         // Headers para Discord Activities (iframe en client.discord.com)
-        res.setHeader('Access-Control-Allow-Origin', '*');
+        const requestOrigin = req.headers.origin;
+        res.setHeader('Vary', 'Origin');
+        if (requestOrigin && !isAllowedGamesOrigin(
+            requestOrigin, req.headers.host, process.env.GAMES_CORS_ORIGINS, process.env.NODE_ENV
+        )) {
+            return sendJson(res, 403, { error: 'Origen no permitido' });
+        }
+        if (requestOrigin) res.setHeader('Access-Control-Allow-Origin', requestOrigin);
         res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
         res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
         res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -357,6 +365,12 @@ const wss = new WebSocket.Server({ noServer: true, maxPayload: 64 * 1024, perMes
 
 server.on('upgrade', (request, socket, head) => {
     try {
+        if (!isAllowedGamesOrigin(
+            request.headers.origin, request.headers.host, process.env.GAMES_CORS_ORIGINS, process.env.NODE_ENV
+        )) {
+            socket.destroy();
+            return;
+        }
         let parsed;
         try {
             parsed = new URL(request.url, `http://${request.headers.host || 'localhost'}`);
