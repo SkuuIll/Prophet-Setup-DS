@@ -274,7 +274,8 @@ const server = http.createServer(async (req, res) => {
                 const token = AuthManager.createSession(data.userId, data.ttlMinutes || 120);
                 return sendJson(res, 200, { token });
             } catch (e) {
-                return sendJson(res, 400, { error: e.message || 'JSON inválido' });
+                console.error('[Games internal token] Solicitud rechazada:', e?.name || 'Error');
+                return sendJson(res, 400, { error: 'Solicitud inválida' });
             }
         }
 
