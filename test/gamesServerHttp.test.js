@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const path = require('node:path');
 const net = require('node:net');
 const { spawn } = require('node:child_process');
+const WebSocket = require('ws');
 
 async function freePort() {
     const server = net.createServer();
@@ -112,6 +113,22 @@ test('Games HTTP: health, assets, sesión inválida y secreto interno ausente', 
     assert.deepEqual(await malformedOAuth.json(), {
         error: 'No se pudo completar la autenticación de Discord',
     });
+
+    // Cross-site WS sin origen de confianza no puede abrir el socket.
+    const deniedSocket = await new Promise(resolve => {
+        const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`, { origin: 'https://evil.example' });
+        ws.once('error', () => resolve('rejected'));
+        ws.once('open', () => { ws.terminate(); resolve('accepted'); });
+    });
+    assert.equal(deniedSocket, 'rejected');
+
+    // El proxy oficial de Discord Activities debe seguir siendo compatible.
+    const acceptedSocket = await new Promise(resolve => {
+        const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`, { origin: 'https://activity.discordsays.com' });
+        ws.once('error', () => resolve('rejected'));
+        ws.once('open', () => { ws.close(); resolve('accepted'); });
+    });
+    assert.equal(acceptedSocket, 'accepted');
 
     const hidden = await fetch(base + '/.env');
     assert.equal(hidden.status, 404);
