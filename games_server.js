@@ -227,8 +227,11 @@ const server = http.createServer(async (req, res) => {
         }
 
         // ─── API REST sesión ───
-        if (pathname === '/api/games/session-info' || pathname === '/.proxy/api/games/session-info') {
-            const token = parsedUrl.searchParams.get('token');
+        if (pathname === '/api/games/session-info' && req.method === 'GET') {
+            // Nunca admitir credenciales en URLs: proxies e historiales registran query strings.
+            // Los clientes deben utilizar Authorization: Bearer <sessionToken>.
+            const authorization = req.headers.authorization || '';
+            const token = /^Bearer\s+([a-f0-9]{64})$/i.exec(authorization)?.[1] || null;
             const session = AuthManager.validateToken(token);
             if (!session) {
                 return sendJson(res, 401, { error: 'Token inválido o expirado' });
