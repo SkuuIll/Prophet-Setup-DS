@@ -3,6 +3,12 @@
  * Oleadas, bosses cíclicos, combos, builds con tags, dash, scoring rico.
  */
 
+function escapeSurvivorText(value) {
+    const replacements = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+    return String(value ?? '').replace(/[&<>"']/g, char => replacements[char]);
+}
+
+
 const canvas = document.getElementById('survivor-canvas');
 const ctx = canvas.getContext('2d');
 
@@ -1254,7 +1260,7 @@ window.initSurvivorEvents = () => {
             const div = document.createElement('div');
             div.className = 'lb-row';
             div.innerHTML = `
-                <span>#${idx + 1} ${row.username}</span>
+                <span>#${idx + 1} ${escapeSurvivorText(row.username)}</span>
                 <span>${row.max_kills} kills · ${row.max_time}s</span>
                 <span style="color: var(--color-gold); font-weight: 900;">${formatNumber(row.high_score)} pts</span>
             `;
