@@ -72,6 +72,27 @@ test('Games HTTP: health, assets, sesión inválida y secreto interno ausente', 
     const invalid = await fetch(base + '/api/games/session-info?token=fake');
     assert.equal(invalid.status, 401);
 
+    // Los tokens de sesión en query string jamás deben aceptarse.
+    const oldQuery = await fetch(base + '/api/games/session-info?token=' + 'a'.repeat(64));
+    assert.equal(oldQuery.status, 401);
+    const invalidBearer = await fetch(base + '/api/games/session-info', {
+        headers: { authorization: 'Bearer ' + 'b'.repeat(64) },
+    });
+    assert.equal(invalidBearer.status, 401);
+
+    const evilPreflight = await fetch(base + '/api/games/activity-auth', {
+        method: 'OPTIONS',
+        headers: { origin: 'https://evil.example', 'access-control-request-method': 'POST' },
+    });
+    assert.equal(evilPreflight.status, 403);
+    assert.equal(evilPreflight.headers.get('access-control-allow-origin'), null);
+    const discordPreflight = await fetch(base + '/api/games/activity-auth', {
+        method: 'OPTIONS',
+        headers: { origin: 'https://an-app.discordsays.com', 'access-control-request-method': 'POST' },
+    });
+    assert.equal(discordPreflight.status, 204);
+    assert.equal(discordPreflight.headers.get('access-control-allow-origin'), 'https://an-app.discordsays.com');
+
     const oauthMissingConfig = await fetch(base + '/api/games/activity-auth', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
