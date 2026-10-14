@@ -2,6 +2,12 @@
  * ════ CRASH (AVIATOR) — GAME CLIENT CONTROLLER ════
  */
 
+function escapeCrashText(value) {
+    const replacements = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+    return String(value ?? '').replace(/[&<>"']/g, char => replacements[char]);
+}
+
+
 let crashState = 'WAITING';
 let currentMultiplier = 1.00;
 let myBet = null; // { amount, autoCashout, cashedOut: false }
@@ -270,7 +276,7 @@ function renderBetsList(bets) {
         const row = document.createElement('div');
         row.className = 'live-bet-item';
         row.innerHTML = `
-            <span>${b.username}</span>
+            <span>${escapeCrashText(b.username)}</span>
             <span style="color: ${b.cashedOut ? 'var(--color-success)' : 'var(--color-gold)'}">
                 ${b.cashedOut ? `+🪙 ${formatNumber(b.winAmount)} (${b.cashoutMultiplier}x)` : `🪙 ${formatNumber(b.amount)}`}
             </span>

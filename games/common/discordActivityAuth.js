@@ -38,7 +38,7 @@ async function exchangeCodeForToken(code) {
     if (!clientId || !clientSecret) {
         return {
             success: false,
-            error: 'Falta DISCORD_CLIENT_ID o DISCORD_CLIENT_SECRET en el servidor'
+            error: 'Autenticación de Discord no disponible'
         };
     }
     if (typeof code !== 'string' || !code || code.length > 2048) {
@@ -63,7 +63,7 @@ async function exchangeCodeForToken(code) {
     if (!res.ok || !data.access_token) {
         return {
             success: false,
-            error: data.error_description || data.error || 'Error al intercambiar OAuth code',
+            error: 'No se pudo validar el código de Discord. Reabrí la Activity.',
             status: res.status
         };
     }

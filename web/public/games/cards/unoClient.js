@@ -2,6 +2,12 @@
  * ════ UNO CLÁSICO — CLIENT ════
  */
 
+function escapeUnoText(value) {
+    const replacements = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+    return String(value ?? '').replace(/[&<>"']/g, char => replacements[char]);
+}
+
+
 let unoTable = null;
 let unoUserId = null;
 let pendingColorCardId = null;
@@ -151,7 +157,7 @@ function applyUnoTable(table) {
             const row = document.createElement('div');
             row.className = `uno-opp${p.isTurn ? ' turn' : ''}${p.saidUno ? ' uno-said' : ''}`;
             row.innerHTML = `
-                <div class="uno-opp-name">${p.username}${p.isHost ? ' 👑' : ''}</div>
+                <div class="uno-opp-name">${escapeUnoText(p.username)}${p.isHost ? ' 👑' : ''}</div>
                 <div class="uno-opp-cards">${'🂠'.repeat(Math.min(8, p.cardCount))}${p.cardCount > 8 ? '+' : ''} <b>${p.cardCount}</b></div>
                 <div class="uno-opp-score">${p.score} pts</div>
                 ${p.cardCount === 1 && !p.saidUno ? '<button class="btn-catch-uno" data-uid="' + p.userId + '">¡ATRAPAR UNO!</button>' : ''}
@@ -173,7 +179,7 @@ function applyUnoTable(table) {
     // Scores bar
     if (e.scores) {
         e.scores.innerHTML = (table.players || []).map(p =>
-            `<span class="uno-score-pill${p.userId === unoUserId ? ' me' : ''}${p.isTurn ? ' turn' : ''}">${p.username}: <b>${p.score}</b> · ${p.cardCount}🎴</span>`
+            `<span class="uno-score-pill${p.userId === unoUserId ? ' me' : ''}${p.isTurn ? ' turn' : ''}">${escapeUnoText(p.username)}: <b>${p.score}</b> · ${p.cardCount}🎴</span>`
         ).join('');
     }
 
@@ -231,7 +237,7 @@ function applyUnoTable(table) {
 
     // Log
     if (e.log) {
-        e.log.innerHTML = (table.log || []).map(l => `<div class="uno-log-line">${l.text}</div>`).join('');
+        e.log.innerHTML = (table.log || []).map(l => `<div class="uno-log-line">${escapeUnoText(l.text)}</div>`).join('');
     }
 }
 

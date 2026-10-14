@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const path = require('node:path');
 const net = require('node:net');
 const { spawn } = require('node:child_process');
+const WebSocket = require('ws');
 
 async function freePort() {
     const server = net.createServer();
@@ -27,6 +28,12 @@ test('Games HTTP: health, assets, sesión inválida y secreto interno ausente', 
             GAMES_INTERNAL_SECRET: '',
             GAMES_DEMO_ENABLED: 'false',
             NODE_ENV: 'production',
+            DISCORD_CLIENT_ID: '',
+            VITE_DISCORD_CLIENT_ID: '',
+            ACTIVITY_CLIENT_ID: '',
+            DISCORD_CLIENT_SECRET: '',
+            ACTIVITY_CLIENT_SECRET: '',
+            DISCORD_TOKEN: '',
         },
         stdio: ['ignore', 'pipe', 'pipe'],
     });
@@ -65,6 +72,63 @@ test('Games HTTP: health, assets, sesión inválida y secreto interno ausente', 
 
     const invalid = await fetch(base + '/api/games/session-info?token=fake');
     assert.equal(invalid.status, 401);
+
+    // Los tokens de sesión en query string jamás deben aceptarse.
+    const oldQuery = await fetch(base + '/api/games/session-info?token=' + 'a'.repeat(64));
+    assert.equal(oldQuery.status, 401);
+    const invalidBearer = await fetch(base + '/api/games/session-info', {
+        headers: { authorization: 'Bearer ' + 'b'.repeat(64) },
+    });
+    assert.equal(invalidBearer.status, 401);
+
+    const evilPreflight = await fetch(base + '/api/games/activity-auth', {
+        method: 'OPTIONS',
+        headers: { origin: 'https://evil.example', 'access-control-request-method': 'POST' },
+    });
+    assert.equal(evilPreflight.status, 403);
+    assert.equal(evilPreflight.headers.get('access-control-allow-origin'), null);
+    const discordPreflight = await fetch(base + '/api/games/activity-auth', {
+        method: 'OPTIONS',
+        headers: { origin: 'https://an-app.discordsays.com', 'access-control-request-method': 'POST' },
+    });
+    assert.equal(discordPreflight.status, 204);
+    assert.equal(discordPreflight.headers.get('access-control-allow-origin'), 'https://an-app.discordsays.com');
+
+    const oauthMissingConfig = await fetch(base + '/api/games/activity-auth', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ code: 'example-code' }),
+    });
+    assert.equal(oauthMissingConfig.status, 400);
+    assert.deepEqual(await oauthMissingConfig.json(), {
+        error: 'Autenticación de Discord no disponible',
+    });
+
+    const malformedOAuth = await fetch(base + '/api/games/activity-auth', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: '{"code":',
+    });
+    assert.equal(malformedOAuth.status, 500);
+    assert.deepEqual(await malformedOAuth.json(), {
+        error: 'No se pudo completar la autenticación de Discord',
+    });
+
+    // Cross-site WS sin origen de confianza no puede abrir el socket.
+    const deniedSocket = await new Promise(resolve => {
+        const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`, { origin: 'https://evil.example' });
+        ws.once('error', () => resolve('rejected'));
+        ws.once('open', () => { ws.terminate(); resolve('accepted'); });
+    });
+    assert.equal(deniedSocket, 'rejected');
+
+    // El proxy oficial de Discord Activities debe seguir siendo compatible.
+    const acceptedSocket = await new Promise(resolve => {
+        const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`, { origin: 'https://activity.discordsays.com' });
+        ws.once('error', () => resolve('rejected'));
+        ws.once('open', () => { ws.close(); resolve('accepted'); });
+    });
+    assert.equal(acceptedSocket, 'accepted');
 
     const hidden = await fetch(base + '/.env');
     assert.equal(hidden.status, 404);

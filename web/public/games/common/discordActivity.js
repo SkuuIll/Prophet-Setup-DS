@@ -84,7 +84,7 @@ function ensureEmbedParamsInUrl() {
                 if (v) url.searchParams.set(k, v);
             }
             window.history.replaceState({}, '', url.toString());
-            console.log('[Activity] Reinyectados params de Discord en la URL', url.search);
+            console.log('[Activity] Restaurados parametros del SDK de Discord');
         } catch (e) {
             console.warn('[Activity] No se pudo replaceState', e);
         }
@@ -169,12 +169,15 @@ function showError(title, detail) {
         }
         el.innerHTML = `
           <div style="font-size:2rem">⚠️</div>
-          <h2 style="margin:0;font-size:1.25rem">${title}</h2>
-          <pre style="max-width:640px;white-space:pre-wrap;color:#c4b5fd;font-size:.82rem;background:#120c20;padding:14px;border-radius:12px;border:1px solid rgba(179,136,255,.35);text-align:left">${detail}</pre>
+          <h2 id="prophet-activity-error-title" style="margin:0;font-size:1.25rem"></h2>
+          <pre id="prophet-activity-error-detail" style="max-width:640px;white-space:pre-wrap;color:#c4b5fd;font-size:.82rem;background:#120c20;padding:14px;border-radius:12px;border:1px solid rgba(179,136,255,.35);text-align:left"></pre>
           <button id="prophet-activity-retry" style="margin-top:8px;padding:10px 18px;border:none;border-radius:10px;background:#b388ff;color:#0a0612;font-weight:800;cursor:pointer">
             Volver al Hub
           </button>
         `;
+        // Las entradas pueden provenir de URLs y proveedores externos: no interpretar HTML.
+        el.querySelector('#prophet-activity-error-title').textContent = String(title);
+        el.querySelector('#prophet-activity-error-detail').textContent = String(detail);
         const btn = document.getElementById('prophet-activity-retry');
         if (btn) {
             btn.onclick = () => navigatePreserveEmbed('/games/hub/');
@@ -234,7 +237,7 @@ async function setupActivity() {
     let merged = ensureEmbedParamsInUrl();
 
     console.log('[Activity] boot', {
-        href: window.location.href,
+        path: window.location.pathname,
         host: window.location.hostname,
         params: merged,
         hasRequired: hasRequired(merged)
@@ -260,7 +263,7 @@ async function setupActivity() {
         // (raro en el primer load; normal si navegaste y se borró storage)
         showError(
             'Falta frame_id de Discord',
-            'URL actual:\n' + window.location.href +
+            'Ruta actual:\n' + window.location.pathname +
             '\n\nhost: ' + window.location.hostname +
             '\nframe_id: ' + (merged.frame_id || '(vacío)') +
             '\ninstance_id: ' + (merged.instance_id || '(vacío)') +
@@ -276,7 +279,7 @@ async function setupActivity() {
     if (!hasRequired(readParamsFromSearch(window.location.search))) {
         showError(
             'No se pudieron reinyectar los params',
-            'Storage OK pero location.search vacío.\n' + window.location.href
+            'Storage OK pero location.search vacío.\n' + window.location.pathname
         );
         return { mode: 'activity', error: 'could not restore frame_id to URL' };
     }
@@ -429,7 +432,7 @@ async function setupActivity() {
         console.error('[Activity] fail', err);
         showError(
             'Error al iniciar la Activity',
-            String(err && err.message ? err.message : err) + '\n\nURL:\n' + window.location.href
+            String(err && err.message ? err.message : err) + '\n\nRuta:\n' + window.location.pathname
         );
         return { mode: 'activity', error: String(err && err.message ? err.message : err) };
     }

@@ -8,7 +8,8 @@ require('dotenv').config();
 const AuthManager = require('./games/common/authManager');
 const EconomyBridge = require('./games/common/economyBridge');
 const DiscordActivityAuth = require('./games/common/discordActivityAuth');
-const { isLocalDemoAllowed } = require('./games/common/websocketSecurity');
+const { isLocalDemoAllowed, consumeMessageBudget } = require('./games/common/websocketSecurity');
+const { isAllowedGamesOrigin } = require('./games/common/originSecurity');
 const { resolvePublicFile } = require('./games/common/publicFilePath');
 const { internalSecretReady, verifyInternalSecret, validDiscordUserId } = require('./games/common/internalTokenAuth');
 const TycoonEngine = require('./games/tycoon/tycoonEngine');
@@ -94,7 +95,14 @@ function sendJson(res, status, data) {
 const server = http.createServer(async (req, res) => {
     try {
         // Headers para Discord Activities (iframe en client.discord.com)
-        res.setHeader('Access-Control-Allow-Origin', '*');
+        const requestOrigin = req.headers.origin;
+        res.setHeader('Vary', 'Origin');
+        if (requestOrigin && !isAllowedGamesOrigin(
+            requestOrigin, req.headers.host, process.env.GAMES_CORS_ORIGINS, process.env.NODE_ENV
+        )) {
+            return sendJson(res, 403, { error: 'Origen no permitido' });
+        }
+        if (requestOrigin) res.setHeader('Access-Control-Allow-Origin', requestOrigin);
         res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
         res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
         res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -170,7 +178,8 @@ const server = http.createServer(async (req, res) => {
                     level: eco.level
                 });
             } catch (e) {
-                return sendJson(res, 400, { error: e.message || 'Error OAuth' });
+                console.error('[Games OAuth] Falló el intercambio de sesión:', e?.name || 'Error');
+                return sendJson(res, 400, { error: 'No se pudo completar la autenticación de Discord' });
             }
         }
 
@@ -193,8 +202,8 @@ const server = http.createServer(async (req, res) => {
                     level: eco.level
                 });
             } catch (e) {
-                console.error('activity-auth error:', e);
-                return sendJson(res, 500, { error: e.message || 'Error de autenticación Activity' });
+                console.error('[Games OAuth] Falló Activity OAuth:', e?.name || 'Error');
+                return sendJson(res, 500, { error: 'No se pudo completar la autenticación de Discord' });
             }
         }
 
@@ -220,13 +229,17 @@ const server = http.createServer(async (req, res) => {
                     level: eco.level
                 });
             } catch (e) {
-                return sendJson(res, 500, { error: e.message || 'Error creando sesión' });
+                console.error('[Games OAuth] Falló la sesión desde access_token:', e?.name || 'Error');
+                return sendJson(res, 500, { error: 'No se pudo completar la autenticación de Discord' });
             }
         }
 
         // ─── API REST sesión ───
-        if (pathname === '/api/games/session-info' || pathname === '/.proxy/api/games/session-info') {
-            const token = parsedUrl.searchParams.get('token');
+        if (pathname === '/api/games/session-info' && req.method === 'GET') {
+            // Nunca admitir credenciales en URLs: proxies e historiales registran query strings.
+            // Los clientes deben utilizar Authorization: Bearer <sessionToken>.
+            const authorization = req.headers.authorization || '';
+            const token = /^Bearer\s+([a-f0-9]{64})$/i.exec(authorization)?.[1] || null;
             const session = AuthManager.validateToken(token);
             if (!session) {
                 return sendJson(res, 401, { error: 'Token inválido o expirado' });
@@ -261,7 +274,8 @@ const server = http.createServer(async (req, res) => {
                 const token = AuthManager.createSession(data.userId, data.ttlMinutes || 120);
                 return sendJson(res, 200, { token });
             } catch (e) {
-                return sendJson(res, 400, { error: e.message || 'JSON inválido' });
+                console.error('[Games internal token] Solicitud rechazada:', e?.name || 'Error');
+                return sendJson(res, 400, { error: 'Solicitud inválida' });
             }
         }
 
@@ -352,6 +366,12 @@ const wss = new WebSocket.Server({ noServer: true, maxPayload: 64 * 1024, perMes
 
 server.on('upgrade', (request, socket, head) => {
     try {
+        if (!isAllowedGamesOrigin(
+            request.headers.origin, request.headers.host, process.env.GAMES_CORS_ORIGINS, process.env.NODE_ENV
+        )) {
+            socket.destroy();
+            return;
+        }
         let parsed;
         try {
             parsed = new URL(request.url, `http://${request.headers.host || 'localhost'}`);
@@ -423,6 +443,13 @@ UnoEngine.setPersonalBroadcast((tableId, buildForUser) => {
 
 wss.on('connection', (ws, request) => {
     let sessionUser = null;
+    let authAttempts = 0;
+    const messageBudget = { startedAt: Date.now(), count: 0 };
+    // Desconectar sockets que se abren pero nunca autentican.
+    const authTimeout = setTimeout(() => {
+        if (!sessionUser) ws.close(1008, 'Autenticacion requerida');
+    }, 15000);
+    ws.once('close', () => clearTimeout(authTimeout));
     // Demos solo para desarrollo local, nunca en producción ni expuestas a Internet.
     const address = request?.socket?.remoteAddress || '';
     const allowDemo = isLocalDemoAllowed({
@@ -437,11 +464,19 @@ wss.on('connection', (ws, request) => {
     });
 
     ws.on('message', (messageRaw) => {
+        if (!consumeMessageBudget(messageBudget)) {
+            ws.close(1008, 'Limite de mensajes');
+            return;
+        }
         try {
             const data = JSON.parse(messageRaw);
 
             // 1. Autenticación Inicial
             if (data.type === 'auth') {
+                if (++authAttempts > 10) {
+                    ws.close(1008, 'Limite de autenticacion');
+                    return;
+                }
                 // Al cambiar de cuenta, nunca conservar salas o partidas anteriores.
                 sessionUser = null;
                 ws.userId = null;
@@ -458,7 +493,6 @@ wss.on('connection', (ws, request) => {
                     tokenKind: !rawToken ? 'empty'
                         : rawToken === 'demo_token' ? 'demo'
                         : session ? 'valid_session' : 'invalid_session',
-                    hint: clientHintName || null,
                     userId: session?.userId || null
                 });
 
@@ -474,6 +508,7 @@ wss.on('connection', (ws, request) => {
                             user: { id: 'demo_user', username: demoName }
                         };
                         ws.userId = 'demo_user';
+                        clearTimeout(authTimeout);
                         ws.send(JSON.stringify({
                             type: 'auth_success',
                             userId: 'demo_user',
@@ -494,25 +529,19 @@ wss.on('connection', (ws, request) => {
                     return;
                 }
 
-                // Actualizar meta de sesión si el cliente manda nombre real
-                if (clientHintName && clientHintName !== 'Demo' && !/^Jugador_/.test(clientHintName)) {
-                    AuthManager.setSessionMeta(rawToken, {
-                        username: clientHintName,
-                        avatar: data.avatar || null
-                    });
-                }
-
+                // El nombre y avatar del cliente son solo hints para demo local.
+                // En sesiones reales, usar exclusivamente identidad validada del servidor.
                 const refreshed = AuthManager.validateToken(rawToken) || session;
                 const displayName = refreshed.username
                     || refreshed.user?.username
-                    || clientHintName
                     || `Jugador_${String(refreshed.userId).slice(-4)}`;
                 sessionUser = {
                     ...refreshed,
                     username: displayName,
-                    avatar: refreshed.avatar || refreshed.user?.avatar || data.avatar || null
+                    avatar: refreshed.avatar || refreshed.user?.avatar || null
                 };
                 ws.userId = refreshed.userId;
+                clearTimeout(authTimeout);
                 const balanceData = EconomyBridge.getUserBalance(refreshed.userId);
                 ws.send(JSON.stringify({
                     type: 'auth_success',

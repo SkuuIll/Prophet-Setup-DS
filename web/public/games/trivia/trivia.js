@@ -2,6 +2,12 @@
  * ════ PROPHET TRIVIA PARTY — CLIENT CONTROLLER ════
  */
 
+function escapeTriviaText(value) {
+    const replacements = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+    return String(value ?? '').replace(/[&<>"']/g, char => replacements[char]);
+}
+
+
 let currentRoom = null;
 let currentQuestion = null;
 let myAnswerSelected = null;
@@ -90,7 +96,7 @@ function renderWaitingPlayers(players) {
         pill.className = 'waiting-player-pill';
         pill.innerHTML = `
             <span>${p.isHost ? '👑' : '🎮'}</span>
-            <span>${p.username}</span>
+            <span>${escapeTriviaText(p.username)}</span>
         `;
         waitingPlayersList.appendChild(pill);
     });
@@ -215,7 +221,7 @@ window.initTriviaEvents = () => {
             const row = document.createElement('div');
             row.className = `score-row ${p.userId === myUserId ? 'highlight' : ''}`;
             row.innerHTML = `
-                <span>#${idx + 1} ${p.username} ${p.streak > 1 ? `🔥${p.streak}` : ''}</span>
+                <span>#${idx + 1} ${escapeTriviaText(p.username)} ${p.streak > 1 ? `🔥${p.streak}` : ''}</span>
                 <span style="color: var(--color-gold);">${formatNumber(p.score)} pts</span>
             `;
             scoreboardList.appendChild(row);

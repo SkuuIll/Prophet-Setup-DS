@@ -9,7 +9,7 @@
         "check": "node scripts/check_syntax.js",
         "test": "node --test --test-concurrency=1",
         "verify": "npm run check && npm test",
-        "audit:prod": "npm audit --omit=dev --audit-level=critical",
+        "audit:prod": "npm audit --omit=dev --audit-level=high",
         "db:backup": "node scripts/backup_database.js",
         "deploy": "bash scripts/deploy.sh",
         "auto-update:install": "node scripts/install_auto_update.js",
