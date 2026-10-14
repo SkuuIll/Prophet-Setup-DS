@@ -25,5 +25,6 @@ Comprobar la ejecución de Actions asociada al **último SHA** de este PR antes 
 - Confirmar que la configuración desplegada no sobreescribe `GAMES_BIND_HOST=127.0.0.1` con una escucha pública; el cambio en el código no modifica los `.env` reales.
 - El rate limit del WebSocket es por conexión y proceso; la defensa multinodo requiere limitación compartida y límites en reverse proxy.
 - Continúan pendientes los avisos moderados/bajos de npm documentados en `docs/CONSOLIDATED_RELEASE_20261013.md`: no se fuerzan overrides mayores sin evaluar extractor, música y dependencias transitivas.
+- El juego Survivor todavía calcula recompensas desde estadísticas que comunica el propio navegador. Sus límites reducen abusos, pero no verifican el resultado real de una partida: sigue existiendo un riesgo de manipulación de monedas virtuales. Para eliminarlo se necesita simulación o validación autoritativa en backend, o suspender premios no verificables. Este PR no cambia silenciosamente la economía existente.
 - Falta verificar OAuth real, proxy HTTPS, WebSocket, permisos de Discord, mensajes y juego concurrente en entorno de ensayo; no cerrar issue #7 solamente con este PR.
 - No tocar el cron, PM2 ni los datos de producción desde los cambios de esta rama. El despliegue y control del VPS pertenecen al propietario.
