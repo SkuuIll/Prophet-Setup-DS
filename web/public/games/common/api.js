@@ -27,6 +27,10 @@ class ProphetGameClient {
         let token = params.get('token');
         if (token && token !== 'demo_token') {
             sessionStorage.setItem('prophet_game_token', token);
+            // Enlaces heredados: no conservar credenciales en historial ni referer.
+            const clean = new URL(window.location.href);
+            clean.searchParams.delete('token');
+            window.history.replaceState(window.history.state, '', clean.pathname + clean.search + clean.hash);
             return token;
         }
         const stored = sessionStorage.getItem('prophet_game_token');
