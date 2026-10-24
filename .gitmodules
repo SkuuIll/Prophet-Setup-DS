@@ -1,0 +1,12 @@
+[submodule "web/public/games/2048"]
+	path = web/public/games/2048
+	url = https://github.com/gabrielecirulli/2048.git
+[submodule "web/public/games/clumsybird"]
+	path = web/public/games/clumsybird
+	url = https://github.com/ellisonleao/clumsy-bird.git
+[submodule "web/public/games/hextris"]
+	path = web/public/games/hextris
+	url = https://github.com/Hextris/hextris.git
+[submodule "web/public/games/pacman"]
+	path = web/public/games/pacman
+	url = https://github.com/mumuy/pacman.git
